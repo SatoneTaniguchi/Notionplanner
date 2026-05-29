@@ -2278,17 +2278,33 @@
       row.className = 'timeline-row' + (isPast ? ' past' : '');
 
       if (slot.isRoutine) {
+        const routineKey = currentDate.toDateString() + '_' + slot.name;
+        const routinesDone = JSON.parse(localStorage.getItem('routinesDone') || '{}');
+        const rDone = routinesDone[routineKey] || false;
+        const rDoneStyle = rDone ? 'text-decoration:line-through;color:#8e8e93;' : '';
+        const rCardStyle = rDone ? 'opacity:0.45;' : '';
         row.innerHTML = `
-          <div class="time-label">${slot.timeStr}</div>
-          <div class="timeline-icon">${slot.icon}</div>
+          <div class="time-label" style="${rCardStyle}">${slot.timeStr}</div>
+          <div class="timeline-icon" style="${rCardStyle}">${slot.icon}</div>
           <div class="task-area">
-            <div class="task-card">
-              <div class="task-card-content">
-                <div class="task-name">${slot.name}</div>
+            <div class="task-card" style="${rDone?'background:#f8f8f8;border-color:#ebebeb;':''}">
+              <div class="task-card-content" style="${rCardStyle}">
+                <div class="task-name" style="${rDoneStyle}">${slot.name}</div>
               </div>
-              <div class="task-check" onclick="toggleCheck(this)"></div>
+              <div class="task-check ${rDone?'checked':''}" data-routine="${routineKey}">${rDone?'✓':''}</div>
             </div>
           </div>`;
+        timeline.appendChild(row);
+        const rCheckEl = row.querySelector('[data-routine]');
+        rCheckEl.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const key = this.dataset.routine;
+          const rd = JSON.parse(localStorage.getItem('routinesDone') || '{}');
+          rd[key] = !rd[key];
+          localStorage.setItem('routinesDone', JSON.stringify(rd));
+          renderTimeline();
+        });
+        return;
       } else if (slot.isGcal) {
         // ── Googleカレンダーイベント ──
         const ev = slot.gcalEvent;
@@ -2318,14 +2334,16 @@
         const _shuruiBadge = _shuruiOpt
           ? `<span style="background:${_shuruiOpt.bg};color:${_shuruiOpt.color};padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;">${_shuruiOpt.label}</span>`
           : '';
+        const _doneCardStyle = _done ? 'opacity:0.45;' : '';
+        const _doneNameStyle = _done ? 'text-decoration:line-through;color:#8e8e93;' : '';
         row.innerHTML = `
-          <div class="time-label" id="label-${t.id}">${slot.timeStr}</div>
-          <div class="timeline-icon">${slot.icon}</div>
+          <div class="time-label" id="label-${t.id}" style="${_doneCardStyle}">${slot.timeStr}</div>
+          <div class="timeline-icon" style="${_doneCardStyle}">${slot.icon}</div>
           <div class="task-area">
-            <div class="task-card" data-id="${t.id}">
-              <div class="task-card-content">
+            <div class="task-card" data-id="${t.id}" style="${_done?'background:#f8f8f8;border-color:#ebebeb;':''}">
+              <div class="task-card-content" style="${_doneCardStyle}">
                 <div class="task-time">${_st}〜${_et} ${_shuruiBadge}</div>
-                <div class="task-name">${t.name}</div>
+                <div class="task-name" style="${_doneNameStyle}">${t.name}</div>
               </div>
               <div class="task-check ${_done?'checked':''}" data-check="${t.id}">${_done?'✓':''}</div>
             </div>
@@ -2344,6 +2362,59 @@
       }
       timeline.appendChild(row);
     });
+
+    // 今日完了したタスクセクション
+    // ルーティン完了も含む
+    const routinesDone = JSON.parse(localStorage.getItem('routinesDone') || '{}');
+    const todayRoutineDone = Object.entries(routinesDone)
+      .filter(([k, v]) => v && k.startsWith(currentDate.toDateString()))
+      .map(([k]) => ({ id: 'routine_'+k, name: k.replace(currentDate.toDateString()+'_',''), '(C)見込み/h': 0, _isRoutine: true }));
+
+    const todayDone = [
+      ...tasks.filter(t => {
+        if (!t['(A)done']) return false;
+        if (t._type === 'repeat') return false;
+        const jisseki = t['(A)実行日'];
+        if (jisseki && jisseki.start) {
+          return new Date(jisseki.start).toDateString() === currentDate.toDateString();
+        }
+        if (t._localLastEdited) {
+          return new Date(t._localLastEdited).toDateString() === now.toDateString();
+        }
+        return true; // 完了済みはとりあえず表示
+      }),
+      ...todayRoutineDone
+    ];
+
+    if (todayDone.length > 0) {
+      const doneSection = document.createElement('div');
+      doneSection.style.cssText = 'margin:16px 16px 8px;';
+      let doneSectionHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+        + '<div style="width:40px;height:40px;background:#f2f2f7;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏆</div>'
+        + '<div style="font-size:16px;font-weight:600;color:#1c1c1e;">今日完了したタスク</div>'
+        + '<div style="background:#1c1c1e;color:white;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;">' + todayDone.length + '</div>'
+        + '</div>';
+      todayDone.forEach(function(t) {
+        const dur = t['(C)見込み/h'] ? Math.round(t['(C)見込み/h']*60)+'m' : '0m';
+        const safeId = t.id;
+        const isRoutine = t._isRoutine;
+        const toggleFn = isRoutine
+          ? ('toggleRoutineDone(\'' + safeId.replace('routine_','') + '\')')
+          : ('toggleTaskDone(\'' + safeId + '\',this)');
+        doneSectionHTML += '<div style="background:white;border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;border:1px solid #f0f0f0;">'
+          + '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" style="flex-shrink:0;opacity:0.35;"><path d="M4 10l5 5 7-8" stroke="#8e8e93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          + '<div style="flex:1;">'
+          + '<div style="font-size:14px;color:#8e8e93;text-decoration:line-through;">' + t.name + '</div>'
+          + '<div style="font-size:11px;color:#c7c7cc;margin-top:1px;">' + dur + '</div>'
+          + '</div>'
+          + '<div style="width:24px;height:24px;border-radius:50%;background:#e5e5ea;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;" onclick="' + toggleFn + '">'
+          + '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="#8e8e93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          + '</div>'
+          + '</div>';
+      });
+      doneSection.innerHTML = doneSectionHTML;
+      timeline.appendChild(doneSection);
+    }
   }
 
   function createNowIndicator(now) {
@@ -3028,18 +3099,24 @@
     renderLater();
   }
 
+  function toggleRoutineDone(key) {
+    const rd = JSON.parse(localStorage.getItem('routinesDone') || '{}');
+    rd[key] = false;
+    localStorage.setItem('routinesDone', JSON.stringify(rd));
+    renderTimeline();
+  }
+
   function toggleTaskDone(id, el) {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     task['(A)done'] = !task['(A)done'];
     task._localLastEdited = new Date().toISOString();
-    el.classList.toggle('checked', task['(A)done']);
-    el.textContent = task['(A)done'] ? '✓' : '';
     localStorage.setItem('tasks', JSON.stringify(tasks));
-    // Notion同期
     if (task._notionId && notionSettings.token) {
       notionUpdateDone(task._notionId, task['(A)done']).catch(e => console.error('Notion完了同期失敗', e));
     }
+    renderTimeline();
+    renderLater();
   }
 
   function toggleCheck(el) {
@@ -3118,9 +3195,11 @@
       dragState = { taskId: task.id, newTime };
     }
 
-    function endDrag() {
+    function endDrag(e) {
       clearTimeout(longPressTimer);
       if (!isDragging) {
+        // チェックボタンのタップは編集を開かない
+        if (e && e.target && e.target.closest('[data-check]')) return;
         // 長押しでなければ通常タップ→編集
         editTask(task.id);
         return;
@@ -3170,7 +3249,7 @@
     }, { passive: false });
 
     card.addEventListener('touchend', function(e) {
-      endDrag();
+      endDrag(e);
     });
 
     card.addEventListener('touchcancel', function() {
