@@ -265,6 +265,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .task-check.checked {
@@ -1477,13 +1479,22 @@
       <div class="modal-task-input-row">
         <div class="modal-checkbox">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <rect x="2" y="2" width="16" height="16" rx="4" stroke="#8e8e93" stroke-width="2"/>
-            <path d="M5 10l4 4 6-7" stroke="#8e8e93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="2" y="2" width="16" height="16" rx="4" stroke="#3a3a3c" stroke-width="2"/>
           </svg>
         </div>
         <div class="modal-input-block">
           <div class="modal-subtitle" id="modalSubtitle">・あとで</div>
           <input class="modal-task-input" id="taskNameInput" placeholder="タスク名を入力..." autofocus>
+        </div>
+        <div id="modalCheckbox" onclick="toggleModalDone()" style="
+          width:20px;height:20px;border-radius:50%;border:2px solid #6a6a6c;
+          background:transparent;flex-shrink:0;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;
+          transition:all 0.2s;touch-action:manipulation;
+        ">
+          <svg id="modalCheckIcon" width="10" height="10" viewBox="0 0 20 20" fill="none">
+            <path d="M4 10l5 5 7-8" stroke="#6a6a6c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
       </div>
       <div class="modal-tabs">
@@ -1772,8 +1783,9 @@
       </div>
       <!-- 削除・コピーボタン -->
       <div class="delete-row" id="editActions" style="display:none;">
-        <button class="delete-btn" onclick="copyTask()">📋 タスクをコピー</button>
-        <button class="delete-btn danger" onclick="deleteTask()">🗑 タスクを削除</button>
+        <button class="delete-btn" id="modalDoneBtn" onclick="toggleModalDone()">☑ 完了にする</button>
+        <button class="delete-btn" onclick="copyTask()">📋 コピー</button>
+        <button class="delete-btn danger" onclick="deleteTask()">🗑 削除</button>
       </div>
     </div>
   </div>
@@ -2635,6 +2647,8 @@
       if (!task) return;
       document.getElementById('taskNameInput').value = task.name;
       document.getElementById('editActions').style.display = 'flex';
+      // 完了状態をUIに反映
+      updateModalDoneUI(task['(A)done'] || false);
 
       if (task._type === 'time') {
         const _editSt = getStartTime(task) || '';
@@ -2660,12 +2674,50 @@
       document.getElementById('taskNameInput').value = '';
       document.getElementById('editActions').style.display = 'none';
       document.getElementById('modalSubtitle').textContent = '・あとで';
+      updateModalDoneUI(false);
       const tabs = document.querySelectorAll('.modal-tab');
       tabs.forEach(t => t.classList.remove('active'));
       tabs[0].classList.add('active');
       switchTab('later', tabs[0]);
     }
     setTimeout(() => document.getElementById('taskNameInput').focus(), 100);
+  }
+
+  // モーダル内の完了状態管理
+  let modalDoneState = false;
+
+  function updateModalDoneUI(done) {
+    modalDoneState = done;
+    const checkbox = document.getElementById('modalCheckbox');
+    const icon     = document.getElementById('modalCheckIcon');
+    const doneBtn  = document.getElementById('modalDoneBtn');
+    if (!checkbox) return;
+    if (done) {
+      checkbox.style.border = '2px solid #34c759';
+      checkbox.style.background = '#34c759';
+      icon.innerHTML = '<path d="M4 10l5 5 7-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+    } else {
+      checkbox.style.border = '2px solid #6a6a6c';
+      checkbox.style.background = 'transparent';
+      icon.innerHTML = '<path d="M4 10l5 5 7-8" stroke="#6a6a6c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    if (doneBtn) doneBtn.textContent = done ? '↩ 未完了に戻す' : '☑ 完了にする';
+  }
+
+  function toggleModalDone() {
+    if (!editingTaskId) return;
+    const task = tasks.find(t => t.id === editingTaskId);
+    if (!task) return;
+    task['(A)done'] = !task['(A)done'];
+    task._localLastEdited = new Date().toISOString();
+    updateModalDoneUI(task['(A)done']);
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    renderTimeline();
+    renderLater();
+    // Notion同期
+    if (task._notionId && notionSettings.token) {
+      notionUpdateDone(task._notionId, task['(A)done']).catch(e => console.error('Notion完了同期失敗', e));
+    }
   }
 
   function closeModal() {
