@@ -2358,7 +2358,7 @@
   function createFreeTimeCard(minutes, laterTasks) {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    const SHOW_LIMIT = 5; // 各グループの折りたたみ前の表示数
+    const uid = Date.now();
 
     const row = document.createElement('div');
     row.className = 'timeline-row free-time-row';
@@ -2374,52 +2374,33 @@
       return !['1','2','3','4'].includes(k);
     });
 
+    // グループごとのHTML生成（最初は全部閉じた状態）
     let groupsHTML = '';
-    groups.forEach((g, gi) => {
-      const visible = g.tasks.slice(0, SHOW_LIMIT);
-      const hidden  = g.tasks.slice(SHOW_LIMIT);
-      const groupId = `ftg-${gi}-${Date.now()}`;
-      const chipsVisible = visible.map(t =>
+    const allGroupData = [
+      ...groups.map((g, gi) => ({ ...g, id: `ftg-${gi}-${uid}`, isUngrouped: false })),
+      ...(ungrouped.length > 0 ? [{ key: 'ug', label: 'その他', color: '#8e8e93', bg: '#f2f2f7', tasks: ungrouped, id: `ftg-ug-${uid}`, isUngrouped: true }] : [])
+    ];
+
+    allGroupData.forEach(g => {
+      const allChips = g.tasks.map(t =>
         `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;border-color:${g.color}20;">
-          <span style="color:${g.color};font-size:10px;">●</span> ${t.name}
+          ${g.isUngrouped ? '🕐' : `<span style="color:${g.color};font-size:10px;">●</span>`} ${t.name}
         </div>`
       ).join('');
-      const chipsHidden = hidden.length > 0 ? `
-        <div id="${groupId}-hidden" style="display:none;flex-wrap:wrap;gap:6px;">
-          ${hidden.map(t => `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;border-color:${g.color}20;"><span style="color:${g.color};font-size:10px;">●</span> ${t.name}</div>`).join('')}
-        </div>
-        <div id="${groupId}-toggle" style="font-size:11px;color:#007aff;cursor:pointer;padding:2px 0;margin-top:2px;">
-          さらに${hidden.length}件を表示 ▼
-        </div>` : '';
 
       groupsHTML += `
-        <div style="margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:600;color:${g.color};background:${g.bg};border-radius:8px;padding:2px 8px;display:inline-block;margin-bottom:4px;">${g.label} ${g.tasks.length}件</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;">${chipsVisible}</div>
-          ${chipsHidden}
+        <div style="margin-bottom:4px;">
+          <div class="ftg-header" data-group="${g.id}"
+            style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
+              color:${g.color};background:${g.bg};border-radius:8px;padding:3px 10px;
+              cursor:pointer;user-select:none;margin-bottom:2px;">
+            ${g.label} ${g.tasks.length}件 <span class="ftg-arrow" style="font-size:10px;transition:transform 0.2s;">▶</span>
+          </div>
+          <div class="ftg-body" id="${g.id}" style="display:none;flex-wrap:wrap;gap:6px;margin-top:4px;">
+            ${allChips}
+          </div>
         </div>`;
     });
-
-    // グループ外タスク（実行期間なし等）
-    if (ungrouped.length > 0) {
-      const visible = ungrouped.slice(0, SHOW_LIMIT);
-      const hidden  = ungrouped.slice(SHOW_LIMIT);
-      const groupId = `ftg-ug-${Date.now()}`;
-      const chipsVisible = visible.map(t => `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;">🕐 ${t.name}</div>`).join('');
-      const chipsHidden = hidden.length > 0 ? `
-        <div id="${groupId}-hidden" style="display:none;flex-wrap:wrap;gap:6px;">
-          ${hidden.map(t => `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;">🕐 ${t.name}</div>`).join('')}
-        </div>
-        <div id="${groupId}-toggle" style="font-size:11px;color:#007aff;cursor:pointer;padding:2px 0;margin-top:2px;">
-          さらに${hidden.length}件を表示 ▼
-        </div>` : '';
-      groupsHTML += `
-        <div style="margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:600;color:#8e8e93;margin-bottom:4px;">その他 ${ungrouped.length}件</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;">${chipsVisible}</div>
-          ${chipsHidden}
-        </div>`;
-    }
 
     row.innerHTML = `
       <div class="time-label"></div>
@@ -2436,26 +2417,24 @@
       </div>
     `;
 
+    // カテゴリヘッダータップで開閉
+    row.querySelectorAll('.ftg-header').forEach(header => {
+      header.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const body  = row.querySelector('#' + this.dataset.group);
+        const arrow = this.querySelector('.ftg-arrow');
+        if (!body) return;
+        const isOpen = body.style.display !== 'none';
+        body.style.display  = isOpen ? 'none' : 'flex';
+        arrow.style.transform = isOpen ? '' : 'rotate(90deg)';
+      });
+    });
+
     // チップクリック
     row.querySelectorAll('.free-task-chip[data-id]').forEach(chip => {
       chip.addEventListener('click', function(e) {
         e.stopPropagation();
         editTask(this.dataset.id);
-      });
-    });
-
-    // 「さらに表示」トグル
-    row.querySelectorAll('[id$="-toggle"]').forEach(btn => {
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const hiddenId = this.id.replace('-toggle', '-hidden');
-        const hiddenEl = row.querySelector('#' + hiddenId);
-        if (!hiddenEl) return;
-        const isOpen = hiddenEl.style.display !== 'none';
-        hiddenEl.style.display = isOpen ? 'none' : 'flex';
-        this.textContent = isOpen
-          ? `さらに${hiddenEl.children.length}件を表示 ▼`
-          : `閉じる ▲`;
       });
     });
 
