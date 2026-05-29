@@ -3534,18 +3534,14 @@
     }
   }
 
-  // --- Notion API Proxyコール（CORSはAnthropicのAPIサンドボックスを利用） ---
-  // ブラウザから直接Notion APIを呼ぶためcorsproxyを使う
+  // --- Notion API（Cloudflare Workerプロキシ経由） ---
+  const NOTION_PROXY = 'https://little-sea-b29e.fituni19taniguchi.workers.dev';
+
   async function notionApiCall(path, method, body) {
     const token = notionSettings.token;
     if (!token) throw new Error('Notion Tokenが未設定です');
 
-    // cors-anywhere / allorigins を使わず、fetch proxyとして相対パスを利用できないため
-    // Cloudflare Workers公開プロキシを利用（または自前のサーバーに合わせて変更可）
-    // ここではhttps://notion-proxy.vercel.app等の代替として
-    // 直接Notion APIに接続（claude.aiのiframeはCORSを許可している場合がある）
-    const base = 'https://little-sea-b29e.fituni19taniguchi.workers.dev/v1';
-    const url  = base + path;
+    const url = NOTION_PROXY + '/v1' + path;
 
     const opts = {
       method,
