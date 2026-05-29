@@ -3639,19 +3639,46 @@
   }
 
   // --- 日時変換ユーティリティ ---
+  // Notionの日時文字列 → ローカル時刻の 'YYYY-MM-DDTHH:MM' に変換
+  function notionDateStrToLocal(str) {
+    if (!str) return null;
+    // タイムゾーン情報がない場合（日付のみ "2026-05-29"）はそのまま返す
+    if (str.length <= 10) return str;
+    // タイムゾーン付き or UTC → Dateオブジェクト経由でローカル時刻に変換
+    const d = new Date(str);
+    if (isNaN(d)) return str;
+    const pad = n => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // ローカル時刻 'YYYY-MM-DDTHH:MM' → Notionに送るISO文字列（+09:00付き）
+  function localDateStrToNotion(str) {
+    if (!str) return null;
+    if (str.length <= 10) return str; // 日付のみはそのまま
+    // ローカル時刻としてDateを作成してタイムゾーンオフセット付きで返す
+    const d = new Date(str);
+    if (isNaN(d)) return str;
+    const pad = n => n.toString().padStart(2, '0');
+    const off = -d.getTimezoneOffset();
+    const sign = off >= 0 ? '+' : '-';
+    const oh = pad(Math.floor(Math.abs(off) / 60));
+    const om = pad(Math.abs(off) % 60);
+    return `${str}:00${sign}${oh}:${om}`;
+  }
+
   function notionDateToJisseki(dateObj) {
     if (!dateObj) return null;
     return {
-      start: dateObj.start || null,
-      end:   dateObj.end   || null,
+      start: notionDateStrToLocal(dateObj.start) || null,
+      end:   notionDateStrToLocal(dateObj.end)   || null,
     };
   }
 
   function jissekiToNotionDate(jisseki) {
     if (!jisseki || !jisseki.start) return null;
     return {
-      start: jisseki.start,
-      end:   jisseki.end || null,
+      start: localDateStrToNotion(jisseki.start),
+      end:   jisseki.end ? localDateStrToNotion(jisseki.end) : null,
     };
   }
 
