@@ -2347,16 +2347,79 @@
     return div;
   }
 
+  // 実行期間のカテゴリ定義
+  const KIKAN_GROUPS = [
+    { key: '1', label: '🔥⚡ 優短', color: '#ff3b30', bg: '#fff0f0' },
+    { key: '2', label: '🔥⏳ 優長', color: '#ff9500', bg: '#fff4e5' },
+    { key: '3', label: '🧊⚡ 低短', color: '#007aff', bg: '#e5f4ff' },
+    { key: '4', label: '🧊⏳ 低長', color: '#8e8e93', bg: '#f2f2f7' },
+  ];
+
   function createFreeTimeCard(minutes, laterTasks) {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
+    const SHOW_LIMIT = 5; // 各グループの折りたたみ前の表示数
 
     const row = document.createElement('div');
     row.className = 'timeline-row free-time-row';
 
-    const chipsHTML = laterTasks.map(t =>
-      `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;">🕐 ${t.name}</div>`
-    ).join('');
+    // グループ別に分類（実行期間1〜4）、それ以外はその他へ
+    const groups = KIKAN_GROUPS.map(g => ({
+      ...g,
+      tasks: laterTasks.filter(t => (t['(B)実行期間'] || '').charAt(0) === g.key)
+    })).filter(g => g.tasks.length > 0);
+
+    const ungrouped = laterTasks.filter(t => {
+      const k = (t['(B)実行期間'] || '').charAt(0);
+      return !['1','2','3','4'].includes(k);
+    });
+
+    let groupsHTML = '';
+    groups.forEach((g, gi) => {
+      const visible = g.tasks.slice(0, SHOW_LIMIT);
+      const hidden  = g.tasks.slice(SHOW_LIMIT);
+      const groupId = `ftg-${gi}-${Date.now()}`;
+      const chipsVisible = visible.map(t =>
+        `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;border-color:${g.color}20;">
+          <span style="color:${g.color};font-size:10px;">●</span> ${t.name}
+        </div>`
+      ).join('');
+      const chipsHidden = hidden.length > 0 ? `
+        <div id="${groupId}-hidden" style="display:none;flex-wrap:wrap;gap:6px;">
+          ${hidden.map(t => `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;border-color:${g.color}20;"><span style="color:${g.color};font-size:10px;">●</span> ${t.name}</div>`).join('')}
+        </div>
+        <div id="${groupId}-toggle" style="font-size:11px;color:#007aff;cursor:pointer;padding:2px 0;margin-top:2px;">
+          さらに${hidden.length}件を表示 ▼
+        </div>` : '';
+
+      groupsHTML += `
+        <div style="margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:600;color:${g.color};background:${g.bg};border-radius:8px;padding:2px 8px;display:inline-block;margin-bottom:4px;">${g.label} ${g.tasks.length}件</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${chipsVisible}</div>
+          ${chipsHidden}
+        </div>`;
+    });
+
+    // グループ外タスク（実行期間なし等）
+    if (ungrouped.length > 0) {
+      const visible = ungrouped.slice(0, SHOW_LIMIT);
+      const hidden  = ungrouped.slice(SHOW_LIMIT);
+      const groupId = `ftg-ug-${Date.now()}`;
+      const chipsVisible = visible.map(t => `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;">🕐 ${t.name}</div>`).join('');
+      const chipsHidden = hidden.length > 0 ? `
+        <div id="${groupId}-hidden" style="display:none;flex-wrap:wrap;gap:6px;">
+          ${hidden.map(t => `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;">🕐 ${t.name}</div>`).join('')}
+        </div>
+        <div id="${groupId}-toggle" style="font-size:11px;color:#007aff;cursor:pointer;padding:2px 0;margin-top:2px;">
+          さらに${hidden.length}件を表示 ▼
+        </div>` : '';
+      groupsHTML += `
+        <div style="margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:600;color:#8e8e93;margin-bottom:4px;">その他 ${ungrouped.length}件</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${chipsVisible}</div>
+          ${chipsHidden}
+        </div>`;
+    }
 
     row.innerHTML = `
       <div class="time-label"></div>
@@ -2368,12 +2431,12 @@
             ${h > 0 ? `${h}<span>時間</span>` : ''}
             ${m > 0 ? `${m}<span>分</span>` : ''}
           </div>
-          <div class="free-time-tasks">${chipsHTML}</div>
+          ${groupsHTML}
         </div>
       </div>
     `;
 
-    // iOSでonclick属性が効かない場合のためaddEventListenerで登録
+    // チップクリック
     row.querySelectorAll('.free-task-chip[data-id]').forEach(chip => {
       chip.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -2381,8 +2444,24 @@
       });
     });
 
+    // 「さらに表示」トグル
+    row.querySelectorAll('[id$="-toggle"]').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const hiddenId = this.id.replace('-toggle', '-hidden');
+        const hiddenEl = row.querySelector('#' + hiddenId);
+        if (!hiddenEl) return;
+        const isOpen = hiddenEl.style.display !== 'none';
+        hiddenEl.style.display = isOpen ? 'none' : 'flex';
+        this.textContent = isOpen
+          ? `さらに${hiddenEl.children.length}件を表示 ▼`
+          : `閉じる ▲`;
+      });
+    });
+
     return row;
   }
+
   function calcFreeTime(now) {
     const n = now || new Date();
     const end = new Date(n);
@@ -3951,8 +4030,10 @@
 
   let gcalAccessToken = null;
   let gcalTokenClient = null;
-  let gcalEvents = {};           // { 'Mon May 29 2026': [eventObj, ...] }
-  let gcalCalendars = [];        // [{ id, name, color, checked }]
+  let gcalTokenExpiry = null;    // トークン有効期限（Date）
+  let gcalRefreshTimer = null;   // 自動更新タイマー
+  let gcalEvents = {};
+  let gcalCalendars = [];
   let gcalCalendarPrefs = JSON.parse(localStorage.getItem('gcalCalPrefs') || '{}');
   let gcalPanelDate = new Date();
   let gcalCurrentTab = 'events';
@@ -3966,13 +4047,45 @@
       callback: (resp) => {
         if (resp.error) { console.error('GCal auth error', resp); return; }
         gcalAccessToken = resp.access_token;
+        // expires_inは秒単位（通常3600秒=1時間）
+        const expiresIn = (resp.expires_in || 3600) * 1000;
+        gcalTokenExpiry = new Date(Date.now() + expiresIn);
         localStorage.setItem('gcalToken', gcalAccessToken);
+        localStorage.setItem('gcalTokenExpiry', gcalTokenExpiry.toISOString());
+        gcalScheduleRefresh(expiresIn);
         gcalOnSignedIn();
       }
     });
-    // 保存済みトークンがあれば復元
-    const saved = localStorage.getItem('gcalToken');
-    if (saved) { gcalAccessToken = saved; gcalOnSignedIn(); }
+    // 保存済みトークンがあれば有効期限を確認して復元
+    const saved       = localStorage.getItem('gcalToken');
+    const savedExpiry = localStorage.getItem('gcalTokenExpiry');
+    if (saved && savedExpiry) {
+      const expiry = new Date(savedExpiry);
+      if (expiry > new Date(Date.now() + 60000)) {
+        // まだ1分以上有効なら復元
+        gcalAccessToken = saved;
+        gcalTokenExpiry = expiry;
+        const remaining = expiry - Date.now();
+        gcalScheduleRefresh(remaining);
+        gcalOnSignedIn();
+      } else {
+        // 期限切れ or 1分未満 → 無音でサイレント再取得
+        gcalSilentRefresh();
+      }
+    }
+  }
+
+  // 期限の5分前に自動更新をスケジュール
+  function gcalScheduleRefresh(expiresInMs) {
+    if (gcalRefreshTimer) clearTimeout(gcalRefreshTimer);
+    const refreshIn = Math.max(expiresInMs - 5 * 60 * 1000, 10000); // 5分前 or 最低10秒後
+    gcalRefreshTimer = setTimeout(() => gcalSilentRefresh(), refreshIn);
+  }
+
+  // ユーザーに見せずにサイレントでトークン再取得
+  function gcalSilentRefresh() {
+    if (!gcalTokenClient) return;
+    gcalTokenClient.requestAccessToken({ prompt: '' });
   }
 
   function gcalSignIn() {
@@ -4091,9 +4204,15 @@
   function gcalHandleExpired() {
     gcalAccessToken = null;
     localStorage.removeItem('gcalToken');
-    alert('Googleの認証が期限切れです。再度サインインしてください。');
-    document.getElementById('gcalAuthArea').style.display = 'block';
-    document.getElementById('gcalSignedArea').style.display = 'none';
+    localStorage.removeItem('gcalTokenExpiry');
+    // alertなしでサイレント再取得を試みる
+    if (gcalTokenClient) {
+      gcalTokenClient.requestAccessToken({ prompt: '' });
+    } else {
+      // TokenClientが未初期化の場合のみUIを戻す
+      document.getElementById('gcalAuthArea').style.display = 'block';
+      document.getElementById('gcalSignedArea').style.display = 'none';
+    }
   }
 
   // パネルを開く
