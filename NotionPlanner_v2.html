@@ -3544,7 +3544,7 @@
     // Cloudflare Workers公開プロキシを利用（または自前のサーバーに合わせて変更可）
     // ここではhttps://notion-proxy.vercel.app等の代替として
     // 直接Notion APIに接続（claude.aiのiframeはCORSを許可している場合がある）
-    const base = 'https://api.notion.com/v1';
+    const base = 'https://little-sea-b29e.fituni19taniguchi.workers.dev/v1';
     const url  = base + path;
 
     const opts = {
