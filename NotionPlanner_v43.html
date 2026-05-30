@@ -2982,7 +2982,8 @@
       const y = toY(ev.startMin);
       const evDurMin = ev.endMin - ev.startMin;
       const OVERHANG_EV = (SLOT_H - 6) / 2;
-      const evTopBase = y - OVERHANG_EV;
+      // 0:00開始は上にずらさない（画面外に出るため）
+      const evTopBase = ev.startMin <= 0 ? 0 : (y - OVERHANG_EV);
       let rawH;
       if (evDurMin >= 60) {
         rawH = Math.max(SLOT_H, toY(ev.endMin) - toY(ev.startMin));
@@ -3006,8 +3007,8 @@
       const evTitleLines = Math.ceil(ev.title.length / 6) || 1;
       const evMinH = isNarrow ? Math.max(14 + (evTitleLines * 17) + 16 + 12, 48) : finalH;
       const evCardH = Math.max(evMinH, finalH);
-      // 全カード共通: 開始時刻の線から上にOVERHANG分はみ出す（ただし0未満にしない）
-      const evCardTop = Math.max(0, evTopBase);
+      // 全カード共通: 開始時刻の線から上にOVERHANG分（0:00開始は除く）
+      const evCardTop = evTopBase;
       // 並列時: 開始時刻・タイトル・所要時間。単独時: 開始〜終了・タイトル
       const timeHTML = isNarrow
         ? `<div class="tl-event-time" style="color:#8e8e93;">${ev.startTime}</div>`
@@ -3051,7 +3052,7 @@
       const y = toY(startMin);
       const durTotalMin = endMin - startMin;
       const OVERHANG = (SLOT_H - 6) / 2; // 全カード共通の上方向はみ出し量
-      const cardTopBase = y - OVERHANG;
+      const cardTopBase = startMin <= 0 ? 0 : (y - OVERHANG);
       // 1時間未満は固定高さ、1時間以上はtoYベースで伸ばす
       let rawH;
       if (durTotalMin >= 60) {
@@ -3096,7 +3097,7 @@
       // カードの高さ: finalH（時間ベース）を使う。並列時は最小高さも確保
       const cardH = isNarrow ? Math.max(cardMinH, finalH) : finalH;
       // 全カード共通: 開始時刻の線から上にOVERHANG分はみ出す（1時間未満も以上も同じ基準位置）
-      const cardTop = Math.max(0, y - OVERHANG);
+      const cardTop = cardTopBase;
 
       const card = document.createElement('div');
       card.className = 'tl-task-card' + ((isPast||_done)?' past':'');
