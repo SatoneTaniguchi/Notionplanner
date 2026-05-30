@@ -2948,8 +2948,12 @@
     // カードが存在する時間帯（分）の集合を作成（ラベル表示判定用）
     const cardRanges = [...taskItemsRaw, ...gcalItemsRaw].map(it => ({ s: it.startMin, e: it.endMin }));
     const cardStartMinsAll = [...taskItemsRaw, ...gcalItemsRaw].map(it => it.startMin);
-    // ある時刻h:00の前後にカードがあるか（その時間帯にカードがかかるか）
-    const hourHasCard = (hMin) => cardRanges.some(r => r.s < hMin + 60 && r.e > hMin - 1);
+    // その1時間（hMin〜hMin+60）の内側に実際にカードが重なっているか。
+    // 境界ちょうど（カードが hMin で終わる/hMin+60 で始まる）は「重なり無し」とみなす。
+    const hourHasCard = (hMin) => cardRanges.some(r => r.s < hMin + 60 && r.e > hMin);
+    // 過去の時間帯用：その○:00にカードが「開始する」場合のみ残す。
+    // （またぎ・終了境界は残さない。過去はシンプルに開始時刻だけ表示する方針）
+    const hourHasCardPast = (hMin) => cardStartMinsAll.includes(hMin);
     // h:00ちょうどにカードがかかっているか（罫線の基準として残すべきか）
     const hourLineSpanned = (hMin) => cardRanges.some(r => r.s <= hMin && r.e > hMin);
     // h:00〜h:60に中途半端な分で始まるカードがあるか（その場合○:00ラベルは冗長）
@@ -2959,9 +2963,9 @@
     for (let h = START_H; h <= END_H; h++) {
       const hMin = h * 60;
       const y = toY(hMin);
-      // 過去（当日は現在時刻前、過去日付は全部）かつカードがない時間帯はラベル・罫線を非表示
+      // 過去（当日は現在時刻前、過去日付は全部）はカードの「開始/通過」時刻のみ残す。
       const hourIsPast = isPastDay || (isToday && nowMin >= 0 && (hMin + 60) <= nowMin);
-      if (hourIsPast && !hourHasCard(hMin)) continue;
+      if (hourIsPast && !hourHasCardPast(hMin)) continue;
       // ○:00ちょうどにカードが無く、その時間内に中途半端開始カードがある場合は
       // ○:00ラベル/罫線が冗長（例: 11:00と11:15の二重表示）→ 中途半端ラベルに任せてスキップ
       if (!cardStartMinsAll.includes(hMin) && !hourLineSpanned(hMin) && hourHasMidStart(hMin)) continue;
