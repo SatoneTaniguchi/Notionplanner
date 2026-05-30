@@ -3006,8 +3006,8 @@
       const evTitleLines = Math.ceil(ev.title.length / 6) || 1;
       const evMinH = isNarrow ? Math.max(14 + (evTitleLines * 17) + 16 + 12, 48) : finalH;
       const evCardH = Math.max(evMinH, finalH);
-      // 全カード共通: 開始時刻の線から上にOVERHANG分はみ出す
-      const evCardTop = evTopBase;
+      // 全カード共通: 開始時刻の線から上にOVERHANG分はみ出す（ただし0未満にしない）
+      const evCardTop = Math.max(0, evTopBase);
       // 並列時: 開始時刻・タイトル・所要時間。単独時: 開始〜終了・タイトル
       const timeHTML = isNarrow
         ? `<div class="tl-event-time" style="color:#8e8e93;">${ev.startTime}</div>`
@@ -3096,7 +3096,7 @@
       // カードの高さ: finalH（時間ベース）を使う。並列時は最小高さも確保
       const cardH = isNarrow ? Math.max(cardMinH, finalH) : finalH;
       // 全カード共通: 開始時刻の線から上にOVERHANG分はみ出す（1時間未満も以上も同じ基準位置）
-      const cardTop = y - OVERHANG;
+      const cardTop = Math.max(0, y - OVERHANG);
 
       const card = document.createElement('div');
       card.className = 'tl-task-card' + ((isPast||_done)?' past':'');
