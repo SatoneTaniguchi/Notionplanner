@@ -5166,17 +5166,21 @@
 
   function notionDateToJisseki(dateObj) {
     if (!dateObj) return null;
-    return {
-      start: notionDateStrToLocal(dateObj.start) || null,
-      end:   notionDateStrToLocal(dateObj.end)   || null,
-    };
+    const start = notionDateStrToLocal(dateObj.start) || null;
+    let end = notionDateStrToLocal(dateObj.end) || null;
+    // start と end が同一なら end は冗長なので落とす（今日→今日 を 今日 に正規化）
+    if (end && start === end) end = null;
+    return { start, end };
   }
 
   function jissekiToNotionDate(jisseki) {
     if (!jisseki || !jisseki.start) return null;
+    const startN = localDateStrToNotion(jisseki.start);
+    const endN   = jisseki.end ? localDateStrToNotion(jisseki.end) : null;
     return {
-      start: localDateStrToNotion(jisseki.start),
-      end:   jisseki.end ? localDateStrToNotion(jisseki.end) : null,
+      start: startN,
+      // start と end が同一日時なら end を送らない（Notion上の 今日→今日 表記を防ぐ）
+      end:   (endN && endN !== startN) ? endN : null,
     };
   }
 
