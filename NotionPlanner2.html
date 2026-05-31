@@ -4797,12 +4797,45 @@
     return `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`;
   }
 
-  // 習慣タスク（ルーチン対象＝テンプレート）一覧を返す
-  // テンプレート: 繰り返し設定を持つ習慣。インスタンス(_habitTemplateId付き)は除外。
+  // 習慣タスク（ルーチン対象）一覧を返す
+  // (1) アプリで作ったテンプレート（_type==='repeat'）
+  // (2) Notion発などの独立した習慣タスク（テンプレートもインスタンスでもない）を
+  //     名前ごとに束ねた「疑似テンプレート」
   function getHabitTasks() {
-    return tasks.filter(t =>
+    // (1) 通常テンプレート
+    const templates = tasks.filter(t =>
       t['(B)種類'] === '習慣' && t._type === 'repeat' && !t._habitTemplateId
     );
+
+    // (2) 疑似テンプレート: テンプレートにもインスタンスにも属さない習慣タスク
+    // （Notionで直接作られた習慣など）を名前でグループ化
+    const standalone = tasks.filter(t =>
+      t['(B)種類'] === '習慣' &&
+      t._type !== 'repeat' &&
+      !t._habitTemplateId &&
+      (t['(A)実行日'] && t['(A)実行日'].start)
+    );
+    const byName = {};
+    standalone.forEach(t => {
+      const key = (t.name || '(無題)').trim();
+      if (!byName[key]) byName[key] = [];
+      byName[key].push(t);
+    });
+    const pseudoTemplates = Object.entries(byName).map(([name, group]) => {
+      // この疑似テンプレートが該当する日付集合（実際に登録されている日）
+      const dateSet = new Set(group.map(t => ymd(new Date(t['(A)実行日'].start))));
+      return {
+        id: 'pseudo_' + name,
+        name,
+        '(B)種類': '習慣',
+        _type: 'pseudoHabit',
+        _pseudo: true,
+        _pseudoDates: dateSet,
+        _pseudoMembers: group,  // 紐づく実タスク
+      };
+    });
+
+    return [...templates, ...pseudoTemplates];
   }
 
   // 習慣インスタンス（展開された個別日タスク）かどうか
@@ -4810,9 +4843,24 @@
     return !!t._habitTemplateId;
   }
 
-  // あるテンプレート×日付のインスタンスを探す
+  // あるテンプレート×日付のインスタンス（実タスク）を探す
   function findHabitInstance(templateId, dateStr) {
-    return tasks.find(t => t._habitTemplateId === templateId && t._habitDate === dateStr);
+    // 通常テンプレート: _habitTemplateId で紐づくインスタンス
+    const inst = tasks.find(t => t._habitTemplateId === templateId && t._habitDate === dateStr);
+    if (inst) return inst;
+    // 疑似テンプレート（pseudo_<名前>）: 同名・同日付の独立習慣タスクを探す
+    if (typeof templateId === 'string' && templateId.startsWith('pseudo_')) {
+      const name = templateId.slice('pseudo_'.length);
+      return tasks.find(t =>
+        t['(B)種類'] === '習慣' &&
+        t._type !== 'repeat' &&
+        !t._habitTemplateId &&
+        (t.name || '(無題)').trim() === name &&
+        t['(A)実行日'] && t['(A)実行日'].start &&
+        ymd(new Date(t['(A)実行日'].start)) === dateStr
+      );
+    }
+    return null;
   }
 
   // 展開期間: 過去2週間〜未来2週間（今日付近中心）
@@ -4986,6 +5034,10 @@
   function habitOccursOn(task, date) {
     const d = (date instanceof Date) ? new Date(date) : new Date(date);
     d.setHours(0,0,0,0);
+    // 疑似テンプレート: 登録されている日付集合に含まれるか
+    if (task._pseudo) {
+      return task._pseudoDates.has(ymd(d));
+    }
     const rc = task._repeatConfig;
     if (rc) {
       if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (d < rs) return false; }
@@ -5054,15 +5106,17 @@
 
   // 習慣の完了をトグル（インスタンスのdone + 履歴 + Notion双方向）
   function toggleHabitDone(templateId, dateStr) {
-    // インスタンスを取得（無ければその場で1件生成）
+    // インスタンス（実タスク）を取得（無ければその場で1件生成）
     let inst = findHabitInstance(templateId, dateStr);
-    const template = tasks.find(t => t.id === templateId);
-    if (!inst && template) {
-      // 該当日でなければ何もしない
+    const template = getHabitTasks().find(t => t.id === templateId);
+    if (!inst && template && !template._pseudo) {
+      // 通常テンプレート: 該当日なら展開して生成
       if (!habitOccursOn(template, new Date(dateStr))) return;
       expandHabitTemplate(template);
       inst = findHabitInstance(templateId, dateStr);
     }
+    // 疑似テンプレートで実タスクが見つからない場合は何もしない（登録日のみ操作可）
+    if (!inst && template && template._pseudo) return;
     const newState = inst ? !inst['(A)done'] : true;
 
     // 履歴も更新（インスタンスが将来削除されても記録が残る）
@@ -5305,6 +5359,13 @@
       const streak = calcHabitStreak(task);
       const rate = calcRoutineRate(task);
 
+      // 編集対象ID: 疑似テンプレートは代表の実タスク（今日 or 最初のメンバー）
+      let editId = task.id;
+      if (task._pseudo) {
+        const todayMember = task._pseudoMembers.find(m => ymd(new Date(m['(A)実行日'].start)) === todayStr);
+        editId = (todayMember || task._pseudoMembers[0]).id;
+      }
+
       // 当日達成ボタン
       let btnHTML;
       if (!isTodayOcc) {
@@ -5316,7 +5377,7 @@
       }
 
       html += `<div class="routine-card">`
-        + `<div class="routine-card-top" onclick="editTask('${task.id}')" style="cursor:pointer;">`
+        + `<div class="routine-card-top" onclick="editTask('${editId}')" style="cursor:pointer;">`
         +   `<div class="routine-avatar">${avatarSVG(doneToday)}</div>`
         +   `<div class="routine-card-name">${task.name || '(無題)'}</div>`
         +   `<div class="routine-card-chev">›</div>`
