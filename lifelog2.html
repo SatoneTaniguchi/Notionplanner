@@ -612,6 +612,7 @@ img { display: block; }
   <div class="tabs">
     <button class="tab active" data-tab="today"  onclick="switchTab('today',this)">📝 今日</button>
     <button class="tab"        data-tab="review" onclick="switchTab('review',this)">🌙 夜レビュー</button>
+    <button class="tab"        data-tab="logentry" onclick="switchTab('logentry',this)">✍️ 日記入力</button>
     <button class="tab"        data-tab="diary"  onclick="switchTab('diary',this)">📚 日記一覧</button>
     <button class="tab"        data-tab="graph"  onclick="switchTab('graph',this)">📈 感情グラフ</button>
   </div>
@@ -666,7 +667,125 @@ img { display: block; }
     </div>
   </div>
 
-  <!-- ③ DIARY LIST ──────────────────────────────────────────────────────── -->
+  <!-- ③ DIRECT LOG ENTRY ────────────────────────────────────────────────── -->
+  <div class="screen" id="screen-logentry">
+
+    <!-- Date selector -->
+    <div class="section" style="padding-bottom:8px">
+      <div class="section-title">📅 記録する日付</div>
+      <input type="date" class="setting-input" id="logDate" style="font-size:14px;padding:11px 13px;">
+    </div>
+
+    <!-- Comfort / Energy steppers -->
+    <div class="section" style="padding-top:10px;padding-bottom:10px">
+      <div class="section-title">🎚️ 今日の状態</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">快適度</label>
+          <div class="number-stepper">
+            <button class="stepper-btn" onclick="stepVal('logComfort',-1)">－</button>
+            <span class="stepper-val" id="logComfortVal">0</span>
+            <button class="stepper-btn" onclick="stepVal('logComfort',+1)">＋</button>
+          </div>
+          <input type="hidden" id="logComfort" value="0">
+        </div>
+        <div>
+          <label class="form-label">エネルギー度</label>
+          <div class="number-stepper">
+            <button class="stepper-btn" onclick="stepVal('logEnergy',-1)">－</button>
+            <span class="stepper-val" id="logEnergyVal">0</span>
+            <button class="stepper-btn" onclick="stepVal('logEnergy',+1)">＋</button>
+          </div>
+          <input type="hidden" id="logEnergy" value="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- Emotion tags -->
+    <div class="section" style="padding-top:10px;padding-bottom:10px">
+      <div class="section-title">🏷️ 感情タグ（最大3つ）</div>
+      <div class="tag-picker" id="logTagPicker">
+        <button class="tag-pick-btn pos" data-tag="達成感"   onclick="toggleLogTag(this)">達成感</button>
+        <button class="tag-pick-btn pos" data-tag="ワクワク"  onclick="toggleLogTag(this)">ワクワク</button>
+        <button class="tag-pick-btn pos" data-tag="穏やか"   onclick="toggleLogTag(this)">穏やか</button>
+        <button class="tag-pick-btn pos" data-tag="充実"     onclick="toggleLogTag(this)">充実</button>
+        <button class="tag-pick-btn pos" data-tag="感謝"     onclick="toggleLogTag(this)">感謝</button>
+        <button class="tag-pick-btn pos" data-tag="リラックス" onclick="toggleLogTag(this)">リラックス</button>
+        <button class="tag-pick-btn pos" data-tag="インスピレーション" onclick="toggleLogTag(this)">インスピレーション</button>
+        <button class="tag-pick-btn neg" data-tag="焦燥感"   onclick="toggleLogTag(this)">焦燥感</button>
+        <button class="tag-pick-btn neg" data-tag="モヤモヤ"  onclick="toggleLogTag(this)">モヤモヤ</button>
+        <button class="tag-pick-btn neg" data-tag="疲労"     onclick="toggleLogTag(this)">疲労</button>
+        <button class="tag-pick-btn neg" data-tag="孤独"     onclick="toggleLogTag(this)">孤独</button>
+        <button class="tag-pick-btn neg" data-tag="落胆"     onclick="toggleLogTag(this)">落胆</button>
+        <button class="tag-pick-btn neg" data-tag="プレッシャー" onclick="toggleLogTag(this)">プレッシャー</button>
+        <button class="tag-pick-btn neg" data-tag="イライラ"  onclick="toggleLogTag(this)">イライラ</button>
+      </div>
+    </div>
+
+    <!-- 3 good things -->
+    <div class="section" style="padding-top:10px;padding-bottom:10px">
+      <div class="section-title">✦ 3つの良かったこと</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label class="form-label">① 良かったこと &amp; 要因</label>
+          <textarea class="form-textarea" id="logGood1" placeholder="例：集中して作業できた ➔ 朝の散歩で頭がクリアになったから" style="min-height:64px"></textarea>
+        </div>
+        <div>
+          <label class="form-label">② 良かったこと &amp; 要因</label>
+          <textarea class="form-textarea" id="logGood2" placeholder="例：友人と久しぶりに話せた ➔ 自分からLINEしたから" style="min-height:64px"></textarea>
+        </div>
+        <div>
+          <label class="form-label">③ 良かったこと &amp; 要因</label>
+          <textarea class="form-textarea" id="logGood3" placeholder="例：新しいことを試せた ➔ 失敗を恐れず行動したから" style="min-height:64px"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Learning / Next action -->
+    <div class="section" style="padding-top:10px;padding-bottom:10px">
+      <div class="section-title">💡 学び &amp; Next Action</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label class="form-label">今日の学び</label>
+          <textarea class="form-textarea" id="logLearning" placeholder="今日気づいたこと、発見したこと…" style="min-height:64px"></textarea>
+        </div>
+        <div>
+          <label class="form-label">明日の小さな実験（Next Action）</label>
+          <textarea class="form-textarea" id="logNextAction" placeholder="明日すぐできる1分の行動…" style="min-height:56px"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body text -->
+    <div class="section" style="padding-top:10px;padding-bottom:10px">
+      <div class="section-title">📝 本文</div>
+      <textarea class="form-textarea" id="logBody" placeholder="今日の出来事を自由に記入…&#10;&#10;① 朝のランニング&#10;・What：5km走った&#10;・感情：達成感があった" style="min-height:160px;resize:vertical"></textarea>
+    </div>
+
+    <!-- Best photo -->
+    <div class="section" style="padding-top:10px;padding-bottom:10px">
+      <div class="section-title">📸 ベスト写真</div>
+      <div class="diary-photo-preview" id="logPhotoPreview">
+        <img id="logPhotoThumb" class="diary-photo-thumb" src="" alt="">
+        <span class="diary-photo-info" id="logPhotoInfo">写真を選択してください</span>
+        <button class="diary-photo-btn" onclick="document.getElementById('logPhotoInput').click()">選択</button>
+        <button class="diary-photo-btn" id="logPhotoRemoveBtn" style="display:none;color:var(--accent3);border-color:rgba(244,114,182,.3)" onclick="removeLogPhoto()">削除</button>
+      </div>
+      <input type="file" id="logPhotoInput" accept="image/*" style="display:none" onchange="handleLogPhotoSelect(event)">
+    </div>
+
+    <!-- Save button -->
+    <div class="section" style="padding-top:4px;padding-bottom:40px">
+      <button class="save-notion-btn" id="saveLogBtn" onclick="saveLogEntry()">
+        <span>💾</span><span>ライフログDBに保存する</span>
+      </button>
+      <p style="font-size:11px;color:var(--text3);text-align:center;margin-top:10px;line-height:1.6">
+        Notionの LIFELOG_d データベースに新規ページとして保存します
+      </p>
+    </div>
+  </div>
+
+  <!-- ④ DIARY LIST ────────────────────────────────────────────────────────── -->
   <div class="screen" id="screen-diary">
     <div class="filter-bar">
       <button class="filter-btn active" onclick="filterDiary('week',this)">直近1週間</button>
@@ -682,7 +801,7 @@ img { display: block; }
     </div>
   </div>
 
-  <!-- ④ GRAPH ───────────────────────────────────────────────────────────── -->
+  <!-- ⑤ GRAPH ───────────────────────────────────────────────────────────── -->
   <div class="screen" id="screen-graph">
     <div class="stats-row" id="statsRow"></div>
     <div class="chart-wrap">
@@ -797,6 +916,7 @@ function switchTab(name, btn) {
 
   document.getElementById('inputPanel').style.display = name === 'today' ? '' : 'none';
 
+  if (name === 'logentry') initLogEntry();
   if (name === 'diary')  loadDiaries(currentDiaryRange);
   if (name === 'graph')  loadGraphData();
 }
@@ -846,7 +966,7 @@ function parseNotionTweet(page) {
   const titleArr = props['title']?.title || props['名前']?.title || [];
   const text = titleArr.map(t => t.plain_text).join('');
   const photoUrl = props['Photo']?.url || null;
-  const ts = page.created_time;
+  const ts = page.created_time || new Date().toISOString();
 
   return {
     notionId: page.id,
@@ -1061,6 +1181,126 @@ ${lines}`;
       btn.innerHTML = '<span>📋</span><span>AI用テキストをコピー</span>';
     }, 2500);
   }).catch(() => showToast('コピーに失敗しました', 'err'));
+}
+
+// ─── Direct Log Entry ─────────────────────────────────────────────────────────
+let logPendingPhoto = null; // { file, dataUrl }
+
+function initLogEntry() {
+  // Set date to today if not already set
+  const dateEl = document.getElementById('logDate');
+  if (!dateEl.value) dateEl.value = todayStr();
+}
+
+function stepVal(fieldId, delta) {
+  const input = document.getElementById(fieldId);
+  const valEl = document.getElementById(fieldId + 'Val');
+  let v = parseInt(input.value || '0', 10) + delta;
+  v = Math.max(-2, Math.min(2, v));
+  input.value = v;
+  valEl.textContent = v >= 0 ? '+' + v : String(v);
+  // Color feedback
+  valEl.style.color = v > 0 ? 'var(--accent2)' : v < 0 ? 'var(--accent3)' : 'var(--accent)';
+}
+
+function toggleLogTag(btn) {
+  const picker = document.getElementById('logTagPicker');
+  const selectedBtns = picker.querySelectorAll('.tag-pick-btn.selected');
+  if (!btn.classList.contains('selected') && selectedBtns.length >= 3) {
+    showToast('タグは最大3つまでです', 'err'); return;
+  }
+  btn.classList.toggle('selected');
+}
+
+function handleLogPhotoSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  logPendingPhoto = { file };
+  const reader = new FileReader();
+  reader.onload = ev => {
+    logPendingPhoto.dataUrl = ev.target.result;
+    const thumb = document.getElementById('logPhotoThumb');
+    const info  = document.getElementById('logPhotoInfo');
+    const removeBtn = document.getElementById('logPhotoRemoveBtn');
+    thumb.src = logPendingPhoto.dataUrl;
+    thumb.classList.add('show');
+    info.textContent = file.name;
+    removeBtn.style.display = '';
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function removeLogPhoto() {
+  logPendingPhoto = null;
+  const thumb = document.getElementById('logPhotoThumb');
+  const info  = document.getElementById('logPhotoInfo');
+  const removeBtn = document.getElementById('logPhotoRemoveBtn');
+  thumb.src = ''; thumb.classList.remove('show');
+  info.textContent = '写真を選択してください';
+  removeBtn.style.display = 'none';
+}
+
+async function saveLogEntry() {
+  if (!WORKER_URL) { openSettings(); return; }
+
+  const date       = document.getElementById('logDate').value;
+  const comfort    = parseInt(document.getElementById('logComfort').value, 10);
+  const energy     = parseInt(document.getElementById('logEnergy').value, 10);
+  const good1      = document.getElementById('logGood1').value.trim();
+  const good2      = document.getElementById('logGood2').value.trim();
+  const good3      = document.getElementById('logGood3').value.trim();
+  const learning   = document.getElementById('logLearning').value.trim();
+  const nextAction = document.getElementById('logNextAction').value.trim();
+  const body       = document.getElementById('logBody').value.trim();
+
+  const tags = [...document.querySelectorAll('#logTagPicker .tag-pick-btn.selected')]
+    .map(b => b.dataset.tag);
+
+  if (!date) { showToast('日付を選択してください', 'err'); return; }
+  if (!good1 && !body) { showToast('内容を入力してください', 'err'); return; }
+
+  const btn = document.getElementById('saveLogBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span><span>保存中...</span>';
+
+  try {
+    // Upload photo if present
+    let fileId = null;
+    if (logPendingPhoto) {
+      fileId = await uploadFileToNotion(logPendingPhoto.file, 'diary');
+    }
+
+    const payload = { date, comfort, energy, tags, good1, good2, good3, learning, nextAction, body, fileId };
+
+    await workerFetch('/diary', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+
+    showToast('ライフログDBに保存しました ✦', 'ok');
+    resetLogEntryForm();
+  } catch (e) {
+    showToast('保存失敗: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>💾</span><span>ライフログDBに保存する</span>';
+  }
+}
+
+function resetLogEntryForm() {
+  document.getElementById('logDate').value        = todayStr();
+  ['logComfort','logEnergy'].forEach(id => {
+    document.getElementById(id).value = '0';
+    document.getElementById(id + 'Val').textContent = '0';
+    document.getElementById(id + 'Val').style.color = 'var(--accent)';
+  });
+  document.querySelectorAll('#logTagPicker .tag-pick-btn.selected').forEach(b => b.classList.remove('selected'));
+  ['logGood1','logGood2','logGood3','logLearning','logNextAction','logBody'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  removeLogPhoto();
 }
 
 // ─── Diary list ───────────────────────────────────────────────────────────────
