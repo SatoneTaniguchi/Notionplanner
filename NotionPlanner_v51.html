@@ -4068,44 +4068,27 @@
         const t = tasks.find(t => t.id === editingTaskId);
         if (t) {
           t._localLastEdited = new Date().toISOString();
-          localStorage.setItem('tasks', JSON.stringify(tasks));
           if (t._notionId) {
+            // 既にNotion連携済み → そのページを更新
+            localStorage.setItem('tasks', JSON.stringify(tasks));
             notionUpdateTask(t._notionId, t).catch(e => console.error('Notion更新失敗', e));
-          } else if (t._type !== 'repeat' && !t._notionPushing) {
-            // Notionに新規作成してIDを紐付け（二重push防止フラグ）
-            t._notionPushing = true;
-            notionApiCall('/pages', 'POST', {
-              parent: { database_id: notionSettings.dbId },
-              properties: taskToNotionProps(t),
-            }).then(page => {
-              t._notionId = page.id; t._source = 'notion';
-              delete t._notionPushing;
-              localStorage.setItem('tasks', JSON.stringify(tasks));
-            }).catch(e => {
-              delete t._notionPushing;
-              console.error('Notion新規作成失敗', e);
-            });
+          } else if (t._notionPushing) {
+            // 新規作成のPushがまだ完了していない間に編集された
+            // → Push完了後に最新内容で再更新するためdirtyフラグを立てる
+            t._notionDirty = true;
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+          } else if (t._type !== 'repeat') {
+            // 未連携 → Notionに新規作成してIDを紐付け
+            pushNewTaskToNotion(t);
           }
         }
       } else {
         // 新規タスク: tasks[-1]ではなくidで安全に参照
         const newTaskId = tasks[tasks.length - 1]?.id;
         const t = tasks.find(t => t.id === newTaskId);
-        if (t && t._type !== 'repeat' && !t._notionPushing) {
+        if (t && t._type !== 'repeat' && !t._notionId && !t._notionPushing) {
           t._localLastEdited = new Date().toISOString();
-          t._notionPushing = true; // fullSyncとの二重push防止
-          localStorage.setItem('tasks', JSON.stringify(tasks));
-          notionApiCall('/pages', 'POST', {
-            parent: { database_id: notionSettings.dbId },
-            properties: taskToNotionProps(t),
-          }).then(page => {
-            t._notionId = page.id; t._source = 'notion';
-            delete t._notionPushing;
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-          }).catch(e => {
-            delete t._notionPushing;
-            console.error('Notion新規作成失敗', e);
-          });
+          pushNewTaskToNotion(t);
         }
       }
     }, 0);
@@ -5491,9 +5474,12 @@
         }
       }
 
-      // _notionPushingフラグはメモリ上の一時フラグなのでlocalStorageには保存しない
-      tasks.forEach(t => delete t._notionPushing);
-      localStorage.setItem('tasks', JSON.stringify(tasks));
+      // localStorageには一時フラグを残さない（ただしPush中タスクのフラグは保持して二重push防止）
+      const _persist = tasks.map(t => {
+        if (t._notionPushing) return t; // Push中はそのまま（メモリ上で進行中）
+        const c = { ...t }; delete c._notionPushing; delete c._notionDirty; return c;
+      });
+      localStorage.setItem('tasks', JSON.stringify(_persist));
       appendLog(`✅ 完了: 追加${addedCount}件, 更新${updatedCount}件, Push${pushCount}件`);
 
       // GCalキャッシュは一切触らず、そのまま再描画
@@ -5529,6 +5515,34 @@
     } catch(e) {
       console.error('Notion更新失敗', e);
     }
+  }
+
+  // --- 新規タスクをNotionへ作成（Push中の編集にも追従） ---
+  function pushNewTaskToNotion(t) {
+    if (!t || t._notionId || t._notionPushing) return;
+    if (!notionSettings.token || !notionSettings.dbId) return;
+    t._notionPushing = true; // fullSync・再保存との二重push防止
+    delete t._notionDirty;
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    notionApiCall('/pages', 'POST', {
+      parent: { database_id: notionSettings.dbId },
+      properties: taskToNotionProps(t),
+    }).then(page => {
+      t._notionId = page.id;
+      t._source = 'notion';
+      delete t._notionPushing;
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      // Push中に編集されていた場合は、最新内容でNotionを更新し直す
+      if (t._notionDirty) {
+        delete t._notionDirty;
+        t._localLastEdited = new Date().toISOString();
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        notionUpdateTask(t._notionId, t).catch(e => console.error('Notion再更新失敗', e));
+      }
+    }).catch(e => {
+      delete t._notionPushing;
+      console.error('Notion新規作成失敗', e);
+    });
   }
 
   // --- タスク一覧レンダリング ---
