@@ -1747,6 +1747,21 @@
   }
   .routine-card-chev { color: #c4c1d4; font-size: 20px; }
 
+  /* 頻度設定ピル */
+  .freq-row {
+    display: flex; align-items: center; gap: 6px; margin: 10px 0 2px; flex-wrap: wrap;
+  }
+  .freq-label { font-size: 12px; color: #b0adc0; }
+  .freq-btn {
+    background: #f2f1f8; border: 1.5px solid #e0dff0; color: #9a97ad;
+    border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600;
+    font-family: inherit; cursor: pointer; transition: all 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .freq-btn.active {
+    background: #6c5ce7; border-color: #6c5ce7; color: #fff;
+  }
+
   .routine-badges { display: flex; gap: 8px; margin: 12px 0 4px; }
   .routine-badge {
     display: inline-flex; align-items: center; gap: 4px;
@@ -4846,6 +4861,17 @@
   }
 
   // 疑似テンプレートの繰り返しパターンを日付集合から推定する
+  function getHabitFreqOverride(taskId) {
+    const overrides = JSON.parse(localStorage.getItem('habitFreqOverrides') || '{}');
+    return overrides[taskId] || null; // 'daily' | 'weekly' | 'monthly' | null
+  }
+  function setHabitFreqOverride(taskId, freq) {
+    const overrides = JSON.parse(localStorage.getItem('habitFreqOverrides') || '{}');
+    if (freq) overrides[taskId] = freq;
+    else delete overrides[taskId];
+    localStorage.setItem('habitFreqOverrides', JSON.stringify(overrides));
+    renderRoutineScreen();
+  }
   // 戻り値: { type:'daily'|'weekly'|'monthly'|'irregular', period, lastDate, dayOfWeek?, dayOfMonth? }
   function inferPseudoPattern(task) {
     if (!task._pseudo) return null;
@@ -5128,24 +5154,55 @@
     if (task._pseudo) {
       const today = new Date(); today.setHours(0,0,0,0);
 
+      // ── 手動頻度設定が優先 ───────────────────────────────────────────
+      const override = getHabitFreqOverride(task.id);
+      if (override) {
+        const pat = inferPseudoPattern(task);
+        const lastDate = pat ? pat.lastDate : (task._pseudoMembers.length > 0
+          ? (() => { const ld = new Date(Math.max(...task._pseudoMembers.map(m => new Date(m['(A)実行日'].start)))); ld.setHours(0,0,0,0); return ld; })()
+          : today);
+        const daysSinceLast = Math.round((today - lastDate) / 86400000);
+        // 過去日は常にpseudoDatesで判定
+        if (d < today) return task._pseudoDates.has(ymd(d));
+        if (task._pseudoDates.has(ymd(d))) return true;
+        if (override === 'daily') {
+          return daysSinceLast <= 7;
+        }
+        if (override === 'weekly') {
+          if (daysSinceLast > 21) return false;
+          return d.getDay() === lastDate.getDay();
+        }
+        if (override === 'monthly') {
+          if (daysSinceLast > 90) return false;
+          return d.getDate() === lastDate.getDate();
+        }
+        return false;
+      }
+      // ─────────────────────────────────────────────────────────────────
+
       // 過去日: Notionにインスタンスが存在する日だけが対象日（記録）
       if (d < today) return task._pseudoDates.has(ymd(d));
 
       // 今日・未来: まず実際のNotionインスタンスを確認
       if (task._pseudoDates.has(ymd(d))) return true;
 
-      // Notionにインスタンスがない日は、確立されたパターンでのみ予測
+      // Notionにインスタンスがない日はパターンで予測
       const pat = inferPseudoPattern(task);
       if (!pat) return false;
 
-      // single（1件のみ）・ambiguous（2件連続で判定不能）・irregular
-      // → 予測しない。Notionが実際にインスタンスを作った日だけ対象
-      if (pat.type === 'single' || pat.type === 'ambiguous' || pat.type === 'irregular') {
+      const daysSinceLast = Math.round((today - pat.lastDate) / 86400000);
+      const isToday = d.getTime() === today.getTime();
+
+      // 1件のみ or 2件連続（ambiguous）: 直近3日以内なら今日を対象日と予測
+      // ※ 月次・週次タスクを正確に区別したい場合は上の頻度設定を使ってください
+      if (pat.type === 'single' || pat.type === 'ambiguous') {
+        if (daysSinceLast <= 3 && isToday) return true;
         return false;
       }
 
-      // 確立されたパターン（3件以上のdaily / 2件以上のweekly・monthly）のみ予測
-      const daysSinceLast = Math.round((today - pat.lastDate) / 86400000);
+      if (pat.type === 'irregular') return false;
+
+      // 確立されたパターン（3件以上daily / 2件以上weekly・monthly）
       const gracePeriod = pat.type === 'daily' ? 7 : pat.type === 'weekly' ? 21 : 90;
       if (daysSinceLast > gracePeriod) return false;
 
@@ -5554,6 +5611,19 @@
         +   `<span class="routine-badge">✓ ${rate}%</span>`
         +   `<span class="routine-badge">🔥 ${streak}日連続</span>`
         + `</div>`
+        + (task._pseudo ? (() => {
+            const cur = getHabitFreqOverride(task.id);
+            const pat = inferPseudoPattern(task);
+            const auto = pat ? pat.type : 'single';
+            const autoLabel = auto === 'daily' ? '毎日' : auto === 'weekly' ? '毎週' : auto === 'monthly' ? '毎月' : '?';
+            return `<div class="freq-row">`
+              + `<span class="freq-label">頻度：</span>`
+              + `<button class="freq-btn${!cur?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}',null)" title="自動">自動(${autoLabel})</button>`
+              + `<button class="freq-btn${cur==='daily'?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}','daily')">毎日</button>`
+              + `<button class="freq-btn${cur==='weekly'?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}','weekly')">毎週</button>`
+              + `<button class="freq-btn${cur==='monthly'?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}','monthly')">毎月</button>`
+              + `</div>`;
+          })() : '')
         + buildRoutineGrid(task)
         + btnHTML
         + `</div>`;
