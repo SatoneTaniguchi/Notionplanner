@@ -670,10 +670,21 @@ img { display: block; }
   <!-- ③ DIRECT LOG ENTRY ────────────────────────────────────────────────── -->
   <div class="screen" id="screen-logentry">
 
-    <!-- Date selector -->
+    <!-- Date + Title -->
     <div class="section" style="padding-bottom:8px">
-      <div class="section-title">📅 記録する日付</div>
-      <input type="date" class="setting-input" id="logDate" style="font-size:14px;padding:11px 13px;">
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:end">
+        <div>
+          <label class="form-label">📅 日付</label>
+          <input type="date" class="setting-input" id="logDate"
+            style="font-size:16px;padding:10px 12px;width:auto;min-width:0;">
+        </div>
+        <div>
+          <label class="form-label">📌 タイトル</label>
+          <input type="text" class="setting-input" id="logTitle"
+            placeholder="今日のひとこと"
+            style="font-size:16px;padding:10px 12px;width:100%;">
+        </div>
+      </div>
     </div>
 
     <!-- Comfort / Energy steppers -->
@@ -684,7 +695,7 @@ img { display: block; }
           <label class="form-label">快適度</label>
           <div class="number-stepper">
             <button class="stepper-btn" onclick="stepVal('logComfort',-1)">－</button>
-            <span class="stepper-val" id="logComfortVal">0</span>
+            <span class="stepper-val" id="logComfortVal">+0</span>
             <button class="stepper-btn" onclick="stepVal('logComfort',+1)">＋</button>
           </div>
           <input type="hidden" id="logComfort" value="0">
@@ -693,7 +704,7 @@ img { display: block; }
           <label class="form-label">エネルギー度</label>
           <div class="number-stepper">
             <button class="stepper-btn" onclick="stepVal('logEnergy',-1)">－</button>
-            <span class="stepper-val" id="logEnergyVal">0</span>
+            <span class="stepper-val" id="logEnergyVal">+0</span>
             <button class="stepper-btn" onclick="stepVal('logEnergy',+1)">＋</button>
           </div>
           <input type="hidden" id="logEnergy" value="0">
@@ -705,20 +716,20 @@ img { display: block; }
     <div class="section" style="padding-top:10px;padding-bottom:10px">
       <div class="section-title">🏷️ 感情タグ（最大3つ）</div>
       <div class="tag-picker" id="logTagPicker">
-        <button class="tag-pick-btn pos" data-tag="達成感"   onclick="toggleLogTag(this)">達成感</button>
-        <button class="tag-pick-btn pos" data-tag="ワクワク"  onclick="toggleLogTag(this)">ワクワク</button>
-        <button class="tag-pick-btn pos" data-tag="穏やか"   onclick="toggleLogTag(this)">穏やか</button>
-        <button class="tag-pick-btn pos" data-tag="充実"     onclick="toggleLogTag(this)">充実</button>
-        <button class="tag-pick-btn pos" data-tag="感謝"     onclick="toggleLogTag(this)">感謝</button>
-        <button class="tag-pick-btn pos" data-tag="リラックス" onclick="toggleLogTag(this)">リラックス</button>
+        <button class="tag-pick-btn pos" data-tag="達成感"          onclick="toggleLogTag(this)">達成感</button>
+        <button class="tag-pick-btn pos" data-tag="ワクワク"         onclick="toggleLogTag(this)">ワクワク</button>
+        <button class="tag-pick-btn pos" data-tag="穏やか"           onclick="toggleLogTag(this)">穏やか</button>
+        <button class="tag-pick-btn pos" data-tag="充実"             onclick="toggleLogTag(this)">充実</button>
+        <button class="tag-pick-btn pos" data-tag="感謝"             onclick="toggleLogTag(this)">感謝</button>
+        <button class="tag-pick-btn pos" data-tag="リラックス"        onclick="toggleLogTag(this)">リラックス</button>
         <button class="tag-pick-btn pos" data-tag="インスピレーション" onclick="toggleLogTag(this)">インスピレーション</button>
-        <button class="tag-pick-btn neg" data-tag="焦燥感"   onclick="toggleLogTag(this)">焦燥感</button>
-        <button class="tag-pick-btn neg" data-tag="モヤモヤ"  onclick="toggleLogTag(this)">モヤモヤ</button>
-        <button class="tag-pick-btn neg" data-tag="疲労"     onclick="toggleLogTag(this)">疲労</button>
-        <button class="tag-pick-btn neg" data-tag="孤独"     onclick="toggleLogTag(this)">孤独</button>
-        <button class="tag-pick-btn neg" data-tag="落胆"     onclick="toggleLogTag(this)">落胆</button>
-        <button class="tag-pick-btn neg" data-tag="プレッシャー" onclick="toggleLogTag(this)">プレッシャー</button>
-        <button class="tag-pick-btn neg" data-tag="イライラ"  onclick="toggleLogTag(this)">イライラ</button>
+        <button class="tag-pick-btn neg" data-tag="焦燥感"           onclick="toggleLogTag(this)">焦燥感</button>
+        <button class="tag-pick-btn neg" data-tag="モヤモヤ"          onclick="toggleLogTag(this)">モヤモヤ</button>
+        <button class="tag-pick-btn neg" data-tag="疲労"             onclick="toggleLogTag(this)">疲労</button>
+        <button class="tag-pick-btn neg" data-tag="孤独"             onclick="toggleLogTag(this)">孤独</button>
+        <button class="tag-pick-btn neg" data-tag="落胆"             onclick="toggleLogTag(this)">落胆</button>
+        <button class="tag-pick-btn neg" data-tag="プレッシャー"      onclick="toggleLogTag(this)">プレッシャー</button>
+        <button class="tag-pick-btn neg" data-tag="イライラ"          onclick="toggleLogTag(this)">イライラ</button>
       </div>
     </div>
 
@@ -728,15 +739,15 @@ img { display: block; }
       <div style="display:flex;flex-direction:column;gap:10px">
         <div>
           <label class="form-label">① 良かったこと &amp; 要因</label>
-          <textarea class="form-textarea" id="logGood1" placeholder="例：集中して作業できた ➔ 朝の散歩で頭がクリアになったから" style="min-height:64px"></textarea>
+          <textarea class="form-textarea" id="logGood1" placeholder="例：集中して作業できた ➔ 朝の散歩で頭がクリアになったから" style="min-height:64px;font-size:16px"></textarea>
         </div>
         <div>
           <label class="form-label">② 良かったこと &amp; 要因</label>
-          <textarea class="form-textarea" id="logGood2" placeholder="例：友人と久しぶりに話せた ➔ 自分からLINEしたから" style="min-height:64px"></textarea>
+          <textarea class="form-textarea" id="logGood2" placeholder="例：友人と久しぶりに話せた ➔ 自分からLINEしたから" style="min-height:64px;font-size:16px"></textarea>
         </div>
         <div>
           <label class="form-label">③ 良かったこと &amp; 要因</label>
-          <textarea class="form-textarea" id="logGood3" placeholder="例：新しいことを試せた ➔ 失敗を恐れず行動したから" style="min-height:64px"></textarea>
+          <textarea class="form-textarea" id="logGood3" placeholder="例：新しいことを試せた ➔ 失敗を恐れず行動したから" style="min-height:64px;font-size:16px"></textarea>
         </div>
       </div>
     </div>
@@ -747,11 +758,11 @@ img { display: block; }
       <div style="display:flex;flex-direction:column;gap:10px">
         <div>
           <label class="form-label">今日の学び</label>
-          <textarea class="form-textarea" id="logLearning" placeholder="今日気づいたこと、発見したこと…" style="min-height:64px"></textarea>
+          <textarea class="form-textarea" id="logLearning" placeholder="今日気づいたこと、発見したこと…" style="min-height:64px;font-size:16px"></textarea>
         </div>
         <div>
           <label class="form-label">明日の小さな実験（Next Action）</label>
-          <textarea class="form-textarea" id="logNextAction" placeholder="明日すぐできる1分の行動…" style="min-height:56px"></textarea>
+          <textarea class="form-textarea" id="logNextAction" placeholder="明日すぐできる1分の行動…" style="min-height:56px;font-size:16px"></textarea>
         </div>
       </div>
     </div>
@@ -759,7 +770,7 @@ img { display: block; }
     <!-- Body text -->
     <div class="section" style="padding-top:10px;padding-bottom:10px">
       <div class="section-title">📝 本文</div>
-      <textarea class="form-textarea" id="logBody" placeholder="今日の出来事を自由に記入…&#10;&#10;① 朝のランニング&#10;・What：5km走った&#10;・感情：達成感があった" style="min-height:160px;resize:vertical"></textarea>
+      <textarea class="form-textarea" id="logBody" placeholder="今日の出来事を自由に記入…&#10;&#10;① 朝のランニング&#10;・What：5km走った&#10;・感情：達成感があった" style="min-height:160px;resize:vertical;font-size:16px"></textarea>
     </div>
 
     <!-- Best photo -->
@@ -1245,6 +1256,7 @@ async function saveLogEntry() {
   if (!WORKER_URL) { openSettings(); return; }
 
   const date       = document.getElementById('logDate').value;
+  const title      = document.getElementById('logTitle').value.trim();
   const comfort    = parseInt(document.getElementById('logComfort').value, 10);
   const energy     = parseInt(document.getElementById('logEnergy').value, 10);
   const good1      = document.getElementById('logGood1').value.trim();
@@ -1271,7 +1283,7 @@ async function saveLogEntry() {
       fileId = await uploadFileToNotion(logPendingPhoto.file, 'diary');
     }
 
-    const payload = { date, comfort, energy, tags, good1, good2, good3, learning, nextAction, body, fileId };
+    const payload = { date, title, comfort, energy, tags, good1, good2, good3, learning, nextAction, body, fileId };
 
     await workerFetch('/diary', {
       method:  'POST',
@@ -1290,7 +1302,8 @@ async function saveLogEntry() {
 }
 
 function resetLogEntryForm() {
-  document.getElementById('logDate').value        = todayStr();
+  document.getElementById('logDate').value  = todayStr();
+  document.getElementById('logTitle').value = '';
   ['logComfort','logEnergy'].forEach(id => {
     document.getElementById(id).value = '0';
     document.getElementById(id + 'Val').textContent = '0';
