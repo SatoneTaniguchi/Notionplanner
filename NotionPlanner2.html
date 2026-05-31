@@ -4797,9 +4797,31 @@
     return `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`;
   }
 
-  // 習慣タスク（ルーチン対象）一覧を返す
-  // (1) アプリで作ったテンプレート（_type==='repeat'）
-  // (2) Notion発などの独立した習慣タスク（テンプレートもインスタンスでもない）を
+  // 疑似テンプレートの繰り返しパターンを日付集合から推定する
+  // 戻り値: { type:'daily'|'weekly'|'monthly'|'irregular', period, lastDate, dayOfWeek?, dayOfMonth? }
+  function inferPseudoPattern(task) {
+    if (!task._pseudo) return null;
+    const sorted = [...task._pseudoDates].sort(); // YYYY-MM-DD 辞書順 = 時系列順
+    if (sorted.length === 0) return null;
+    const lastDate = new Date(sorted[sorted.length - 1]); lastDate.setHours(0,0,0,0);
+    if (sorted.length === 1) return { type: 'single', period: null, lastDate };
+
+    // 連続する日付の間隔（日数）を計算
+    const gaps = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const d1 = new Date(sorted[i-1]); d1.setHours(0,0,0,0);
+      const d2 = new Date(sorted[i]);   d2.setHours(0,0,0,0);
+      gaps.push(Math.round((d2 - d1) / 86400000));
+    }
+    // 中央値で判定（外れ値に強い）
+    const med = [...gaps].sort((a,b)=>a-b)[Math.floor(gaps.length/2)];
+
+    if (med <= 2)  return { type: 'daily',   period: 1,  lastDate };
+    if (med <= 10) return { type: 'weekly',  period: 7,  lastDate, dayOfWeek: lastDate.getDay() };
+    if (med <= 50) return { type: 'monthly', period: 30, lastDate, dayOfMonth: lastDate.getDate() };
+    return { type: 'irregular', period: med, lastDate };
+  }
+
   //     名前ごとに束ねた「疑似テンプレート」
   function getHabitTasks() {
     // (1) 通常テンプレート
@@ -4821,18 +4843,32 @@
       if (!byName[key]) byName[key] = [];
       byName[key].push(t);
     });
+    const today = new Date(); today.setHours(0,0,0,0);
+
     const pseudoTemplates = Object.entries(byName).map(([name, group]) => {
-      // この疑似テンプレートが該当する日付集合（実際に登録されている日）
       const dateSet = new Set(group.map(t => ymd(new Date(t['(A)実行日'].start))));
-      return {
+      const tpl = {
         id: 'pseudo_' + name,
         name,
         '(B)種類': '習慣',
         _type: 'pseudoHabit',
         _pseudo: true,
         _pseudoDates: dateSet,
-        _pseudoMembers: group,  // 紐づく実タスク
+        _pseudoMembers: group,
       };
+      return tpl;
+    }).filter(tpl => {
+      // 非アクティブな習慣（最後のインスタンスが遠く、次回予測もない）は除外してすっきりさせる
+      const pat = inferPseudoPattern(tpl);
+      if (!pat) return false;
+      const daysSinceLast = Math.round((today - pat.lastDate) / 86400000);
+      // パターンごとの「休止とみなす閾値」（期間の3倍以上空いたら非表示）
+      const threshold = pat.type === 'daily' ? 7
+        : pat.type === 'weekly' ? 28
+        : pat.type === 'monthly' ? 90
+        : 90; // irregular
+      if (daysSinceLast > threshold) return false;
+      return true;
     });
 
     return [...templates, ...pseudoTemplates];
@@ -5034,9 +5070,29 @@
   function habitOccursOn(task, date) {
     const d = (date instanceof Date) ? new Date(date) : new Date(date);
     d.setHours(0,0,0,0);
-    // 疑似テンプレート: 登録されている日付集合に含まれるか
+    // 疑似テンプレート: 登録されている日付集合 OR パターン推定で今日/未来を対象日と判断
     if (task._pseudo) {
-      return task._pseudoDates.has(ymd(d));
+      // 実際にインスタンスが存在する日は常に対象日
+      if (task._pseudoDates.has(ymd(d))) return true;
+
+      // 今日・未来の日: パターン推定で予測
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (d < today) return false; // 過去でインスタンスがない日は対象外
+
+      const pat = inferPseudoPattern(task);
+      if (!pat || pat.type === 'single' || pat.type === 'irregular') return false;
+
+      // 習慣が継続中か（種別ごとに適切な猶予期間を設定）
+      const daysSinceLast = Math.round((today - pat.lastDate) / 86400000);
+      const gracePeriod = pat.type === 'daily'   ? 7   // 毎日: 最大1週間の空きまで継続とみなす
+        : pat.type === 'weekly'  ? 21  // 毎週: 3週間空きまで
+        : 90;                          // 毎月: 3ヶ月空きまで
+      if (daysSinceLast > gracePeriod) return false;
+
+      if (pat.type === 'daily')   return true;
+      if (pat.type === 'weekly')  return d.getDay() === pat.dayOfWeek;
+      if (pat.type === 'monthly') return d.getDate() === pat.dayOfMonth;
+      return false;
     }
     const rc = task._repeatConfig;
     if (rc) {
@@ -5106,17 +5162,50 @@
 
   // 習慣の完了をトグル（インスタンスのdone + 履歴 + Notion双方向）
   function toggleHabitDone(templateId, dateStr) {
-    // インスタンス（実タスク）を取得（無ければその場で1件生成）
+    // インスタンス（実タスク）を取得
     let inst = findHabitInstance(templateId, dateStr);
     const template = getHabitTasks().find(t => t.id === templateId);
+
     if (!inst && template && !template._pseudo) {
       // 通常テンプレート: 該当日なら展開して生成
       if (!habitOccursOn(template, new Date(dateStr))) return;
       expandHabitTemplate(template);
       inst = findHabitInstance(templateId, dateStr);
     }
-    // 疑似テンプレートで実タスクが見つからない場合は何もしない（登録日のみ操作可）
-    if (!inst && template && template._pseudo) return;
+
+    if (!inst && template && template._pseudo) {
+      // 疑似テンプレートで実タスクがない = パターン予測による今日の対象日
+      // → ローカルに新規タスクを作成してNotionにも登録する
+      if (!habitOccursOn(template, new Date(dateStr))) return;
+      const rc = template._pseudoMembers[0] || {};
+      const newTask = {
+        id: 'pseudo_inst_' + templateId + '_' + dateStr,
+        name: template.name,
+        '(B)種類': '習慣',
+        '(B)実行期間': rc['(B)実行期間'] || null,
+        '(C)見込み/h': rc['(C)見込み/h'] || 0,
+        '(A)done': false,
+        '(A)実行日': { start: dateStr, end: dateStr },
+        _type: 'time',
+        _allDay: true,
+        _notionId: null,
+        _source: null,
+        _habitTemplateId: null, // 疑似なのでテンプレートidは不要
+        _habitDate: null,
+        _localLastEdited: new Date().toISOString(),
+      };
+      tasks.push(newTask);
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      // Notionに登録
+      if (notionSettings.token && notionSettings.dbId) {
+        pushNewTaskToNotion(newTask);
+      }
+      inst = newTask;
+      // 疑似テンプレートのメンバーにも追加（再描画で参照される）
+      template._pseudoMembers.push(newTask);
+      template._pseudoDates.add(dateStr);
+    }
+
     const newState = inst ? !inst['(A)done'] : true;
 
     // 履歴も更新（インスタンスが将来削除されても記録が残る）
@@ -5130,7 +5219,7 @@
       inst['(A)done'] = newState;
       inst._localLastEdited = new Date().toISOString();
       localStorage.setItem('tasks', JSON.stringify(tasks));
-      // Notion同期: 未登録なら新規Push、登録済みなら完了状態を更新
+      // Notion同期: 登録済みなら完了状態を更新
       if (notionSettings.token && notionSettings.dbId) {
         if (inst._notionId) {
           notionUpdateDone(inst._notionId, newState).catch(e => console.error('Notion完了同期失敗', e));
