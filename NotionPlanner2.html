@@ -5080,10 +5080,32 @@
       if (d < today) return false; // 過去でインスタンスがない日は対象外
 
       const pat = inferPseudoPattern(task);
-      if (!pat || pat.type === 'single' || pat.type === 'irregular') return false;
+      if (!pat) return false;
+
+      const daysSinceLast = Math.round((today - pat.lastDate) / 86400000);
+
+      // 単一インスタンスの場合: 経過日数から週次・月次・日次を推定して対象日を予測
+      if (pat.type === 'single') {
+        // 日次: 1〜3日以内 → 今日を対象日とみなす（毎日タスクが未同期）
+        if (daysSinceLast <= 3 && d.getTime() === today.getTime()) return true;
+        // 週次: 5〜9日前 → 最後と同じ曜日が対象日（今日以降）
+        if (daysSinceLast >= 5 && daysSinceLast <= 10) {
+          return d.getDay() === pat.lastDate.getDay();
+        }
+        // 月次: 25〜35日前 → 最後と同じ日付が対象日（今日以降）
+        if (daysSinceLast >= 25 && daysSinceLast <= 65) {
+          return d.getDate() === pat.lastDate.getDate();
+        }
+        return false;
+      }
+
+      // 不規則パターン: 直近3日以内の場合のみ今日を対象日とみなす
+      if (pat.type === 'irregular') {
+        if (daysSinceLast <= 3 && d.getTime() === today.getTime()) return true;
+        return false;
+      }
 
       // 習慣が継続中か（種別ごとに適切な猶予期間を設定）
-      const daysSinceLast = Math.round((today - pat.lastDate) / 86400000);
       const gracePeriod = pat.type === 'daily'   ? 7   // 毎日: 最大1週間の空きまで継続とみなす
         : pat.type === 'weekly'  ? 21  // 毎週: 3週間空きまで
         : 90;                          // 毎月: 3ヶ月空きまで
