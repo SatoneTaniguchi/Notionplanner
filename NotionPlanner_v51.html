@@ -4061,11 +4061,15 @@
     localStorage.setItem('tasks', JSON.stringify(tasks));
 
     // Notion同期
+    // 重要: closeModal() が editingTaskId を null に戻すため、setTimeout前に退避する
+    const _syncEditId = editingTaskId;       // 編集中タスクのID（新規ならnull）
+    const _syncIsEdit = !!editingTaskId;     // 編集かどうかを確定させておく
+    const _syncNewId  = _syncIsEdit ? null : (tasks[tasks.length - 1]?.id);
     setTimeout(() => {
       if (!notionSettings.token || !notionSettings.dbId) return;
-      if (editingTaskId) {
+      if (_syncIsEdit) {
         // 既存タスク編集
-        const t = tasks.find(t => t.id === editingTaskId);
+        const t = tasks.find(t => t.id === _syncEditId);
         if (t) {
           t._localLastEdited = new Date().toISOString();
           if (t._notionId) {
@@ -4083,9 +4087,8 @@
           }
         }
       } else {
-        // 新規タスク: tasks[-1]ではなくidで安全に参照
-        const newTaskId = tasks[tasks.length - 1]?.id;
-        const t = tasks.find(t => t.id === newTaskId);
+        // 新規タスク: 退避したidで安全に参照
+        const t = tasks.find(t => t.id === _syncNewId);
         if (t && t._type !== 'repeat' && !t._notionId && !t._notionPushing) {
           t._localLastEdited = new Date().toISOString();
           pushNewTaskToNotion(t);
