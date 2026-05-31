@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>LIFELOG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* ── Variables ─────────────────────────────────────────────────────────── */
+:root {
+  --bg:      #0a0a0e;
+  --bg2:     #111116;
+  --bg3:     #18181f;
+  --surface: #1e1e27;
+  --border:  #2a2a36;
+  --accent:  #a78bfa;
+  --accent2: #34d399;
+  --accent3: #f472b6;
+  --warn:    #fbbf24;
+  --text:    #eaeaf4;
+  --text2:   #8888a8;
+  --text3:   #4a4a64;
+  --radius:  14px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow-x: hidden;
+  position: relative;
+}
+button { cursor: pointer; font-family: inherit; }
+textarea, input { font-family: inherit; }
+img { display: block; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,10,14,0.88);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px 0;
+}
+.header-top {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 12px;
+}
+.logo {
+  font-family: 'Space Mono', monospace;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: .2em; color: var(--accent);
+}
+.header-right { display: flex; align-items: center; gap: 8px; }
+.date-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--text2);
+  background: var(--surface); padding: 4px 10px;
+  border-radius: 20px; border: 1px solid var(--border);
+}
+.settings-btn {
+  width: 32px; height: 32px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text2); font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Tabs ──────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex; overflow-x: auto; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0; padding: 8px 14px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  color: var(--text3); background: none;
+  border: none; border-bottom: 2px solid transparent;
+  transition: all .2s; white-space: nowrap;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Screens ───────────────────────────────────────────────────────────── */
+.main { padding-bottom: 150px; }
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── Connection banner ─────────────────────────────────────────────────── */
+.conn-banner {
+  margin: 12px 16px; padding: 10px 14px;
+  border-radius: 10px; font-size: 12px;
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid;
+}
+.conn-banner.ok  { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.3); color: var(--accent2); }
+.conn-banner.err { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.3); color: var(--warn); }
+.conn-banner.loading { background: var(--surface); border-color: var(--border); color: var(--text3); }
+
+/* ── Timeline ──────────────────────────────────────────────────────────── */
+.timeline-header {
+  padding: 14px 16px 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.timeline-date {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--accent2); letter-spacing: .1em;
+}
+.tweet-count {
+  font-size: 10px; color: var(--text3);
+  background: var(--surface); padding: 2px 8px;
+  border-radius: 12px; border: 1px solid var(--border);
+}
+.sync-btn {
+  margin-left: auto; padding: 4px 10px;
+  background: none; border: 1px solid var(--border);
+  border-radius: 20px; font-size: 10px;
+  color: var(--text3); letter-spacing: .06em;
+  font-weight: 700; transition: all .2s;
+}
+.sync-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+.sync-btn.spinning { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.timeline { padding: 0 16px; display: flex; flex-direction: column; gap: 0; }
+
+.tweet-item {
+  display: flex; gap: 12px; padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  animation: fadeUp .3s ease-out;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(-8px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.tweet-time {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--text3);
+  min-width: 40px; padding-top: 3px; letter-spacing: .04em;
+}
+.tweet-body { flex:1; min-width: 0; }
+.tweet-text { font-size: 14px; line-height: 1.65; color: var(--text); word-break: break-word; }
+.tweet-img {
+  width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: 10px; margin-top: 8px;
+  border: 1px solid var(--border);
+}
+.tweet-status {
+  font-size: 10px; margin-top: 4px;
+  display: flex; align-items: center; gap: 4px;
+}
+.tweet-status.saved  { color: var(--accent2); }
+.tweet-status.saving { color: var(--text3); }
+.tweet-status.error  { color: var(--accent3); }
+
+.empty-state {
+  text-align: center; padding: 64px 32px; color: var(--text3);
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; }
+.empty-text { font-size: 13px; line-height: 1.7; }
+
+/* ── Input panel ───────────────────────────────────────────────────────── */
+.input-panel {
+  position: fixed; bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: rgba(17,17,22,0.96);
+  backdrop-filter: blur(24px);
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  z-index: 90;
+}
+.input-preview { display: none; margin-bottom: 8px; }
+.input-preview.active {
+  display: flex; align-items: center; gap: 8px;
+}
+.preview-thumb {
+  width: 48px; height: 48px; object-fit: cover;
+  border-radius: 8px; border: 1px solid var(--border);
+}
+.preview-label { font-size: 11px; color: var(--text2); flex:1; }
+.preview-remove {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text2); font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.upload-progress {
+  font-size: 10px; color: var(--accent);
+  display: none; align-items: center; gap: 6px;
+  padding: 4px 0 6px;
+}
+.upload-progress.active { display: flex; }
+.progress-bar {
+  flex:1; height: 3px; background: var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 2px; transition: width .3s;
+  width: 0%;
+}
+.input-row { display: flex; gap: 8px; align-items: flex-end; }
+.photo-btn {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text2); font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; flex-shrink: 0;
+}
+.photo-btn:active, .photo-btn:hover { border-color: var(--accent); color: var(--accent); }
+.text-input {
+  flex:1; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 13px; color: var(--text); font-size: 14px;
+  resize: none; min-height: 42px; max-height: 96px;
+  line-height: 1.5; outline: none; transition: border-color .2s;
+}
+.text-input:focus { border-color: var(--accent); }
+.text-input::placeholder { color: var(--text3); }
+.send-btn {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: var(--accent); border: none; color: #fff;
+  font-size: 17px; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; transition: all .15s;
+}
+.send-btn:active { transform: scale(.92); }
+.send-btn:disabled { background: var(--surface); color: var(--text3); }
+
+/* ── Review screen ─────────────────────────────────────────────────────── */
+.section { padding: 16px; }
+.section-title {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; color: var(--text2);
+  text-transform: uppercase; margin-bottom: 12px;
+}
+.copy-btn {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, #7c3aed, var(--accent));
+  border: none; border-radius: var(--radius);
+  color: #fff; font-size: 14px; font-weight: 700;
+  letter-spacing: .04em; transition: all .2s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.copy-btn:active { transform: scale(.98); opacity: .9; }
+.copy-btn.copied {
+  background: linear-gradient(135deg, #059669, var(--accent2));
+}
+.divider { height: 1px; background: var(--border); }
+.form-label {
+  display: block; font-size: 11px; font-weight: 700;
+  color: var(--text2); letter-spacing: .08em; margin-bottom: 6px;
+}
+.form-textarea {
+  width: 100%; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; color: var(--text); font-size: 13px;
+  resize: vertical; min-height: 84px; outline: none;
+  line-height: 1.6; transition: border-color .2s;
+}
+.form-textarea:focus { border-color: var(--accent); }
+.submit-btn {
+  width: 100%; padding: 13px;
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: var(--radius); color: var(--accent);
+  font-size: 13px; font-weight: 700; letter-spacing: .05em;
+  transition: all .2s; margin-top: 4px;
+}
+.submit-btn:active { background: var(--accent); color: #fff; }
+
+/* ── Diary list ────────────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex; gap: 6px; padding: 12px 16px 4px;
+}
+.filter-btn {
+  padding: 5px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 20px;
+  color: var(--text2); font-size: 11px; font-weight: 700;
+  transition: all .15s;
+}
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.diary-cards { padding: 10px 16px; display: flex; flex-direction: column; gap: 12px; }
+.diary-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden; transition: border-color .2s;
+}
+.diary-card:hover { border-color: rgba(167,139,250,.4); }
+.card-header {
+  padding: 13px 15px 9px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  cursor: pointer;
+}
+.card-date {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--accent2); letter-spacing: .08em;
+}
+.card-scores {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; color: var(--text3);
+  display: flex; gap: 8px;
+}
+.score-val { color: var(--accent); }
+.card-tags {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 0 15px 9px;
+}
+.tag {
+  font-size: 10px; padding: 2px 8px; border-radius: 20px;
+  background: var(--surface); color: var(--text2);
+  border: 1px solid var(--border); letter-spacing: .03em;
+}
+.tag.pos { color: var(--accent2); border-color: rgba(52,211,153,.3); background: rgba(52,211,153,.07); }
+.tag.neg { color: var(--accent3); border-color: rgba(244,114,182,.3); background: rgba(244,114,182,.07); }
+
+.card-img { width: 100%; height: 150px; object-fit: cover; }
+.card-body { padding: 10px 15px 13px; cursor: pointer; }
+.good-title {
+  font-size: 10px; font-weight: 700;
+  color: var(--text3); letter-spacing: .08em;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.good-item {
+  font-size: 12px; color: var(--text2); line-height: 1.6;
+  padding: 2px 0; display: flex; gap: 6px;
+}
+.good-item::before { content: '✦'; color: var(--accent); font-size: 9px; padding-top: 3px; flex-shrink: 0; }
+
+.card-detail {
+  display: none; padding: 12px 15px 14px;
+  border-top: 1px solid var(--border);
+  animation: fadeUp .2s ease-out;
+}
+.card-detail.open { display: block; }
+.detail-label {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  letter-spacing: .1em; text-transform: uppercase; margin-bottom: 5px;
+}
+.detail-text { font-size: 13px; color: var(--text2); line-height: 1.65; }
+
+.no-data {
+  text-align: center; padding: 56px 32px;
+  color: var(--text3); font-size: 13px; line-height: 1.7;
+}
+
+/* ── Graph screen ──────────────────────────────────────────────────────── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; padding: 14px 16px 4px;
+}
+.stat-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 10px; text-align: center;
+}
+.stat-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 20px; font-weight: 700; color: var(--accent);
+  line-height: 1; margin-bottom: 4px;
+}
+.stat-label { font-size: 10px; color: var(--text3); letter-spacing: .05em; }
+
+.chart-wrap { padding: 12px 16px; }
+.chart-box {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 16px; padding: 16px;
+}
+.chart-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  color: var(--text2); text-transform: uppercase; margin-bottom: 14px;
+}
+.chart-legend {
+  display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px;
+}
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text2); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Review screen ─────────────────────────────────────────────────────── */
+.review-mode-toggle {
+  display: flex; gap: 0; margin: 14px 16px 0;
+  background: var(--surface); border-radius: 12px; padding: 3px;
+  border: 1px solid var(--border);
+}
+.mode-btn {
+  flex:1; padding: 8px 10px; border-radius: 9px; border: none;
+  background: none; color: var(--text3);
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  transition: all .2s; line-height: 1.3; text-align: center;
+}
+.mode-btn.active { background: var(--bg3); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+
+.review-panel { display: none; }
+.review-panel.active { display: block; }
+
+/* Step flow indicator */
+.step-flow {
+  display: flex; align-items: center; gap: 6px;
+  padding: 14px 16px 0; overflow-x: auto; scrollbar-width: none;
+}
+.step-flow::-webkit-scrollbar { display: none; }
+.step-node {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+.step-dot {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .2s;
+}
+.step-dot.done  { background: var(--accent2); border-color: var(--accent2); color: #0a1a12; }
+.step-dot.active{ background: var(--accent);  border-color: var(--accent);  color: #fff; }
+.step-label { font-size: 10px; color: var(--text3); white-space: nowrap; }
+.step-arrow { color: var(--text3); font-size: 10px; }
+
+/* Form fields */
+.field-group { margin-bottom: 14px; }
+.field-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px; }
+.field-row .form-label { min-width: 80px; padding-top: 11px; flex-shrink: 0; }
+.field-row .form-textarea { min-height: 42px; }
+
+/* Emotion tag picker */
+.tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-pick-btn {
+  padding: 5px 11px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text2);
+  font-size: 11px; font-family: inherit; transition: all .15s;
+}
+.tag-pick-btn.selected.pos { background: rgba(52,211,153,.15); border-color: var(--accent2); color: var(--accent2); }
+.tag-pick-btn.selected.neg { background: rgba(244,114,182,.12); border-color: var(--accent3); color: var(--accent3); }
+.tag-pick-btn:not(.selected):hover { border-color: var(--text3); }
+
+/* Number stepper */
+.number-stepper {
+  display: flex; align-items: center; gap: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.stepper-btn {
+  width: 36px; height: 38px; background: none; border: none;
+  color: var(--text2); font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.stepper-btn:active { background: var(--bg3); color: var(--accent); }
+.stepper-val {
+  flex:1; text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 14px; font-weight: 700;
+  color: var(--accent); min-width: 36px;
+}
+
+/* Paste area */
+.paste-area {
+  width: 100%; min-height: 160px;
+  background: var(--surface); border: 1px dashed var(--border);
+  border-radius: 12px; padding: 14px;
+  color: var(--text2); font-size: 13px; line-height: 1.65;
+  resize: vertical; outline: none; transition: border-color .2s;
+  font-family: inherit;
+}
+.paste-area:focus { border-color: var(--accent); border-style: solid; }
+.paste-area::placeholder { color: var(--text3); }
+
+.parse-btn {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, #2d1f6b, var(--accent));
+  border: none; border-radius: var(--radius); color: #fff;
+  font-size: 13px; font-weight: 700; letter-spacing: .04em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all .2s; margin-top: 10px;
+}
+.parse-btn:active { opacity: .88; }
+
+.parse-result {
+  margin-top: 14px; padding: 12px 14px;
+  background: rgba(52,211,153,.07); border: 1px solid rgba(52,211,153,.25);
+  border-radius: 12px; font-size: 12px; color: var(--text2);
+  line-height: 1.65; display: none;
+}
+.parse-result.show { display: block; }
+.parse-result strong { color: var(--accent2); }
+
+/* Photo attach for diary */
+.diary-photo-preview {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+}
+.diary-photo-thumb {
+  width: 52px; height: 52px; object-fit: cover;
+  border-radius: 8px; border: 1px solid var(--border);
+  display: none;
+}
+.diary-photo-thumb.show { display: block; }
+.diary-photo-info { flex:1; font-size: 12px; color: var(--text2); }
+.diary-photo-btn {
+  padding: 7px 14px; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: 11px; font-weight: 700; color: var(--text2);
+  transition: all .15s;
+}
+.diary-photo-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Save to Notion button */
+.save-notion-btn {
+  width: 100%; padding: 15px;
+  background: linear-gradient(135deg, #6d28d9, var(--accent));
+  border: none; border-radius: var(--radius); color: #fff;
+  font-size: 14px; font-weight: 700; letter-spacing: .05em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all .2s; margin-top: 4px;
+}
+.save-notion-btn:active { transform: scale(.98); opacity: .9; }
+.save-notion-btn:disabled { background: var(--surface); color: var(--text3); }
+
+/* ── Settings modal ────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.7); backdrop-filter: blur(8px);
+  display: none; align-items: flex-end;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  width: 100%; max-width: 480px; margin: 0 auto;
+  background: var(--bg2); border-radius: 20px 20px 0 0;
+  border-top: 1px solid var(--border);
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  animation: slideUp .25s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.modal-handle {
+  width: 40px; height: 4px; background: var(--border);
+  border-radius: 2px; margin: 0 auto 20px;
+}
+.modal-title {
+  font-size: 15px; font-weight: 700; margin-bottom: 18px; color: var(--text);
+}
+.setting-row { margin-bottom: 14px; }
+.setting-label {
+  display: block; font-size: 11px; font-weight: 700;
+  color: var(--text2); letter-spacing: .08em; margin-bottom: 6px;
+}
+.setting-input {
+  width: 100%; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 13px; color: var(--text); font-size: 13px;
+  outline: none; transition: border-color .2s;
+}
+.setting-input:focus { border-color: var(--accent); }
+.setting-note { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+.save-setting-btn {
+  width: 100%; padding: 13px;
+  background: var(--accent); border: none;
+  border-radius: var(--radius); color: #fff;
+  font-size: 14px; font-weight: 700; letter-spacing: .05em;
+  margin-top: 6px; transition: all .2s;
+}
+.save-setting-btn:active { opacity: .85; transform: scale(.98); }
+
+/* ── Toast ─────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 130px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 18px;
+  border-radius: 24px; font-size: 12px; font-weight: 700;
+  opacity: 0; transition: all .3s; z-index: 999;
+  white-space: nowrap; pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+.toast.show { opacity:1; transform: translateX(-50%) translateY(0); }
+.toast.ok  { background: rgba(52,211,153,.15); border-color: var(--accent2); color: var(--accent2); }
+.toast.err { background: rgba(244,114,182,.12); border-color: var(--accent3); color: var(--accent3); }
+
+/* ── Loading spinner ───────────────────────────────────────────────────── */
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+
+#fileInput { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────────────── -->
+<div class="header">
+  <div class="header-top">
+    <span class="logo">LIFELOG</span>
+    <div class="header-right">
+      <span class="date-badge" id="headerDate"></span>
+      <button class="settings-btn" onclick="openSettings()">⚙</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="today"  onclick="switchTab('today',this)">📝 今日</button>
+    <button class="tab"        data-tab="review" onclick="switchTab('review',this)">🌙 夜レビュー</button>
+    <button class="tab"        data-tab="diary"  onclick="switchTab('diary',this)">📚 日記一覧</button>
+    <button class="tab"        data-tab="graph"  onclick="switchTab('graph',this)">📈 感情グラフ</button>
+  </div>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- ① TODAY ───────────────────────────────────────────────────────────── -->
+  <div class="screen active" id="screen-today">
+    <div id="connBanner" class="conn-banner loading">
+      <span class="spinner"></span> Notionと接続中...
+    </div>
+    <div class="timeline-header">
+      <span class="timeline-date" id="timelineDate"></span>
+      <span class="tweet-count" id="tweetCount">0 件</span>
+      <button class="sync-btn" id="syncBtn" onclick="loadTodayTweets()">↺ 同期</button>
+    </div>
+    <div class="timeline" id="timeline">
+      <div class="empty-state">
+        <div class="empty-icon">💬</div>
+        <div class="empty-text">今日のつぶやきはまだありません<br>下のフォームから入力してみよう</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② REVIEW ──────────────────────────────────────────────────────────── -->
+  <div class="screen" id="screen-review">
+    <div class="section">
+      <div class="section-title">📋 今日をAIに送る</div>
+      <p style="font-size:12px;color:var(--text3);line-height:1.65;margin-bottom:14px;">
+        今日のつぶやきと心理学プロンプトをセットでコピー。<br>ChatGPT / Claude に貼り付けて日記を生成しよう。
+      </p>
+      <button class="copy-btn" id="copyBtn" onclick="copyAIPrompt()">
+        <span>📋</span><span>AI用テキストをコピー</span>
+      </button>
+    </div>
+    <div class="divider"></div>
+    <div class="section">
+      <div class="section-title">🗂️ ウィークリーレビュー</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <label class="form-label">今週の総括・成長実感</label>
+          <textarea class="form-textarea" id="weeklyReview" placeholder="今週どんな週だった？気づいたことや成長は？"></textarea>
+        </div>
+        <div>
+          <label class="form-label">やめること（Not-To-Do）</label>
+          <textarea class="form-textarea" id="weeklyStop" placeholder="来週はこれをやめてみよう…" style="min-height:64px"></textarea>
+        </div>
+        <button class="submit-btn" onclick="saveWeeklyReview()">ローカルに保存する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ DIARY LIST ──────────────────────────────────────────────────────── -->
+  <div class="screen" id="screen-diary">
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterDiary('week',this)">直近1週間</button>
+      <button class="filter-btn"        onclick="filterDiary('month',this)">今月</button>
+      <button class="filter-btn"        onclick="filterDiary('all',this)">すべて</button>
+    </div>
+    <div class="diary-cards" id="diaryCards">
+      <div class="no-data">
+        <div style="font-size:32px;margin-bottom:12px;">📚</div>
+        Notionの日記DBからデータを読み込みます<br>
+        設定からWorker URLを入力してください
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ GRAPH ───────────────────────────────────────────────────────────── -->
+  <div class="screen" id="screen-graph">
+    <div class="stats-row" id="statsRow"></div>
+    <div class="chart-wrap">
+      <div class="chart-box">
+        <div class="chart-title">2軸感情マトリックス — 快適度 × エネルギー度</div>
+        <canvas id="scatterChart" height="280"></canvas>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>今週</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>先週以前</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ── INPUT PANEL ────────────────────────────────────────────────────────── -->
+<div class="input-panel" id="inputPanel">
+  <div class="input-preview" id="inputPreview">
+    <img id="previewThumb" class="preview-thumb" src="" alt="">
+    <span class="preview-label" id="previewLabel">写真を添付中</span>
+    <button class="preview-remove" onclick="removeImage()">✕</button>
+  </div>
+  <div class="upload-progress" id="uploadProgress">
+    <span class="spinner"></span>
+    <span>Notionにアップロード中...</span>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+  <div class="input-row">
+    <button class="photo-btn" onclick="document.getElementById('fileInput').click()">＋</button>
+    <textarea class="text-input" id="tweetInput" placeholder="今、何してる？"
+      rows="1" oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="submitTweet()">➤</button>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" onchange="handleImageSelect(event)">
+</div>
+
+<!-- ── SETTINGS MODAL ─────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="settingsModal" onclick="closeSettingsOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚙️ 設定</div>
+    <div class="setting-row">
+      <label class="setting-label">CLOUDFLARE WORKER URL</label>
+      <input type="url" class="setting-input" id="workerUrlInput"
+        placeholder="https://your-worker.your-subdomain.workers.dev">
+      <p class="setting-note">
+        Cloudflare DashboardでデプロイしたWorkerのURLを入力してください。<br>
+        末尾のスラッシュは不要です。
+      </p>
+    </div>
+    <button class="save-setting-btn" onclick="saveSettings()">保存してテスト接続</button>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── SCRIPTS ────────────────────────────────────────────────────────────── -->
+<script>
+'use strict';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let WORKER_URL    = localStorage.getItem('ll_worker_url') || '';
+let todayTweetsCache = [];   // { id, ts, date, text, imageUrl, notionId, status }
+let diariesCache     = [];
+let weeklyReviews    = JSON.parse(localStorage.getItem('ll_weekly') || '[]');
+let pendingImage     = null; // { file, dataUrl }
+let pendingFileId    = null; // Notion file upload ID
+let chartInstance    = null;
+let currentDiaryRange = 'week';
+
+const POSITIVE_EMOTIONS = ['達成感','ワクワク','穏やか','充実','感謝','リラックス','インスピレーション'];
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  const now  = new Date();
+  const opts = { year:'numeric', month:'long', day:'numeric', weekday:'short' };
+  document.getElementById('headerDate').textContent   = now.toLocaleDateString('ja-JP', opts);
+  document.getElementById('timelineDate').textContent = now.toLocaleDateString('ja-JP', { month:'long', day:'numeric' });
+
+  document.getElementById('workerUrlInput').value = WORKER_URL;
+
+  if (WORKER_URL) {
+    loadTodayTweets();
+  } else {
+    setBanner('err', '⚠️ 設定からWorker URLを入力してください');
+  }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function openSettings()  { document.getElementById('settingsModal').classList.add('open'); }
+function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+function closeSettingsOutside(e) { if (e.target === e.currentTarget) closeSettings(); }
+
+async function saveSettings() {
+  const url = document.getElementById('workerUrlInput').value.trim().replace(/\/$/, '');
+  if (!url) { showToast('URLを入力してください', 'err'); return; }
+  WORKER_URL = url;
+  localStorage.setItem('ll_worker_url', WORKER_URL);
+  closeSettings();
+  showToast('設定を保存しました', 'ok');
+  await loadTodayTweets();
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  btn.classList.add('active');
+
+  document.getElementById('inputPanel').style.display = name === 'today' ? '' : 'none';
+
+  if (name === 'diary')  loadDiaries(currentDiaryRange);
+  if (name === 'graph')  loadGraphData();
+}
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+async function workerFetch(path, options = {}) {
+  if (!WORKER_URL) throw new Error('Worker URL が未設定です');
+  const res = await fetch(WORKER_URL + path, options);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Worker error ${res.status}: ${err}`);
+  }
+  return res.json();
+}
+
+// ─── Connection banner ────────────────────────────────────────────────────────
+function setBanner(type, msg) {
+  const el = document.getElementById('connBanner');
+  el.className = 'conn-banner ' + type;
+  el.innerHTML = type === 'loading'
+    ? `<span class="spinner"></span> ${msg}`
+    : (type === 'ok' ? `✓ ${msg}` : `⚠ ${msg}`);
+}
+
+// ─── Load today's tweets ──────────────────────────────────────────────────────
+async function loadTodayTweets() {
+  setBanner('loading', 'Notionと接続中...');
+  const syncBtn = document.getElementById('syncBtn');
+  syncBtn.classList.add('spinning');
+
+  try {
+    const date = todayStr();
+    const data = await workerFetch(`/tweets?date=${date}`);
+    todayTweetsCache = (data.results || []).map(parseNotionTweet);
+    renderTimeline();
+    setBanner('ok', 'Notionと接続済み');
+  } catch (e) {
+    setBanner('err', e.message);
+    showToast('同期失敗: ' + e.message, 'err');
+  } finally {
+    syncBtn.classList.remove('spinning');
+  }
+}
+
+function parseNotionTweet(page) {
+  const props = page.properties || {};
+  const titleArr = props['title']?.title || props['名前']?.title || [];
+  const text = titleArr.map(t => t.plain_text).join('');
+  const photoUrl = props['Photo']?.url || null;
+  const ts = page.created_time;
+
+  return {
+    notionId: page.id,
+    ts,
+    date: ts.split('T')[0],
+    text,
+    imageUrl: photoUrl,
+    status: 'saved',
+  };
+}
+
+// ─── Timeline render ──────────────────────────────────────────────────────────
+function renderTimeline() {
+  const tl = document.getElementById('timeline');
+  const tc = document.getElementById('tweetCount');
+  tc.textContent = todayTweetsCache.length + ' 件';
+
+  if (todayTweetsCache.length === 0) {
+    tl.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">💬</div>
+        <div class="empty-text">今日のつぶやきはまだありません<br>下のフォームから入力してみよう</div>
+      </div>`;
+    return;
+  }
+
+  tl.innerHTML = todayTweetsCache.map(t => {
+    const d  = new Date(t.ts);
+    const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const imgHtml = t.imageUrl
+      ? `<img class="tweet-img" src="${esc(t.imageUrl)}" alt="photo" loading="lazy">`
+      : '';
+    const statusHtml = t.status === 'saving'
+      ? `<div class="tweet-status saving"><span class="spinner"></span> 保存中...</div>`
+      : t.status === 'error'
+      ? `<div class="tweet-status error">⚠ 保存失敗</div>`
+      : `<div class="tweet-status saved">✓ Notionに保存済み</div>`;
+
+    return `
+      <div class="tweet-item" id="tweet-${t.notionId || t.ts}">
+        <span class="tweet-time">${hm}</span>
+        <div class="tweet-body">
+          <div class="tweet-text">${esc(t.text)}</div>
+          ${imgHtml}
+          ${statusHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Submit tweet ─────────────────────────────────────────────────────────────
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitTweet(); }
+}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 96) + 'px';
+}
+
+async function submitTweet() {
+  const input  = document.getElementById('tweetInput');
+  const text   = input.value.trim();
+  const btn    = document.getElementById('sendBtn');
+  if (!text && !pendingImage) return;
+  if (!WORKER_URL) { openSettings(); return; }
+
+  btn.disabled = true;
+
+  // 楽観的UI更新
+  const tempId = 'temp_' + Date.now();
+  const now    = new Date();
+  const optimistic = {
+    notionId: tempId, ts: now.toISOString(),
+    date: todayStr(), text, imageUrl: null, status: 'saving',
+  };
+  todayTweetsCache.push(optimistic);
+  renderTimeline();
+
+  try {
+    // 写真アップロード（先にやる）
+    let fileId = null;
+    if (pendingImage) {
+      fileId = await uploadFileToNotion(pendingImage.file, 'tweet');
+      optimistic.imageUrl = pendingImage.dataUrl; // プレビュー用
+    }
+
+    // つぶやき保存
+    const saved = await workerFetch('/tweet', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ text, fileId }),
+    });
+
+    // キャッシュ更新
+    const idx = todayTweetsCache.findIndex(t => t.notionId === tempId);
+    if (idx !== -1) {
+      todayTweetsCache[idx] = parseNotionTweet(saved);
+      if (fileId && pendingImage) {
+        todayTweetsCache[idx].imageUrl = pendingImage.dataUrl;
+      }
+    }
+
+    input.value = '';
+    input.style.height = 'auto';
+    removeImage();
+    renderTimeline();
+    showToast('Notionに保存しました ✦', 'ok');
+
+  } catch (e) {
+    const idx = todayTweetsCache.findIndex(t => t.notionId === tempId);
+    if (idx !== -1) todayTweetsCache[idx].status = 'error';
+    renderTimeline();
+    showToast('保存失敗: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─── Image handling ───────────────────────────────────────────────────────────
+function handleImageSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  pendingImage = { file };
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pendingImage.dataUrl = ev.target.result;
+    document.getElementById('previewThumb').src = pendingImage.dataUrl;
+    document.getElementById('previewLabel').textContent = file.name;
+    document.getElementById('inputPreview').classList.add('active');
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function removeImage() {
+  pendingImage   = null;
+  pendingFileId  = null;
+  document.getElementById('inputPreview').classList.remove('active');
+  document.getElementById('previewThumb').src = '';
+  document.getElementById('uploadProgress').classList.remove('active');
+}
+
+async function uploadFileToNotion(file, db = 'tweet') {
+  const prog  = document.getElementById('uploadProgress');
+  const fill  = document.getElementById('progressFill');
+  prog.classList.add('active');
+  fill.style.width = '20%';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('db', db);
+
+  fill.style.width = '50%';
+
+  const res = await workerFetch('/upload', { method: 'POST', body: formData });
+
+  fill.style.width = '100%';
+  setTimeout(() => { prog.classList.remove('active'); fill.style.width = '0%'; }, 600);
+
+  if (res.error) throw new Error(res.error + ': ' + (res.detail || ''));
+  return res.fileId;
+}
+
+// ─── AI prompt copy ───────────────────────────────────────────────────────────
+function copyAIPrompt() {
+  const lines = todayTweetsCache.length === 0
+    ? '（今日のつぶやきはまだありません）'
+    : todayTweetsCache.map(t => {
+        const d  = new Date(t.ts);
+        return `[${pad(d.getHours())}:${pad(d.getMinutes())}] ${t.text}`;
+      }).join('\n');
+
+  const prompt = `以下の【今日のつぶやき】と、別途添付する写真をもとに、Notionに登録するための日記データを抽出・整理してください。
+
+⚙️ 出力フォーマット（以下をそのままNotionにコピペできるように出力して）
+【快適度】（今日のつぶやきから判断して、心地よさを -2 〜 +2 の5段階数値だけで出力）
+【エネルギー度】（今日のつぶやきから判断して、やる気や活動量を -2 〜 +2 の5段階数値だけで出力）
+【感情タグ】（以下の候補リストから、今日の君の感情に合うものを最大3つ選択：達成感、ワクワク、穏やか、充実、感謝、リラックス、インスピレーション、焦燥感、モヤモヤ、疲労、孤独、落胆、プレッシャー、イライラ）
+
+【3つの良かったことと成功要因】
+1. （良かったこと）➔（要因：本人のどんな行動や意識が良かったか分析）
+2. （良かったこと）➔（要因：本人のどんな行動や意識が良かったか分析）
+3. （良かったこと）➔（要因：本人のどんな行動や意識が良かったか分析）
+
+【今日の学びと明日の小さな実験】
+・学び：
+・明日試すこと：（明日すぐにできる、1分で終わる具体的な行動を1つ提案）
+
+【本文】
+今日起きた主要な出来事を、つぶやきから自動で複数切り出し、以下のフォーマットで① ② ③…と番号を振ってすべて記述してください。
+
+① [1つ目の出来事のタイトル]
+・What（何）：
+・Where（どこで）：
+・With（誰と）：
+・感情：（その時の本人の感情や満足度を推測）
+
+（※以降、出来事がある分だけ ② ③… と続けてください）
+（※「マイナス感情」「反省」「ちょびっと記念日」「感動」「アイディア」があれば本文末尾に追加）
+
+---
+【今日のつぶやき】
+${lines}`;
+
+  navigator.clipboard.writeText(prompt).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.classList.add('copied');
+    btn.innerHTML = '<span>✓</span><span>コピーしました！</span>';
+    showToast('クリップボードにコピーしました ✦', 'ok');
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<span>📋</span><span>AI用テキストをコピー</span>';
+    }, 2500);
+  }).catch(() => showToast('コピーに失敗しました', 'err'));
+}
+
+// ─── Diary list ───────────────────────────────────────────────────────────────
+function filterDiary(range, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentDiaryRange = range;
+  loadDiaries(range);
+}
+
+async function loadDiaries(range = 'week') {
+  const container = document.getElementById('diaryCards');
+  container.innerHTML = `<div class="no-data"><span class="spinner"></span><br><br>読み込み中...</div>`;
+  if (!WORKER_URL) {
+    container.innerHTML = '<div class="no-data">Worker URLを設定してください</div>';
+    return;
+  }
+  try {
+    const data = await workerFetch(`/diaries?range=${range}`);
+    diariesCache = (data.results || []).map(parseNotionDiary);
+    renderDiaryCards();
+    renderStats();
+  } catch (e) {
+    container.innerHTML = `<div class="no-data">読み込み失敗<br><small>${esc(e.message)}</small></div>`;
+  }
+}
+
+function parseNotionDiary(page) {
+  const p = page.properties || {};
+  const getNum  = key => p[key]?.number ?? null;
+  const getText = key => (p[key]?.rich_text || []).map(t => t.plain_text).join('');
+  const getTags = key => (p[key]?.multi_select || []).map(t => t.name);
+  const getDate = key => p[key]?.date?.start || null;
+  const getFile = key => {
+    const files = p[key]?.files || [];
+    if (!files.length) return null;
+    return files[0].file?.url || files[0].external?.url || null;
+  };
+
+  return {
+    id:       page.id,
+    date:     getDate('(A) Date'),
+    comfort:  getNum('快適度'),
+    energy:   getNum('エネルギー度'),
+    tags:     getTags('感情タグ'),
+    good1:    getText('(B) 1グット'),
+    good2:    getText('(B) 2グット'),
+    good3:    getText('(B) 3グット'),
+    learning: getText('(B) 学び'),
+    nextAction: getText('Next Action'),
+    imageUrl: getFile('Bestphoto'),
+  };
+}
+
+function renderDiaryCards() {
+  const container = document.getElementById('diaryCards');
+  if (!diariesCache.length) {
+    container.innerHTML = '<div class="no-data">この期間の日記データがありません</div>';
+    return;
+  }
+
+  container.innerHTML = diariesCache.map((d, i) => {
+    const dateStr = d.date
+      ? new Date(d.date).toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'short' })
+      : '日付不明';
+
+    const tagHtml = (d.tags || []).map(tag => {
+      const cls = POSITIVE_EMOTIONS.includes(tag) ? 'pos' : 'neg';
+      return `<span class="tag ${cls}">${esc(tag)}</span>`;
+    }).join('');
+
+    const imgHtml = d.imageUrl
+      ? `<img class="card-img" src="${esc(d.imageUrl)}" alt="photo" loading="lazy">`
+      : '';
+
+    const goods = [d.good1, d.good2, d.good3].filter(Boolean);
+    const goodsHtml = goods.map(g =>
+      `<div class="good-item">${esc(g.split('→')[0] || g)}</div>`
+    ).join('');
+
+    const c = d.comfort !== null ? (d.comfort >= 0 ? '+' + d.comfort : d.comfort) : '--';
+    const e = d.energy  !== null ? (d.energy  >= 0 ? '+' + d.energy  : d.energy)  : '--';
+
+    return `
+      <div class="diary-card">
+        <div class="card-header" onclick="toggleDetail('det-${i}')">
+          <div class="card-date">${dateStr}</div>
+          <div class="card-scores">
+            <span>快 <span class="score-val">${c}</span></span>
+            <span>エネ <span class="score-val">${e}</span></span>
+          </div>
+        </div>
+        <div class="card-tags">${tagHtml}</div>
+        ${imgHtml}
+        <div class="card-body" onclick="toggleDetail('det-${i}')">
+          <div class="good-title">3つの良かったこと</div>
+          ${goodsHtml || '<div style="font-size:12px;color:var(--text3)">データなし</div>'}
+        </div>
+        <div class="card-detail" id="det-${i}">
+          ${d.learning ? `
+            <div style="margin-bottom:10px">
+              <div class="detail-label">学び</div>
+              <div class="detail-text">${esc(d.learning)}</div>
+            </div>` : ''}
+          ${d.nextAction ? `
+            <div>
+              <div class="detail-label">Next Action</div>
+              <div class="detail-text">${esc(d.nextAction)}</div>
+            </div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleDetail(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+
+// ─── Weekly review ────────────────────────────────────────────────────────────
+function saveWeeklyReview() {
+  const summary = document.getElementById('weeklyReview').value.trim();
+  const stop    = document.getElementById('weeklyStop').value.trim();
+  if (!summary && !stop) { showToast('内容を入力してください', 'err'); return; }
+  weeklyReviews.push({ id: Date.now().toString(), date: todayStr(), summary, stop });
+  localStorage.setItem('ll_weekly', JSON.stringify(weeklyReviews));
+  document.getElementById('weeklyReview').value = '';
+  document.getElementById('weeklyStop').value   = '';
+  showToast('ウィークリーレビューを保存しました ✦', 'ok');
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const container = document.getElementById('statsRow');
+  if (!diariesCache.length) { container.innerHTML = ''; return; }
+
+  const nums = diariesCache.filter(d => d.comfort !== null);
+  const avgC = nums.length ? (nums.reduce((a,b) => a + b.comfort, 0) / nums.length).toFixed(1) : '--';
+  const avgE = nums.length ? (nums.reduce((a,b) => a + b.energy,  0) / nums.length).toFixed(1) : '--';
+  const sign = v => isNaN(v) ? v : (v >= 0 ? '+' + v : v);
+
+  container.innerHTML = `
+    <div class="stat-card"><div class="stat-val">${diariesCache.length}</div><div class="stat-label">記録数</div></div>
+    <div class="stat-card"><div class="stat-val">${sign(avgC)}</div><div class="stat-label">平均快適度</div></div>
+    <div class="stat-card"><div class="stat-val">${sign(avgE)}</div><div class="stat-label">平均エネルギー</div></div>
+  `;
+}
+
+// ─── Chart ────────────────────────────────────────────────────────────────────
+async function loadGraphData() {
+  if (!WORKER_URL) return;
+  try {
+    const data = await workerFetch('/diaries?range=month');
+    diariesCache = (data.results || []).map(parseNotionDiary);
+    renderStats();
+    renderChart();
+  } catch (e) {
+    showToast('グラフデータ取得失敗', 'err');
+  }
+}
+
+function renderChart() {
+  const ctx  = document.getElementById('scatterChart').getContext('2d');
+  const now  = new Date();
+  const wCut = new Date(now); wCut.setDate(wCut.getDate() - 7);
+
+  const valid = diariesCache.filter(d => d.comfort !== null && d.energy !== null);
+  const thisWeek = valid.filter(d => new Date(d.date) >= wCut);
+  const older    = valid.filter(d => new Date(d.date) <  wCut);
+
+  const toPoints = arr => arr.map(d => ({
+    x: d.comfort, y: d.energy,
+    label: new Date(d.date).toLocaleDateString('ja-JP', { month:'short', day:'numeric' }),
+    tags:  (d.tags || []).join('・'),
+  }));
+
+  if (chartInstance) chartInstance.destroy();
+
+  chartInstance = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        { label:'今週',   data: toPoints(thisWeek), backgroundColor:'rgba(167,139,250,.85)', pointRadius:8,  pointHoverRadius:11 },
+        { label:'先週以前', data: toPoints(older),   backgroundColor:'rgba(52,211,153,.65)',  pointRadius:6,  pointHoverRadius:9  },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor:'rgba(24,24,31,.96)',
+          borderColor:'rgba(167,139,250,.35)', borderWidth:1,
+          padding:10,
+          callbacks: {
+            label: ctx => {
+              const p = ctx.raw;
+              const c = p.x >= 0 ? '+'+p.x : p.x;
+              const e = p.y >= 0 ? '+'+p.y : p.y;
+              return [`📅 ${p.label}`, `快適 ${c}  エネルギー ${e}`, p.tags ? `🏷 ${p.tags}` : ''].filter(Boolean);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          min:-2.5, max:2.5,
+          title:{ display:true, text:'← 不快  ｜  快適 →', color:'#8888a8', font:{ size:10 } },
+          grid:{ color:'rgba(255,255,255,.04)' },
+          ticks:{ color:'#4a4a64', stepSize:1 },
+          border:{ color:'rgba(255,255,255,.08)' },
+        },
+        y: {
+          min:-2.5, max:2.5,
+          title:{ display:true, text:'↑ 高エネルギー', color:'#8888a8', font:{ size:10 } },
+          grid:{ color:'rgba(255,255,255,.04)' },
+          ticks:{ color:'#4a4a64', stepSize:1 },
+          border:{ color:'rgba(255,255,255,.08)' },
+        },
+      }
+    }
+  });
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function todayStr() {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function esc(str) {
+  return String(str||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' ' + type : '') + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2400);
+}
+
+// ─── Boot ──────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
