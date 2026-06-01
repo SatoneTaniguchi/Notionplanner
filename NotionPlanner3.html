@@ -1739,13 +1739,20 @@
     display: flex; align-items: center; gap: 12px;
   }
   .routine-avatar {
-    width: 52px; height: 52px; flex-shrink: 0;
-    border-radius: 50%; overflow: hidden;
-    display: block;
+    width: 52px; height: 52px; min-width: 52px; min-height: 52px;
+    max-width: 52px; max-height: 52px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden !important;
+    display: flex; align-items: center; justify-content: center;
+    clip-path: circle(50%);
   }
   .routine-avatar img {
-    width: 52px; height: 52px; object-fit: cover; border-radius: 50%;
+    width: 52px; height: 52px; min-width: 52px; min-height: 52px;
+    max-width: 52px; max-height: 52px;
+    object-fit: cover;
     display: block;
+    flex-shrink: 0;
   }
   .routine-card-name {
     font-size: 19px; font-weight: 700; color: #2d2b3a; flex: 1;
@@ -5469,7 +5476,7 @@
 
   // アバター（カード左上のアイコン）
   function avatarSVG(filled) {
-    return '<img src="4.jpeg" alt="icon" draggable="false" style="width:52px;height:52px;object-fit:cover;border-radius:50%;display:block;overflow:hidden;">';
+    return '<img src="4.jpeg" alt="icon" draggable="false" style="width:52px;height:52px;min-width:52px;min-height:52px;max-width:52px;max-height:52px;object-fit:cover;border-radius:50%;display:block;clip-path:circle(50%);">';
   }
 
   let currentRoutineRange = '30';
