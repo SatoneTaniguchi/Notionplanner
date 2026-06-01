@@ -4591,20 +4591,66 @@
 
   function deleteTask() {
     if (!editingTaskId) return;
-    if (!confirm('タスクを削除しますか？')) return;
     const task = tasks.find(t => t.id === editingTaskId);
-    const _delId = editingTaskId;
-    tasks = tasks.filter(t => t.id !== editingTaskId);
+    if (!task) { closeModal(); return; }
+
+    // 習慣関連の削除かどうかを判定し、削除対象の「テンプレートID」を特定する。
+    // ・通常テンプレート(_type:'repeat')を開いている → そのid
+    // ・展開インスタンス(_habitTemplateId付き)を開いている → その_habitTemplateId
+    // ・疑似テンプレートのメンバー(種類:習慣で同名の独立タスク群)を開いている → 同名グループ
+    const isHabitKind = task['(B)種類'] === '習慣';
+    let habitTemplateId = null;
+    let pseudoGroupName = null;
+    if (isHabitKind) {
+      if (task._type === 'repeat') habitTemplateId = task.id;
+      else if (task._habitTemplateId) habitTemplateId = task._habitTemplateId;
+      else pseudoGroupName = (task.name || '(無題)').trim(); // Notion由来などの独立習慣
+    }
+
+    const isHabit = isHabitKind && (habitTemplateId || pseudoGroupName);
+    const confirmMsg = isHabit
+      ? 'この習慣を削除しますか？\n過去・今日・未来のすべての予定と記録が削除されます。'
+      : 'タスクを削除しますか？';
+    if (!confirm(confirmMsg)) return;
+
+    // Notionアーカイブ対象を集める
+    const notionArchiveIds = [];
+
+    if (isHabit) {
+      // 関連タスクをすべて集める（テンプレート本体＋全インスタンス／疑似メンバー）
+      const related = tasks.filter(t => {
+        if (t['(B)種類'] !== '習慣') return false;
+        if (habitTemplateId) {
+          return t.id === habitTemplateId || t._habitTemplateId === habitTemplateId;
+        }
+        // 疑似グループ: 同名の独立習慣（テンプレ・インスタンスに属さない）
+        return !t._habitTemplateId && t._type !== 'repeat' && (t.name || '(無題)').trim() === pseudoGroupName;
+      });
+      related.forEach(t => { if (t._notionId) notionArchiveIds.push(t._notionId); });
+      const removeIds = new Set(related.map(t => t.id));
+      tasks = tasks.filter(t => !removeIds.has(t.id));
+
+      // 完了履歴・頻度設定・終了状態もクリーンアップ
+      const histKey = habitTemplateId || ('pseudo_' + pseudoGroupName);
+      const hist = getHabitHistory(); if (hist[histKey]) { delete hist[histKey]; saveHabitHistory(hist); }
+      const ended = getRoutineEndedMap();
+      [habitTemplateId, 'pseudo_' + pseudoGroupName].forEach(k => { if (k && ended[k]) delete ended[k]; });
+      saveRoutineEndedMap(ended);
+    } else {
+      if (task._notionId) notionArchiveIds.push(task._notionId);
+      tasks = tasks.filter(t => t.id !== editingTaskId);
+    }
+
     localStorage.setItem('tasks', JSON.stringify(tasks));
-    // 習慣テンプレートなら、未来のインスタンスも削除（過去は記録として残す）
-    if (task && task['(B)種類'] === '習慣' && task._type === 'repeat') {
-      deleteHabitInstances(_delId, true);
-    }
+
     // Notion側もアーカイブ（削除）
-    if (task && task._notionId && notionSettings.token) {
-      notionApiCall(`/pages/${task._notionId}`, 'PATCH', { archived: true })
-        .catch(e => console.error('Notion削除失敗', e));
+    if (notionSettings.token) {
+      notionArchiveIds.forEach(nid => {
+        notionApiCall(`/pages/${nid}`, 'PATCH', { archived: true })
+          .catch(e => console.error('Notion削除失敗', e));
+      });
     }
+
     closeModal();
     renderTimeline();
     renderLater();
