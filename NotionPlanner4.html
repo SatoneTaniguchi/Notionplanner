@@ -5729,6 +5729,8 @@
 
     let touchStartY = 0;
     let touchMoved = false;
+    let dragStartH = 0; // ドラッグ開始時のSTART_H
+    let dragPX = 80;    // ドラッグ開始時のPX
 
     function startLongPress(clientY) {
       touchStartY = clientY;
@@ -5736,6 +5738,15 @@
       longPressTimer = setTimeout(() => {
         if (touchMoved) return; // 指が動いていたらドラッグ開始しない
         isDragging = true;
+        // このタイミングでSTART_Hを確定（renderTimelineと同じPX=80を使用）
+        dragPX = 80;
+        const tlEl = document.getElementById('timeline');
+        const labels = tlEl ? tlEl.querySelectorAll('div[style*="text-align:right"]') : [];
+        dragStartH = 0;
+        for (let i = 0; i < labels.length; i++) {
+          const txt = (labels[i].textContent || '').trim();
+          if (/:00$/.test(txt)) { dragStartH = parseInt(txt) || 0; break; }
+        }
         card.classList.add('dragging');
         // ゴーストを作成
         ghost = document.createElement('div');
@@ -5759,22 +5770,15 @@
       ghost.style.top = (clientY - 30) + 'px';
       timeIndicator.style.top = (clientY - 30) + 'px';
 
-      // スクロールコンテナ基準のY座標を正確に計算
-      const scrollEl = document.getElementById('timelineScroll');
-      const scrollRect = scrollEl.getBoundingClientRect();
-      // clientYからスクロールコンテナ上端を引き、スクロール量を足す
-      const relY = (clientY - scrollRect.top) + scrollEl.scrollTop;
-      const PX = 80; // 1時間=80px
-
-      // START_Hを最初のラベルから取得
+      // timeline div の現在の画面座標を取得
       const tlEl = document.getElementById('timeline');
-      const firstLabel = tlEl.querySelector('.tl-hour-label');
-      const startH = firstLabel ? (parseInt(firstLabel.textContent) || 0) : 0;
+      const tlRect = tlEl.getBoundingClientRect();
+      const relY = clientY - tlRect.top; // timeline先頭からの相対ピクセル
 
-      // relYはSTART_Hからの相対ピクセル → 分に変換
-      const rawMin = startH * 60 + relY / PX * 60;
-      // 15分単位で丸める（より細かく操作できるように）
-      const clampedMin = Math.max(0, Math.min(23 * 60 + 45, rawMin));
+      // relY=0 が dragStartH時。分 = dragStartH*60 + relY/dragPX*60
+      const rawMin = dragStartH * 60 + relY / dragPX * 60;
+      // 15分単位で丸める
+      const clampedMin = Math.max(dragStartH * 60, Math.min(23 * 60 + 45, rawMin));
       const closestMin = Math.round(clampedMin / 15) * 15;
       const hh = Math.floor(closestMin / 60).toString().padStart(2,'0');
       const mm = (closestMin % 60).toString().padStart(2,'0');
