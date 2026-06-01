@@ -2167,6 +2167,18 @@
         🔄 今すぐ同期
       </button>
 
+      <!-- 習慣タスクをNotionへ強制登録（デバッグ/救済用） -->
+      <button onclick="debugSyncHabitsToNotion()" style="
+        width:100%;background:#6c5ce7;color:#fff;border:none;border-radius:14px;
+        padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:12px;">
+        🩺 習慣タスクをNotionへ登録（診断）
+      </button>
+
+      <!-- 診断結果 -->
+      <div id="habitSyncDebugLog" style="background:#f0eefb;border-radius:12px;padding:12px;font-size:12px;color:#4a4a6a;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">
+        「習慣タスクをNotionへ登録（診断）」を押すと、未登録の習慣タスクの内訳と登録結果がここに表示されます。
+      </div>
+
       <!-- 同期ログ -->
       <div id="notionSyncLog" style="background:#f8f8f8;border-radius:12px;padding:12px;font-size:12px;color:#8e8e93;min-height:80px;white-space:pre-wrap;line-height:1.6;">
         ログなし
@@ -5468,16 +5480,19 @@
     if (notionSettings.token && notionSettings.dbId) {
       // (1) 今回新規作成したインスタンス
       allCreated.forEach(inst => pushHabitInstanceToNotion(inst));
-      // (2) 既存でもNotion未登録のインスタンスを拾って登録する。
-      //     （過去の二重展開バグ等でpushされ損ねた今日・未来分を救済）
+      // (2) 既存でもNotion未登録の習慣タスクを拾って登録する。
+      //     _habitTemplateId の有無に関わらず、種類=習慣・実行日あり・未登録・展開期間内を対象。
+      //     （二重展開バグや、テンプレートに紐づかない疑似習慣の取りこぼしを救済）
       const today = new Date(); today.setHours(0,0,0,0);
       const createdIds = new Set(allCreated.map(i => i.id));
       tasks.forEach(t => {
-        if (!t._habitTemplateId) return;
-        if (t._notionId || t._notionPushing) return;
-        if (createdIds.has(t.id)) return; // 既に(1)で処理
-        // 過去すぎる分は送らない（展開範囲と揃える）
-        const d = new Date(t._habitDate); d.setHours(0,0,0,0);
+        if (createdIds.has(t.id)) return;            // 既に(1)で処理
+        if (t['(B)種類'] !== '習慣') return;          // 習慣のみ
+        if (t._type === 'repeat' || t._type === 'repeat_ended') return; // テンプレ本体は送らない
+        if (t._notionId || t._notionPushing) return; // 既に登録済み/中
+        const j = t['(A)実行日'];
+        if (!j || !j.start) return;                  // 実行日なしは対象外
+        const d = new Date(j.start); d.setHours(0,0,0,0);
         const diffDays = Math.round((d - today) / 86400000);
         if (diffDays < -HABIT_PAST_DAYS || diffDays > HABIT_FUTURE_DAYS) return;
         pushHabitInstanceToNotion(t);
@@ -5503,8 +5518,74 @@
     }).catch(e => {
       delete inst._notionPushing;
       console.error('習慣インスタンスNotion登録失敗', e);
+      window._habitSyncErrors = window._habitSyncErrors || [];
+      window._habitSyncErrors.push({ name: inst.name, date: inst._habitDate || (inst['(A)実行日']&&inst['(A)実行日'].start), error: String(e && e.message || e) });
     });
   }
+
+  // デバッグ: 未登録の習慣タスクを数え、強制的にNotion登録を試みる。結果を画面に表示。
+  function debugSyncHabitsToNotion() {
+    const logEl = document.getElementById('habitSyncDebugLog');
+    const setLog = (s) => { if (logEl) logEl.textContent = s; };
+
+    if (!notionSettings.token || !notionSettings.dbId) {
+      setLog('❌ Notion未設定です（token または dbId が空）。\n「設定」タブでトークンとデータベースIDを入力して保存してください。');
+      return;
+    }
+    window._habitSyncErrors = [];
+    const today = new Date(); today.setHours(0,0,0,0);
+    const targets = tasks.filter(t => {
+      if (t['(B)種類'] !== '習慣') return false;
+      if (t._type === 'repeat' || t._type === 'repeat_ended') return false;
+      if (t._notionId || t._notionPushing) return false;
+      const j = t['(A)実行日']; if (!j || !j.start) return false;
+      const d = new Date(j.start); d.setHours(0,0,0,0);
+      const diff = Math.round((d - today) / 86400000);
+      return diff >= -HABIT_PAST_DAYS && diff <= HABIT_FUTURE_DAYS;
+    });
+
+    const habitKindCount = tasks.filter(t => t['(B)種類'] === '習慣').length;
+    const tplCount = tasks.filter(t => t['(B)種類']==='習慣' && (t._type==='repeat'||t._type==='repeat_ended')).length;
+    const instWithTplId = tasks.filter(t => t['(B)種類']==='習慣' && t._habitTemplateId).length;
+    const alreadySynced = tasks.filter(t => t['(B)種類']==='習慣' && t._notionId).length;
+
+    let msg = `【診断結果】\n`;
+    msg += `習慣タスク総数: ${habitKindCount}\n`;
+    msg += `・テンプレ本体: ${tplCount}\n`;
+    msg += `・テンプレ紐づき(_habitTemplateId): ${instWithTplId}\n`;
+    msg += `・Notion登録済み: ${alreadySynced}\n`;
+    msg += `・未登録で今回登録を試みる分: ${targets.length}\n`;
+    if (targets.length) {
+      msg += `\n登録対象（最大10件表示）:\n`;
+      msg += targets.slice(0,10).map(t => ` ・${t.name}（${(t['(A)実行日'].start||'').substring(0,10)}）`).join('\n');
+      msg += `\n\n⏳ 登録中… 数秒後に結果を表示します。`;
+    } else {
+      msg += `\n登録対象がありません。\n`;
+      msg += `※登録済み数が0なのに対象も0の場合、習慣タスクが「種類=習慣」になっていないか、実行日が無い可能性があります。`;
+    }
+    setLog(msg);
+
+    if (targets.length === 0) return;
+
+    targets.forEach(t => pushHabitInstanceToNotion(t));
+
+    setTimeout(() => {
+      const errs = window._habitSyncErrors || [];
+      const nowSynced = tasks.filter(t => t['(B)種類']==='習慣' && t._notionId).length;
+      let r = `【登録結果】\n`;
+      r += `登録を試みた件数: ${targets.length}\n`;
+      r += `Notion登録済み（実行後）: ${nowSynced}\n`;
+      if (errs.length === 0) {
+        r += `\n✅ エラーなし。Notion側に反映されているか確認してください。\n反映まで少し時間がかかる場合があります。`;
+      } else {
+        r += `\n❌ エラー ${errs.length}件:\n`;
+        r += errs.slice(0,5).map(e => ` ・${e.name}（${e.date||''}）: ${e.error}`).join('\n');
+        r += `\n\nこのエラー文言を開発者に伝えると原因を特定できます。`;
+      }
+      setLog(r);
+    }, 4500);
+  }
+  window.debugSyncHabitsToNotion = debugSyncHabitsToNotion;
 
   // 編集時: 未来の該当しなくなったインスタンスを削除し、Notionもアーカイブ
   // （過去・今日のインスタンスは記録として残す）
