@@ -4442,6 +4442,33 @@
             task['(A)実行日'] = buildJissekiDate(getUIDateStr(), getUIStartTime(), drumSelectedMin);
             task._allDay = false;
           }
+        } else if (currentTab === 'repeat') {
+          // 繰り返しタスクの編集: _repeatConfig を UI の値で更新する
+          task._type = 'repeat';
+          const rAllday = document.getElementById('repeatAlldayToggle').classList.contains('toggle-on');
+          const rTime = rAllday ? '00:00' : (document.getElementById('repeatTimeSelect').value || '07:00');
+          // 既存の開始日は維持（無ければ作成日にフォールバック）。期間制限で明示変更があれば優先。
+          const prev = task._repeatConfig || {};
+          const startVal = (repeatDateLimitOn && repeatStartDate)
+            ? repeatStartDate.toDateString()
+            : (prev.start || new Date(currentDate).toDateString());
+          const endVal = (repeatDateLimitOn && repeatEndDate)
+            ? repeatEndDate.toDateString()
+            : (repeatDateLimitOn ? null : (prev.end || null));
+          task._repeatConfig = {
+            type: repeatType,
+            intervalNum: repeatIntervalNum,
+            intervalUnit: repeatIntervalUnit,
+            start: startVal,
+            end: endVal,
+            time: rTime,
+            allDay: rAllday,
+            daysOfWeek: repeatDaysOfWeek.slice().sort((a,b)=>a-b)
+          };
+          task._allDay = rAllday;
+          task['(A)実行日'] = rAllday
+            ? { start: new Date(currentDate).toDateString() }
+            : buildJissekiDate(currentDate.toDateString(), rTime, drumSelectedMin);
         }
       }
     } else {
@@ -4481,7 +4508,11 @@
           type: repeatType,
           intervalNum: repeatIntervalNum,
           intervalUnit: repeatIntervalUnit,
-          start: (repeatDateLimitOn && repeatStartDate) ? repeatStartDate.toDateString() : null,
+          // 開始日: 期間制限で明示指定があればそれを使い、未指定なら「作成日(=今日)」を開始日とする。
+          // これにより30マスや展開が作成日より前まで遡らない（古い日から押し出される正しい挙動）。
+          start: (repeatDateLimitOn && repeatStartDate)
+            ? repeatStartDate.toDateString()
+            : new Date(currentDate).toDateString(),
           end:   (repeatDateLimitOn && repeatEndDate)   ? repeatEndDate.toDateString()   : null,
           time: rTime,
           allDay: rAllday,
@@ -5309,14 +5340,35 @@
       tasks = tasks.filter(t => !removeIds.has(t.id));
       localStorage.setItem('tasks', JSON.stringify(tasks));
     }
-    // 名前・時刻などの変更を既存の未来インスタンスにも反映
+    // 名前・時刻などの変更を既存インスタンスにも反映（今日のぶんも含める）
+    const rc = template._repeatConfig || {};
+    const pad = n => n.toString().padStart(2,'0');
+    const durMin = Math.round((template['(C)見込み/h'] || 0) * 60);
     tasks.forEach(t => {
       if (t._habitTemplateId !== template.id) return;
       const d = new Date(t._habitDate); d.setHours(0,0,0,0);
-      if (d <= today) return;
+      if (d < today) return; // 過去は記録として変更しない（今日・未来は反映）
       let changed = false;
       if (t.name !== template.name) { t.name = template.name; changed = true; }
       if (t['(B)実行期間'] !== (template['(B)実行期間']||null)) { t['(B)実行期間'] = template['(B)実行期間']||null; changed = true; }
+      if ((t['(C)見込み/h']||0) !== (template['(C)見込み/h']||0)) { t['(C)見込み/h'] = template['(C)見込み/h']||0; changed = true; }
+      // 時刻・終日の変更を実行日に反映して組み直す（達成状態(A)doneはそのまま保持）
+      const ds = t._habitDate;
+      let newJisseki;
+      if (rc.allDay) {
+        newJisseki = { start: ds, end: ds };
+      } else {
+        const [sh, sm] = (rc.time || '07:00').split(':').map(Number);
+        const endMin = sh*60 + sm + durMin;
+        const eh = Math.floor(endMin/60) % 24, em = endMin % 60;
+        newJisseki = { start: `${ds}T${pad(sh)}:${pad(sm)}`, end: `${ds}T${pad(eh)}:${pad(em)}` };
+      }
+      const cur = t['(A)実行日'] || {};
+      if (cur.start !== newJisseki.start || cur.end !== newJisseki.end) {
+        t['(A)実行日'] = newJisseki;
+        t._allDay = !!rc.allDay;
+        changed = true;
+      }
       if (changed) {
         t._localLastEdited = new Date().toISOString();
         if (t._notionId && notionSettings.token) {
@@ -5593,14 +5645,40 @@
     return streak;
   }
 
-  // 直近N個の「該当日」を古い順で返す
+  // 習慣テンプレートの「実質的な開始日」を求める（これより前は対象日にしない）
+  function getHabitStartDate(task) {
+    // 通常テンプレート: _repeatConfig.start を優先
+    if (task._repeatConfig && task._repeatConfig.start) {
+      const d = new Date(task._repeatConfig.start); d.setHours(0,0,0,0); return d;
+    }
+    // 通常テンプレート（startなし）: 実行日 or 最古の紐づくインスタンス
+    if (!task._pseudo) {
+      const cands = [];
+      const j = task['(A)実行日'];
+      if (j && j.start) cands.push(new Date(j.start));
+      tasks.forEach(t => {
+        if (t._habitTemplateId === task.id && t._habitDate) cands.push(new Date(t._habitDate));
+      });
+      if (cands.length) { const d = new Date(Math.min(...cands.map(x=>x.getTime()))); d.setHours(0,0,0,0); return d; }
+    }
+    // 疑似テンプレート: 最古のメンバー実行日
+    if (task._pseudo && task._pseudoMembers && task._pseudoMembers.length) {
+      const d = new Date(Math.min(...task._pseudoMembers.map(m => new Date(m['(A)実行日'].start).getTime())));
+      d.setHours(0,0,0,0); return d;
+    }
+    return null;
+  }
+
+  // 直近N個の「該当日」を古い順で返す（開始日より前は遡らない）
   function getRecentOccurrences(task, count) {
     const result = [];
     const today = new Date(); today.setHours(0,0,0,0);
+    const startD = getHabitStartDate(task); // これより前は集めない
     let cursor = new Date(today);
     let guard = 0;
     while (result.length < count && guard < 1000) {
       guard++;
+      if (startD && cursor < startD) break; // 開始日より前に到達したら終了
       if (habitOccursOn(task, cursor)) {
         result.unshift(new Date(cursor));
       }
