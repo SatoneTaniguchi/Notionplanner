@@ -13,19 +13,20 @@
 <style>
 /* ── Variables ─────────────────────────────────────────────────────────── */
 :root {
-  --bg:      #0a0a0e;
-  --bg2:     #111116;
-  --bg3:     #18181f;
-  --surface: #1e1e27;
-  --border:  #2a2a36;
-  --accent:  #a78bfa;
-  --accent2: #34d399;
-  --accent3: #f472b6;
-  --warn:    #fbbf24;
-  --text:    #eaeaf4;
-  --text2:   #8888a8;
-  --text3:   #4a4a64;
+  --bg:      #f4f2f9;
+  --bg2:     #ede9f6;
+  --bg3:     #e8e3f4;
+  --surface: #ffffff;
+  --border:  #d8d2ed;
+  --accent:  #7c5cbf;
+  --accent2: #4aab8a;
+  --accent3: #d96b9a;
+  --warn:    #c48a1a;
+  --text:    #2e2a3d;
+  --text2:   #6b6188;
+  --text3:   #a89fc0;
   --radius:  14px;
+  --shadow:  0 2px 12px rgba(100,80,160,.10);
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────── */
@@ -50,7 +51,7 @@ img { display: block; }
 /* ── Header ────────────────────────────────────────────────────────────── */
 .header {
   position: sticky; top: 0; z-index: 100;
-  background: rgba(10,10,14,0.88);
+  background: rgba(244,242,249,0.92);
   backdrop-filter: blur(20px) saturate(1.4);
   border-bottom: 1px solid var(--border);
   padding: 12px 16px 0;
@@ -68,7 +69,7 @@ img { display: block; }
 .date-badge {
   font-family: 'Space Mono', monospace;
   font-size: 10px; color: var(--text2);
-  background: var(--surface); padding: 4px 10px;
+  background: var(--bg3); padding: 4px 10px;
   border-radius: 20px; border: 1px solid var(--border);
 }
 .settings-btn {
@@ -76,22 +77,46 @@ img { display: block; }
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; color: var(--text2); font-size: 15px;
   display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow);
 }
 .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── Tabs ──────────────────────────────────────────────────────────────── */
 .tabs {
-  display: flex; overflow-x: auto; scrollbar-width: none;
+  display: flex; align-items: center; gap: 4px;
+  overflow-x: auto; scrollbar-width: none;
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
-  flex-shrink: 0; padding: 8px 14px;
-  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  flex-shrink: 0; padding: 8px 16px;
+  font-size: 12px; font-weight: 700; letter-spacing: .04em;
   color: var(--text3); background: none;
-  border: none; border-bottom: 2px solid transparent;
+  border: none; border-bottom: 2.5px solid transparent;
   transition: all .2s; white-space: nowrap;
 }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* ドロップダウントリガー */
+.tab-more-btn {
+  flex-shrink: 0; margin-left: auto; padding: 6px 10px;
+  font-size: 18px; font-weight: 700; line-height: 1;
+  color: var(--text3); background: none; border: none;
+  position: relative;
+}
+.tab-dropdown {
+  display: none; position: absolute; top: calc(100% + 2px); right: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 8px 32px rgba(100,80,160,.15);
+  min-width: 160px; z-index: 200; overflow: hidden;
+}
+.tab-dropdown.open { display: block; }
+.tab-dropdown-item {
+  display: block; width: 100%; padding: 12px 16px;
+  font-size: 13px; font-weight: 600; color: var(--text2);
+  background: none; border: none; text-align: left;
+  border-bottom: 1px solid var(--border); transition: background .15s;
+}
+.tab-dropdown-item:last-child { border-bottom: none; }
+.tab-dropdown-item:active, .tab-dropdown-item.active-sub { background: var(--bg2); color: var(--accent); }
 
 /* ── Screens ───────────────────────────────────────────────────────────── */
 .main { padding-bottom: 150px; }
@@ -105,9 +130,9 @@ img { display: block; }
   display: flex; align-items: center; gap: 8px;
   border: 1px solid;
 }
-.conn-banner.ok  { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.3); color: var(--accent2); }
-.conn-banner.err { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.3); color: var(--warn); }
-.conn-banner.loading { background: var(--surface); border-color: var(--border); color: var(--text3); }
+.conn-banner.ok  { background: rgba(74,171,138,.10); border-color: rgba(74,171,138,.4); color: #2e8a6a; }
+.conn-banner.err { background: rgba(196,138,26,.10); border-color: rgba(196,138,26,.4); color: var(--warn); }
+.conn-banner.loading { background: var(--bg3); border-color: var(--border); color: var(--text3); }
 
 /* ── Timeline ──────────────────────────────────────────────────────────── */
 .timeline-header {
@@ -133,6 +158,14 @@ img { display: block; }
 .sync-btn:hover { border-color: var(--accent2); color: var(--accent2); }
 .sync-btn.spinning { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.ai-copy-mini-btn {
+  padding: 4px 10px; font-size: 10px; font-weight: 700;
+  background: rgba(124,92,191,.10); border: 1px solid rgba(124,92,191,.3);
+  border-radius: 20px; color: var(--accent); letter-spacing: .04em;
+  transition: all .2s; white-space: nowrap;
+}
+.ai-copy-mini-btn:active { background: rgba(124,92,191,.2); }
 
 .timeline { padding: 0 16px; display: flex; flex-direction: column; gap: 0; }
 
@@ -176,12 +209,13 @@ img { display: block; }
   position: fixed; bottom: 0; left: 50%;
   transform: translateX(-50%);
   width: 100%; max-width: 480px;
-  background: rgba(17,17,22,0.96);
+  background: rgba(244,242,249,0.96);
   backdrop-filter: blur(24px);
   border-top: 1px solid var(--border);
   padding: 10px 14px;
   padding-bottom: calc(10px + env(safe-area-inset-bottom));
   z-index: 90;
+  box-shadow: 0 -4px 20px rgba(100,80,160,.08);
 }
 .input-preview { display: none; margin-bottom: 8px; }
 .input-preview.active {
@@ -225,12 +259,24 @@ img { display: block; }
 .text-input {
   flex:1; background: var(--surface);
   border: 1px solid var(--border); border-radius: 12px;
-  padding: 10px 13px; color: var(--text); font-size: 14px;
+  padding: 10px 13px; color: var(--text); font-size: 16px;
   resize: none; min-height: 42px; max-height: 96px;
   line-height: 1.5; outline: none; transition: border-color .2s;
 }
 .text-input:focus { border-color: var(--accent); }
 .text-input::placeholder { color: var(--text3); }
+
+/* mood picker */
+.mood-picker { display:flex; gap:8px; justify-content:space-between; }
+.mood-btn {
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:10px 4px; border-radius:12px; border:1.5px solid var(--border);
+  background:var(--surface); color:var(--text2); font-size:22px;
+  transition:all .15s;
+}
+.mood-btn span { font-size:11px; font-family:'Space Mono',monospace; }
+.mood-btn.selected { border-color:var(--accent); background:rgba(124,92,191,.12); color:var(--accent); }
+.mood-btn:active { transform:scale(.93); }
 .send-btn {
   width: 42px; height: 42px; border-radius: 12px;
   background: var(--accent); border: none; color: #fff;
@@ -323,8 +369,8 @@ img { display: block; }
   background: var(--surface); color: var(--text2);
   border: 1px solid var(--border); letter-spacing: .03em;
 }
-.tag.pos { color: var(--accent2); border-color: rgba(52,211,153,.3); background: rgba(52,211,153,.07); }
-.tag.neg { color: var(--accent3); border-color: rgba(244,114,182,.3); background: rgba(244,114,182,.07); }
+.tag.pos { color: #2e8a6a; border-color: rgba(74,171,138,.4); background: rgba(74,171,138,.10); }
+.tag.neg { color: #b05484; border-color: rgba(217,107,154,.4); background: rgba(217,107,154,.10); }
 
 .card-img { width: 100%; height: 150px; object-fit: cover; }
 .card-body { padding: 10px 15px 13px; cursor: pointer; }
@@ -399,7 +445,7 @@ img { display: block; }
   font-size: 11px; font-weight: 700; letter-spacing: .06em;
   transition: all .2s; line-height: 1.3; text-align: center;
 }
-.mode-btn.active { background: var(--bg3); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.mode-btn.active { background: var(--bg3); color: var(--text); box-shadow: 0 2px 8px rgba(100,80,160,.15); }
 
 .review-panel { display: none; }
 .review-panel.active { display: block; }
@@ -438,8 +484,8 @@ img { display: block; }
   background: var(--surface); color: var(--text2);
   font-size: 11px; font-family: inherit; transition: all .15s;
 }
-.tag-pick-btn.selected.pos { background: rgba(52,211,153,.15); border-color: var(--accent2); color: var(--accent2); }
-.tag-pick-btn.selected.neg { background: rgba(244,114,182,.12); border-color: var(--accent3); color: var(--accent3); }
+.tag-pick-btn.selected.pos { background: rgba(74,171,138,.15); border-color: var(--accent2); color: #2e8a6a; }
+.tag-pick-btn.selected.neg { background: rgba(217,107,154,.12); border-color: var(--accent3); color: #b05484; }
 .tag-pick-btn:not(.selected):hover { border-color: var(--text3); }
 
 /* Number stepper */
@@ -476,7 +522,7 @@ img { display: block; }
 
 .parse-btn {
   width: 100%; padding: 13px;
-  background: linear-gradient(135deg, #2d1f6b, var(--accent));
+  background: linear-gradient(135deg, var(--accent), #a07be0);
   border: none; border-radius: var(--radius); color: #fff;
   font-size: 13px; font-weight: 700; letter-spacing: .04em;
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -517,7 +563,7 @@ img { display: block; }
 /* Save to Notion button */
 .save-notion-btn {
   width: 100%; padding: 15px;
-  background: linear-gradient(135deg, #6d28d9, var(--accent));
+  background: linear-gradient(135deg, var(--accent), #a07be0);
   border: none; border-radius: var(--radius); color: #fff;
   font-size: 14px; font-weight: 700; letter-spacing: .05em;
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -529,7 +575,7 @@ img { display: block; }
 /* ── Settings modal ────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(0,0,0,.7); backdrop-filter: blur(8px);
+  background: rgba(60,40,100,.35); backdrop-filter: blur(8px);
   display: none; align-items: flex-end;
 }
 .modal-overlay.open { display: flex; }
@@ -577,16 +623,16 @@ img { display: block; }
 .toast {
   position: fixed; bottom: 130px; left: 50%;
   transform: translateX(-50%) translateY(16px);
-  background: var(--bg3); border: 1px solid var(--border);
+  background: var(--surface); border: 1px solid var(--border);
   color: var(--text); padding: 9px 18px;
   border-radius: 24px; font-size: 12px; font-weight: 700;
   opacity: 0; transition: all .3s; z-index: 999;
   white-space: nowrap; pointer-events: none;
-  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  box-shadow: 0 8px 32px rgba(100,80,160,.2);
 }
 .toast.show { opacity:1; transform: translateX(-50%) translateY(0); }
-.toast.ok  { background: rgba(52,211,153,.15); border-color: var(--accent2); color: var(--accent2); }
-.toast.err { background: rgba(244,114,182,.12); border-color: var(--accent3); color: var(--accent3); }
+.toast.ok  { background: rgba(74,171,138,.15); border-color: var(--accent2); color: #2e8a6a; }
+.toast.err { background: rgba(217,107,154,.12); border-color: var(--accent3); color: #b05484; }
 
 /* ── Loading spinner ───────────────────────────────────────────────────── */
 .spinner {
@@ -610,11 +656,15 @@ img { display: block; }
     </div>
   </div>
   <div class="tabs">
-    <button class="tab active" data-tab="today"  onclick="switchTab('today',this)">📝 今日</button>
-    <button class="tab"        data-tab="review" onclick="switchTab('review',this)">🌙 夜レビュー</button>
+    <button class="tab active" data-tab="today"    onclick="switchTab('today',this)">📝 今日</button>
     <button class="tab"        data-tab="logentry" onclick="switchTab('logentry',this)">✍️ 日記入力</button>
-    <button class="tab"        data-tab="diary"  onclick="switchTab('diary',this)">📚 日記一覧</button>
-    <button class="tab"        data-tab="graph"  onclick="switchTab('graph',this)">📈 感情グラフ</button>
+    <button class="tab-more-btn" id="tabMoreBtn" onclick="toggleTabDropdown()">···</button>
+  </div>
+  <!-- ドロップダウン -->
+  <div class="tab-dropdown" id="tabDropdown">
+    <button class="tab-dropdown-item" data-tab="review"  onclick="switchTabDropdown('review',this)">🌙 夜レビュー</button>
+    <button class="tab-dropdown-item" data-tab="diary"   onclick="switchTabDropdown('diary',this)">📚 日記一覧</button>
+    <button class="tab-dropdown-item" data-tab="graph"   onclick="switchTabDropdown('graph',this)">📈 感情グラフ</button>
   </div>
 </div>
 
@@ -630,6 +680,7 @@ img { display: block; }
       <span class="timeline-date" id="timelineDate"></span>
       <span class="tweet-count" id="tweetCount">0 件</span>
       <button class="sync-btn" id="syncBtn" onclick="loadTodayTweets()">↺ 同期</button>
+      <button class="ai-copy-mini-btn" onclick="copyAIPrompt()" title="AI用テキストをコピー">📋 AIコピー</button>
     </div>
     <div class="timeline" id="timeline">
       <div class="empty-state">
@@ -685,6 +736,19 @@ img { display: block; }
             style="font-size:16px;padding:10px 12px;width:100%;">
         </div>
       </div>
+    </div>
+
+    <!-- Mood 5-step -->
+    <div class="section" style="padding-top:10px;padding-bottom:10px">
+      <div class="section-title">😊 (A) 気分（1〜5）</div>
+      <div class="mood-picker">
+        <button class="mood-btn" data-val="1" onclick="selectMood(1)">😞<span>1</span></button>
+        <button class="mood-btn" data-val="2" onclick="selectMood(2)">😕<span>2</span></button>
+        <button class="mood-btn" data-val="3" onclick="selectMood(3)">😐<span>3</span></button>
+        <button class="mood-btn" data-val="4" onclick="selectMood(4)">🙂<span>4</span></button>
+        <button class="mood-btn" data-val="5" onclick="selectMood(5)">😄<span>5</span></button>
+      </div>
+      <input type="hidden" id="logMood" value="">
     </div>
 
     <!-- Comfort / Energy steppers -->
@@ -815,9 +879,19 @@ img { display: block; }
   <!-- ⑤ GRAPH ───────────────────────────────────────────────────────────── -->
   <div class="screen" id="screen-graph">
     <div class="stats-row" id="statsRow"></div>
+
+    <!-- グラフ② 気分折れ線（上に配置） -->
     <div class="chart-wrap">
       <div class="chart-box">
-        <div class="chart-title">2軸感情マトリックス — 快適度 × エネルギー度</div>
+        <div class="chart-title">📈 気分の変遷（(A)気分 × 日付）</div>
+        <canvas id="moodChart" height="260"></canvas>
+      </div>
+    </div>
+
+    <!-- グラフ① 2軸散布図 -->
+    <div class="chart-wrap" style="margin-top:16px">
+      <div class="chart-box">
+        <div class="chart-title">🗺️ 心と体のバランスマップ</div>
         <canvas id="scatterChart" height="280"></canvas>
         <div class="chart-legend">
           <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>今週</div>
@@ -883,6 +957,7 @@ let weeklyReviews    = JSON.parse(localStorage.getItem('ll_weekly') || '[]');
 let pendingImage     = null; // { file, dataUrl }
 let pendingFileId    = null; // Notion file upload ID
 let chartInstance    = null;
+let moodChartInstance = null;
 let currentDiaryRange = 'week';
 
 const POSITIVE_EMOTIONS = ['達成感','ワクワク','穏やか','充実','感謝','リラックス','インスピレーション'];
@@ -922,15 +997,45 @@ async function saveSettings() {
 function switchTab(name, btn) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-dropdown-item').forEach(t => t.classList.remove('active-sub'));
   document.getElementById('screen-' + name).classList.add('active');
   btn.classList.add('active');
+  document.getElementById('tabDropdown').classList.remove('open');
 
   document.getElementById('inputPanel').style.display = name === 'today' ? '' : 'none';
 
   if (name === 'logentry') initLogEntry();
-  if (name === 'diary')  loadDiaries(currentDiaryRange);
-  if (name === 'graph')  loadGraphData();
+  if (name === 'diary')    loadDiaries(currentDiaryRange);
+  if (name === 'graph')    loadGraphData();
 }
+
+function switchTabDropdown(name, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-dropdown-item').forEach(t => t.classList.remove('active-sub'));
+  document.getElementById('screen-' + name).classList.add('active');
+  btn.classList.add('active-sub');
+  document.getElementById('tabDropdown').classList.remove('open');
+
+  document.getElementById('inputPanel').style.display = 'none';
+
+  if (name === 'diary')    loadDiaries(currentDiaryRange);
+  if (name === 'graph')    loadGraphData();
+}
+
+function toggleTabDropdown() {
+  const dd = document.getElementById('tabDropdown');
+  dd.classList.toggle('open');
+}
+
+// ドロップダウン外タップで閉じる
+document.addEventListener('click', e => {
+  const dd = document.getElementById('tabDropdown');
+  const btn = document.getElementById('tabMoreBtn');
+  if (dd && !dd.contains(e.target) && e.target !== btn) {
+    dd.classList.remove('open');
+  }
+});
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 async function workerFetch(path, options = {}) {
@@ -1203,6 +1308,13 @@ function initLogEntry() {
   if (!dateEl.value) dateEl.value = todayStr();
 }
 
+function selectMood(val) {
+  document.getElementById('logMood').value = val;
+  document.querySelectorAll('.mood-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.val) === val);
+  });
+}
+
 function stepVal(fieldId, delta) {
   const input = document.getElementById(fieldId);
   const valEl = document.getElementById(fieldId + 'Val');
@@ -1257,6 +1369,7 @@ async function saveLogEntry() {
 
   const date       = document.getElementById('logDate').value;
   const title      = document.getElementById('logTitle').value.trim();
+  const mood       = document.getElementById('logMood').value;
   const comfort    = parseInt(document.getElementById('logComfort').value, 10);
   const energy     = parseInt(document.getElementById('logEnergy').value, 10);
   const good1      = document.getElementById('logGood1').value.trim();
@@ -1283,7 +1396,7 @@ async function saveLogEntry() {
       fileId = await uploadFileToNotion(logPendingPhoto.file, 'diary');
     }
 
-    const payload = { date, title, comfort, energy, tags, good1, good2, good3, learning, nextAction, body, fileId };
+    const payload = { date, title, mood: mood ? Number(mood) : undefined, comfort, energy, tags, good1, good2, good3, learning, nextAction, body, fileId };
 
     await workerFetch('/diary', {
       method:  'POST',
@@ -1302,6 +1415,8 @@ async function saveLogEntry() {
 }
 
 function resetLogEntryForm() {
+  document.getElementById('logMood').value  = '';
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('logDate').value  = todayStr();
   document.getElementById('logTitle').value = '';
   ['logComfort','logEnergy'].forEach(id => {
@@ -1356,6 +1471,8 @@ function parseNotionDiary(page) {
   return {
     id:       page.id,
     date:     getDate('(A) Date'),
+    title:    (p['名前']?.title || []).map(t => t.plain_text).join('') || '',
+    mood:     getNum('(A)気分'),
     comfort:  getNum('快適度'),
     energy:   getNum('エネルギー度'),
     tags:     getTags('感情タグ'),
@@ -1468,10 +1585,100 @@ async function loadGraphData() {
     const data = await workerFetch('/diaries?range=month');
     diariesCache = (data.results || []).map(parseNotionDiary);
     renderStats();
+    renderMoodChart();
     renderChart();
   } catch (e) {
     showToast('グラフデータ取得失敗', 'err');
   }
+}
+
+function renderMoodChart() {
+  const ctx = document.getElementById('moodChart').getContext('2d');
+  const sorted = [...diariesCache]
+    .filter(d => d.date && d.mood !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (!sorted.length) return;
+
+  const labels = sorted.map(d =>
+    new Date(d.date).toLocaleDateString('ja-JP', { month:'numeric', day:'numeric' })
+  );
+  const values = sorted.map(d => d.mood);
+  const tagLabels = sorted.map(d => (d.tags || []).slice(0, 2).join(' '));
+
+  if (moodChartInstance) moodChartInstance.destroy();
+
+  moodChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '(A)気分',
+        data: values,
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167,139,250,.15)',
+        pointBackgroundColor: '#a78bfa',
+        pointRadius: 6,
+        pointHoverRadius: 9,
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(255,255,255,.97)',
+          borderColor: 'rgba(124,92,191,.3)', borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: ctx => {
+              const d = sorted[ctx.dataIndex];
+              const tagStr = (d.tags || []).join('・');
+              return [`気分: ${ctx.raw}`, tagStr ? `🏷 ${tagStr}` : '', d.title ? `📝 ${d.title}` : ''].filter(Boolean);
+            }
+          }
+        },
+        // 感情タグをドット横に常時表示するカスタムプラグイン
+        afterDatasetsDraw: undefined,
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(100,80,160,.08)' },
+          ticks: { color: '#a89fc0', font: { size: 10 }, maxRotation: 45 },
+          border: { color: 'rgba(100,80,160,.15)' },
+        },
+        y: {
+          min: 0.5, max: 5.5, stepSize: 1,
+          grid: { color: 'rgba(100,80,160,.08)' },
+          ticks: {
+            color: '#a89fc0', stepSize: 1,
+            callback: v => ['','😞','😕','😐','🙂','😄'][v] || v,
+          },
+          border: { color: 'rgba(100,80,160,.15)' },
+        },
+      },
+      animation: { onComplete: () => drawTagLabels(moodChartInstance, sorted) },
+    }
+  });
+}
+
+// 感情タグをcanvas上に直接描画（常時表示）
+function drawTagLabels(chart, sorted) {
+  const ctx = chart.ctx;
+  const meta = chart.getDatasetMeta(0);
+  ctx.save();
+  ctx.font = '9px "Zen Kaku Gothic New", sans-serif';
+  ctx.fillStyle = 'rgba(124,92,191,.9)';
+  ctx.textAlign = 'center';
+  meta.data.forEach((point, i) => {
+    const tag = (sorted[i].tags || [])[0];
+    if (tag) {
+      ctx.fillText(tag, point.x, point.y - 12);
+    }
+  });
+  ctx.restore();
 }
 
 function renderChart() {
@@ -1484,8 +1691,9 @@ function renderChart() {
   const older    = valid.filter(d => new Date(d.date) <  wCut);
 
   const toPoints = arr => arr.map(d => ({
-    x: d.comfort, y: d.energy,
+    x: d.energy, y: d.comfort,
     label: new Date(d.date).toLocaleDateString('ja-JP', { month:'short', day:'numeric' }),
+    title: d.title || '',
     tags:  (d.tags || []).join('・'),
   }));
 
@@ -1504,33 +1712,31 @@ function renderChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor:'rgba(24,24,31,.96)',
-          borderColor:'rgba(167,139,250,.35)', borderWidth:1,
+          backgroundColor:'rgba(255,255,255,.97)',
+          borderColor:'rgba(124,92,191,.3)', borderWidth:1,
           padding:10,
           callbacks: {
             label: ctx => {
               const p = ctx.raw;
-              const c = p.x >= 0 ? '+'+p.x : p.x;
-              const e = p.y >= 0 ? '+'+p.y : p.y;
-              return [`📅 ${p.label}`, `快適 ${c}  エネルギー ${e}`, p.tags ? `🏷 ${p.tags}` : ''].filter(Boolean);
+              return [`📅 ${p.label}`, p.title ? `📝 ${p.title}` : '', `快適 ${p.y}  エネルギー ${p.x}`, p.tags ? `🏷 ${p.tags}` : ''].filter(Boolean);
             }
           }
         }
       },
       scales: {
         x: {
-          min:-2.5, max:2.5,
-          title:{ display:true, text:'← 不快  ｜  快適 →', color:'#8888a8', font:{ size:10 } },
-          grid:{ color:'rgba(255,255,255,.04)' },
-          ticks:{ color:'#4a4a64', stepSize:1 },
-          border:{ color:'rgba(255,255,255,.08)' },
+          min:0.5, max:5.5,
+          title:{ display:true, text:'← 低エネルギー  ｜  高エネルギー →', color:'#a89fc0', font:{ size:10 } },
+          grid:{ color:'rgba(100,80,160,.08)' },
+          ticks:{ color:'#a89fc0', stepSize:1 },
+          border:{ color:'rgba(100,80,160,.15)' },
         },
         y: {
-          min:-2.5, max:2.5,
-          title:{ display:true, text:'↑ 高エネルギー', color:'#8888a8', font:{ size:10 } },
-          grid:{ color:'rgba(255,255,255,.04)' },
-          ticks:{ color:'#4a4a64', stepSize:1 },
-          border:{ color:'rgba(255,255,255,.08)' },
+          min:0.5, max:5.5,
+          title:{ display:true, text:'↑ 高快適度', color:'#a89fc0', font:{ size:10 } },
+          grid:{ color:'rgba(100,80,160,.08)' },
+          ticks:{ color:'#a89fc0', stepSize:1 },
+          border:{ color:'rgba(100,80,160,.15)' },
         },
       }
     }
