@@ -1740,6 +1740,10 @@
   }
   .routine-avatar {
     width: 52px; height: 52px; flex-shrink: 0;
+    border-radius: 50%; overflow: hidden;
+  }
+  .routine-avatar img {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
   }
   .routine-card-name {
     font-size: 19px; font-weight: 700; color: #2d2b3a; flex: 1;
@@ -5461,14 +5465,9 @@
     return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path class="cloud-shape" d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
   }
 
-  // アバター（カード左上の顔つき雲）
+  // アバター（カード左上のアイコン）
   function avatarSVG(filled) {
-    const face = '<g stroke="' + (filled?'#fff':'#2d2b3a') + '" stroke-width="2.2" stroke-linecap="round" fill="none">'
-      + '<path d="M40 52 q3 3 6 0"/><path d="M58 52 q3 3 6 0"/>'
-      + '</g>';
-    const inner = fluffyCloudSVG(filled ? 'filled' : 'empty')
-      .replace('stroke="#d9d6e6"', 'stroke="#2d2b3a"');
-    return inner.replace('</svg>', face + '</svg>');
+    return '<img src="4.jpeg" alt="icon" draggable="false">';
   }
 
   let currentRoutineRange = '30';
