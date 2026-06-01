@@ -2910,6 +2910,8 @@
 
   function init() {
     renderHeader();
+    // 既存データの掃除（_habitDateズレ補正・重複インスタンス統合）→ 増殖の後始末
+    try { cleanupHabitInstances(); } catch(e) { console.error('習慣クリーンアップエラー', e); }
     // 習慣テンプレートから不足インスタンスを補充（過去2週〜未来2週）
     try { expandAllHabitsAndSync(); } catch(e) { console.error('習慣展開エラー', e); }
     renderTimeline();
@@ -4480,16 +4482,35 @@
         task['(B)実行期間'] = currentKikan;
         if (currentTab === 'time') {
           task._type = 'time';
+          // 繰り返しインスタンスは「日付」を変えさせない（別日への移動は増殖バグの原因）。
+          // 日付は必ず _habitDate に固定し、時刻のみ変更を許可する。
+          const lockedDateStr = task._habitTemplateId
+            ? (task._habitDate || (task['(A)実行日'] && task['(A)実行日'].start ? task['(A)実行日'].start.substring(0,10) : getUIDateStr()))
+            : null;
+          if (lockedDateStr) {
+            const uiDate = ymd(new Date(getUIDateStr()));
+            if (uiDate !== lockedDateStr) {
+              alert('繰り返しタスクの「日付」は変更できません。\n日付を変えたい場合は、繰り返しの設定（曜日・頻度）を編集してください。\n（時刻の変更はそのまま反映されます）');
+            }
+          }
           if (isAlldayOn()) {
-            const dateStr = getUIDateStr();
+            const dateStr = lockedDateStr || getUIDateStr();
             const d = new Date(dateStr);
             const pad = n => n.toString().padStart(2,'0');
-            const ymd = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-            task['(A)実行日'] = { start: ymd, end: ymd };
+            const ymdStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+            task['(A)実行日'] = { start: ymdStr, end: ymdStr };
             task._allDay = true;
           } else {
-            task['(A)実行日'] = buildJissekiDate(getUIDateStr(), getUIStartTime(), drumSelectedMin);
+            // 繰り返しインスタンスは日付を _habitDate に固定して時刻だけ反映
+            const dateForBuild = lockedDateStr
+              ? new Date(lockedDateStr + 'T00:00:00').toDateString()
+              : getUIDateStr();
+            task['(A)実行日'] = buildJissekiDate(dateForBuild, getUIStartTime(), drumSelectedMin);
             task._allDay = false;
+          }
+          // _habitDate と (A)実行日 の整合を保証（ズレると増殖の原因）
+          if (task._habitTemplateId && task['(A)実行日'] && task['(A)実行日'].start) {
+            task._habitDate = task['(A)実行日'].start.substring(0,10);
           }
         } else if (currentTab === 'repeat') {
           // 繰り返しタスクの編集: _repeatConfig を UI の値で更新する
@@ -5373,7 +5394,16 @@
     while (cursor <= endD) {
       if (habitOccursOn(template, cursor)) {
         const ds = ymd(cursor);
-        if (!findHabitInstance(template.id, ds)) {
+        // 重複防止を二重化：
+        //  (1) _habitDate が ds のインスタンス（正規）
+        //  (2) _habitDate がズレても、同テンプレートで実行日(表示日)が ds の実体があれば作らない
+        const existsByHabitDate = !!findHabitInstance(template.id, ds);
+        const existsByDisplayDate = tasks.some(t =>
+          t._habitTemplateId === template.id &&
+          t['(A)実行日'] && t['(A)実行日'].start &&
+          t['(A)実行日'].start.substring(0,10) === ds
+        );
+        if (!existsByHabitDate && !existsByDisplayDate) {
           // 時刻つきか終日かをテンプレートに合わせる
           const allDay = rc.allDay;
           const time = rc.time || '07:00';
@@ -5460,6 +5490,46 @@
 
   // 編集時: 未来の該当しなくなったインスタンスを削除し、Notionもアーカイブ
   // （過去・今日のインスタンスは記録として残す）
+  // 既存データのクリーンアップ：
+  //  ・繰り返しインスタンスの _habitDate を実際の表示日に一致させる
+  //  ・同テンプレート×同日の重複インスタンスを1つに統合（増殖の後始末）
+  function cleanupHabitInstances() {
+    let changed = false;
+    // 1) _habitDate と表示日のズレを補正
+    tasks.forEach(t => {
+      if (!t._habitTemplateId) return;
+      const disp = (t['(A)実行日'] && t['(A)実行日'].start) ? t['(A)実行日'].start.substring(0,10) : null;
+      if (disp && t._habitDate !== disp) { t._habitDate = disp; changed = true; }
+    });
+    // 2) 重複統合（同テンプレート×同日）。done が付いている方を優先して残す。
+    const seen = new Map(); // key: tplId|date -> task
+    const removeIds = new Set();
+    tasks.forEach(t => {
+      if (!t._habitTemplateId) return;
+      const ds = t._habitDate || ((t['(A)実行日']&&t['(A)実行日'].start)?t['(A)実行日'].start.substring(0,10):null);
+      if (!ds) return;
+      const key = t._habitTemplateId + '|' + ds;
+      const prev = seen.get(key);
+      if (!prev) { seen.set(key, t); return; }
+      // 優先順位: done > _notionId あり > 先に見つかった方
+      const score = x => (x['(A)done']?2:0) + (x._notionId?1:0);
+      const loser = score(t) > score(prev) ? prev : t;
+      const winner = loser === prev ? t : prev;
+      seen.set(key, winner);
+      removeIds.add(loser.id);
+      if (loser._notionId && notionSettings.token) {
+        notionApiCall(`/pages/${loser._notionId}`, 'PATCH', { archived: true })
+          .catch(e => console.error('重複インスタンス削除失敗', e));
+      }
+    });
+    if (removeIds.size) {
+      tasks = tasks.filter(t => !removeIds.has(t.id));
+      changed = true;
+    }
+    if (changed) localStorage.setItem('tasks', JSON.stringify(tasks));
+    return removeIds.size;
+  }
+
   function reconcileHabitInstances(template) {
     const today = new Date(); today.setHours(0,0,0,0);
     const toRemove = [];
@@ -6217,6 +6287,8 @@
     const sY = `${baseDate.getFullYear()}-${pad(baseDate.getMonth()+1)}-${pad(baseDate.getDate())}`;
     const eY = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
     t['(A)実行日'] = { start: `${sY}T${pad(h)}:${pad(m)}`, end: `${eY}T${pad(endH)}:${pad(endM)}` };
+    // 繰り返しインスタンスは _habitDate と日付を必ず一致させる（ズレると増殖の原因）
+    if (t._habitTemplateId) t._habitDate = sY;
     t._localLastEdited = new Date().toISOString();
     if (t._notionId && notionSettings.token) {
       notionUpdateTask(t._notionId, t).catch(e => console.error('Notion同期失敗', e));
