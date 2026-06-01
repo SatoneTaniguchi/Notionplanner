@@ -4863,7 +4863,7 @@
   // 疑似テンプレートの繰り返しパターンを日付集合から推定する
   function getHabitFreqOverride(taskId) {
     const overrides = JSON.parse(localStorage.getItem('habitFreqOverrides') || '{}');
-    return overrides[taskId] || null; // 'daily' | 'weekly' | 'monthly' | null
+    return overrides[taskId] || null;
   }
   function setHabitFreqOverride(taskId, freq) {
     const overrides = JSON.parse(localStorage.getItem('habitFreqOverrides') || '{}');
@@ -4872,33 +4872,31 @@
     localStorage.setItem('habitFreqOverrides', JSON.stringify(overrides));
     renderRoutineScreen();
   }
-  // 戻り値: { type:'daily'|'weekly'|'monthly'|'irregular', period, lastDate, dayOfWeek?, dayOfMonth? }
+
+  // 疑似テンプレートの繰り返しパターンを日付集合から推定する
   function inferPseudoPattern(task) {
     if (!task._pseudo) return null;
-    const sorted = [...task._pseudoDates].sort(); // YYYY-MM-DD 辞書順 = 時系列順
+    const sorted = [...task._pseudoDates].sort();
     if (sorted.length === 0) return null;
     const lastDate = new Date(sorted[sorted.length - 1]); lastDate.setHours(0,0,0,0);
-    if (sorted.length === 1) return { type: 'single', period: null, lastDate };
+    if (sorted.length === 1) return { type: 'single', interval: null, lastDate };
 
-    // 連続する日付の間隔（日数）を計算
     const gaps = [];
     for (let i = 1; i < sorted.length; i++) {
-      const d1 = new Date(sorted[i-1]); d1.setHours(0,0,0,0);
-      const d2 = new Date(sorted[i]);   d2.setHours(0,0,0,0);
-      gaps.push(Math.round((d2 - d1) / 86400000));
+      const g = Math.round((new Date(sorted[i]) - new Date(sorted[i-1])) / 86400000);
+      gaps.push(g);
     }
-    // 中央値で判定（外れ値に強い）
     const med = [...gaps].sort((a,b)=>a-b)[Math.floor(gaps.length/2)];
 
     if (med <= 2) {
-      // デイリーと確定するには3件以上必要。
-      // 2件連続だけでは「毎日タスク」なのか「月次/週次タスクが偶然2日連続で存在するだけ」なのか区別不可。
-      if (sorted.length >= 3) return { type: 'daily', period: 1, lastDate };
-      return { type: 'ambiguous', period: 1, lastDate }; // 判定不能 → 対象日として扱わない
+      // 3件以上 → 毎日確定 / 2件連続 → 判定不能
+      if (sorted.length >= 3) return { type: 'daily', interval: 1, lastDate };
+      return { type: 'ambiguous', interval: 1, lastDate };
     }
-    if (med <= 10) return { type: 'weekly',  period: 7,  lastDate, dayOfWeek: lastDate.getDay() };
-    if (med <= 50) return { type: 'monthly', period: 30, lastDate, dayOfMonth: lastDate.getDate() };
-    return { type: 'irregular', period: med, lastDate };
+
+    // 間隔が2日以上なら実測値をそのまま使う
+    // 7→毎週, 14→隔週, 21→3週おき, 30→毎月, etc. 何でも自動対応
+    return { type: 'interval', interval: med, lastDate };
   }
 
   //     名前ごとに束ねた「疑似テンプレート」
@@ -5194,21 +5192,36 @@
       const isToday = d.getTime() === today.getTime();
 
       // 1件のみ or 2件連続（ambiguous）: 直近3日以内なら今日を対象日と予測
-      // ※ 月次・週次タスクを正確に区別したい場合は上の頻度設定を使ってください
       if (pat.type === 'single' || pat.type === 'ambiguous') {
         if (daysSinceLast <= 3 && isToday) return true;
         return false;
       }
 
-      if (pat.type === 'irregular') return false;
+      // 毎日確定（3件以上 gap≤2）
+      if (pat.type === 'daily') {
+        if (daysSinceLast > 7) return false;
+        return true;
+      }
 
-      // 確立されたパターン（3件以上daily / 2件以上weekly・monthly）
-      const gracePeriod = pat.type === 'daily' ? 7 : pat.type === 'weekly' ? 21 : 90;
-      if (daysSinceLast > gracePeriod) return false;
+      // 間隔パターン（毎週/隔週/3週おき/毎月/何でも自動対応）
+      if (pat.type === 'interval') {
+        const interval = pat.interval;
+        // 最終インスタンスから間隔×2倍以上経過したら休止とみなす
+        const gracePeriod = Math.max(interval * 2, 14);
+        if (daysSinceLast > gracePeriod) return false;
 
-      if (pat.type === 'daily')   return true;
-      if (pat.type === 'weekly')  return d.getDay() === pat.dayOfWeek;
-      if (pat.type === 'monthly') return d.getDate() === pat.dayOfMonth;
+        const daysFromLast = Math.round((d - pat.lastDate) / 86400000);
+        if (daysFromLast < 0) return false;
+
+        // 月次（25〜35日間隔）: 月によって日数が異なるので「同じ日付」で判定
+        if (interval >= 25 && interval <= 35) {
+          return d.getDate() === pat.lastDate.getDate();
+        }
+
+        // それ以外（毎週=7、隔週=14、3週=21、など）: 正確な間隔で判定
+        return daysFromLast % interval === 0;
+      }
+
       return false;
     }
     const rc = task._repeatConfig;
@@ -5611,19 +5624,6 @@
         +   `<span class="routine-badge">✓ ${rate}%</span>`
         +   `<span class="routine-badge">🔥 ${streak}日連続</span>`
         + `</div>`
-        + (task._pseudo ? (() => {
-            const cur = getHabitFreqOverride(task.id);
-            const pat = inferPseudoPattern(task);
-            const auto = pat ? pat.type : 'single';
-            const autoLabel = auto === 'daily' ? '毎日' : auto === 'weekly' ? '毎週' : auto === 'monthly' ? '毎月' : '?';
-            return `<div class="freq-row">`
-              + `<span class="freq-label">頻度：</span>`
-              + `<button class="freq-btn${!cur?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}',null)" title="自動">自動(${autoLabel})</button>`
-              + `<button class="freq-btn${cur==='daily'?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}','daily')">毎日</button>`
-              + `<button class="freq-btn${cur==='weekly'?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}','weekly')">毎週</button>`
-              + `<button class="freq-btn${cur==='monthly'?' active':''}" onclick="event.stopPropagation();setHabitFreqOverride('${task.id}','monthly')">毎月</button>`
-              + `</div>`;
-          })() : '')
         + buildRoutineGrid(task)
         + btnHTML
         + `</div>`;
