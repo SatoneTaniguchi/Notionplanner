@@ -4670,11 +4670,12 @@
         if (t) {
           t._localLastEdited = new Date().toISOString();
           if (t['(B)種類'] === '習慣' && t._type === 'repeat') {
-            // 習慣テンプレート: 曜日変更などに合わせて未来インスタンスを再構築
+            // 習慣テンプレート: 曜日変更などに合わせて未来インスタンスを再構築。
+            // reconcile で不要分を整理 → expandAllHabitsAndSync が不足分を作って Notion 登録。
             reconcileHabitInstances(t);
-            expandHabitTemplate(t);
             expandAllHabitsAndSync();
             if (currentScreen === 'routine') renderRoutineScreen();
+            renderTimeline();
           } else if (t._notionId) {
             // 既にNotion連携済み → そのページを更新
             localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -4690,10 +4691,13 @@
         // 新規タスク: 退避したidで安全に参照
         const t = tasks.find(t => t.id === _syncNewId);
         if (t && t['(B)種類'] === '習慣' && t._type === 'repeat') {
-          // 習慣テンプレート: 展開してインスタンスをNotionに登録
-          expandHabitTemplate(t);
+          // 習慣テンプレート: 展開してインスタンスをNotionに登録。
+          // expandAllHabitsAndSync が内部で expandHabitTemplate を呼び、
+          // 新規作成されたインスタンスのみ Notion へ push する。
+          // ここで先に expandHabitTemplate を呼ぶと「作成済み」になり push されないので呼ばない。
           expandAllHabitsAndSync();
           if (currentScreen === 'routine') renderRoutineScreen();
+          renderTimeline();
         } else if (t && t._type !== 'repeat' && !t._notionId && !t._notionPushing) {
           t._localLastEdited = new Date().toISOString();
           pushNewTaskToNotion(t);
@@ -5461,9 +5465,23 @@
     templates.forEach(tpl => {
       allCreated = allCreated.concat(expandHabitTemplate(tpl));
     });
-    // 新規インスタンスをNotionへ登録（未来も含め展開期間内すべて）
     if (notionSettings.token && notionSettings.dbId) {
+      // (1) 今回新規作成したインスタンス
       allCreated.forEach(inst => pushHabitInstanceToNotion(inst));
+      // (2) 既存でもNotion未登録のインスタンスを拾って登録する。
+      //     （過去の二重展開バグ等でpushされ損ねた今日・未来分を救済）
+      const today = new Date(); today.setHours(0,0,0,0);
+      const createdIds = new Set(allCreated.map(i => i.id));
+      tasks.forEach(t => {
+        if (!t._habitTemplateId) return;
+        if (t._notionId || t._notionPushing) return;
+        if (createdIds.has(t.id)) return; // 既に(1)で処理
+        // 過去すぎる分は送らない（展開範囲と揃える）
+        const d = new Date(t._habitDate); d.setHours(0,0,0,0);
+        const diffDays = Math.round((d - today) / 86400000);
+        if (diffDays < -HABIT_PAST_DAYS || diffDays > HABIT_FUTURE_DAYS) return;
+        pushHabitInstanceToNotion(t);
+      });
     }
     return allCreated;
   }
