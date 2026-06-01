@@ -375,6 +375,30 @@
   .tl-task-dur  { font-size: 10px; color: #8e8e93; margin-top: 1px; }
 
   .tl-task-card.past { opacity: 0.35; }
+  .tl-task-card.dragging { opacity: 0.3; }
+
+  /* 「この日だけ/この日以降」選択シート */
+  .scope-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 9999; opacity: 0; transition: opacity 0.18s;
+  }
+  .scope-overlay.open { opacity: 1; }
+  .scope-sheet {
+    width: 100%; max-width: 480px; background: #fff;
+    border-radius: 20px 20px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    transform: translateY(20px); transition: transform 0.18s;
+  }
+  .scope-overlay.open .scope-sheet { transform: translateY(0); }
+  .scope-title { font-size: 16px; font-weight: 700; text-align: center; color: #1c1c1e; }
+  .scope-desc { font-size: 13px; color: #8e8e93; text-align: center; margin: 4px 0 16px; }
+  .scope-btn {
+    width: 100%; border: none; border-radius: 14px; padding: 14px;
+    font-size: 15px; font-weight: 600; font-family: inherit; margin-bottom: 8px;
+    background: #6c5ce7; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .scope-btn:active { transform: scale(0.99); }
+  .scope-btn.cancel { background: #f2f2f7; color: #8e8e93; margin-bottom: 0; }
 
   .timeline-row {
     display: flex;
@@ -3339,6 +3363,12 @@
           } else if (startingHere.length > 0) {
             // 1時間未満のカードが始まる区間 → 固定スロット高さ
             segH = SLOT_H + 16;
+          } else if (window._dragExpandMode) {
+            // ドラッグ中は空き時間を広げ、どの時間帯でも15分刻みで落とせるようにする。
+            // 通常モードより狭くしない（最低15分=16px）。
+            const linear = segMin / 60 * SLOT_H;
+            const fine = segMin / 15 * 16;
+            segH = (segMin >= 60) ? Math.max(190, linear, fine) : Math.max(SLOT_H, fine);
           } else if (isPastSeg) {
             // 過去の空き区間 → ほぼ詰める（ラベルも消えるので最小限）
             segH = Math.min(8, segMin / 60 * SLOT_H);
@@ -3354,6 +3384,12 @@
       }
       _yMap = { mins, ys };
     })();
+
+    // ドラッグの座標→時刻変換が描画と一致するよう、yMapと表示範囲をグローバル保存
+    window._timelineYMap = _yMap;
+    window._timelineStartH = START_H;
+    window._timelineEndH = END_H;
+    window._timelinePX = PX;
 
     const totalPxActual = _yMap.ys[_yMap.ys.length - 1];
     timeline.style.height = (totalPxActual + 60) + 'px';
@@ -3553,6 +3589,7 @@
 
       const card = document.createElement('div');
       card.className = 'tl-task-card' + ((isPast||_done)?' past':'');
+      card.dataset.taskId = t.id;
       card.style.cssText = `position:absolute;top:${cardTop}px;height:${cardH}px;left:${cardLeft}px;width:${cardWidth}px;box-sizing:border-box;z-index:2;${(isPast||_done)?'opacity:0.4;':''}`;
       window._maxCardBottom = Math.max(window._maxCardBottom || 0, cardTop + cardH);
       const badgeHTML = _shuruiOpt ? `<span style="background:${_shuruiOpt.bg};color:${_shuruiOpt.color};padding:1px 5px;border-radius:7px;font-size:10px;font-weight:600;">${_shuruiOpt.label}</span>` : '';
@@ -4386,9 +4423,21 @@
     return tog && tog.classList.contains('toggle-on');
   }
 
-  function saveTask() {
+  async function saveTask() {
     const name = document.getElementById('taskNameInput').value.trim();
     if (!name) { document.getElementById('taskNameInput').focus(); return; }
+
+    // 編集対象が「繰り返しインスタンス」なら、変更範囲（この日だけ/この日以降）を尋ねる
+    let _repeatScope = null; // 'single' | 'future' | null
+    let _editInstance = null;
+    if (editingTaskId) {
+      const _et = tasks.find(t => t.id === editingTaskId);
+      if (_et && _et['(B)種類'] === '習慣' && _et._habitTemplateId) {
+        _editInstance = _et;
+        _repeatScope = await askRepeatScope('編集');
+        if (!_repeatScope) return; // キャンセル
+      }
+    }
 
     // ヘルパー: HH:MM文字列 + 分数 → (A)実行日オブジェクト
     function buildJissekiDate(dateStr, startHHMM, durationMin) {
@@ -4527,9 +4576,58 @@
       tasks.push(task);
     }
 
-    localStorage.setItem('tasks', JSON.stringify(tasks));
+    // 繰り返しインスタンス編集で「この日以降」を選んだ場合、
+    // テンプレートと基準日以降の全インスタンスにも名前・時刻・見込みを反映する。
+    if (_editInstance && _repeatScope === 'future') {
+      const inst = tasks.find(t => t.id === editingTaskId);
+      if (inst) {
+        const tplId = inst._habitTemplateId;
+        const tpl = tasks.find(t => t.id === tplId);
+        const fromStr = (inst['(A)実行日'] && inst['(A)実行日'].start)
+          ? inst['(A)実行日'].start.substring(0,10) : (inst._habitDate || ymd(new Date()));
+        const newName = inst.name;
+        const newHpr = inst['(C)見込み/h'] || 0;
+        const newKikan = inst['(B)実行期間'] || null;
+        const isAllDayNow = !!inst._allDay;
+        const newTime = isAllDayNow ? '00:00'
+          : ((inst['(A)実行日'] && inst['(A)実行日'].start && inst['(A)実行日'].start.includes('T'))
+              ? inst['(A)実行日'].start.substring(11,16) : '07:00');
+        // テンプレート更新
+        if (tpl) {
+          tpl.name = newName;
+          tpl['(C)見込み/h'] = newHpr;
+          tpl['(B)実行期間'] = newKikan;
+          if (tpl._repeatConfig) { tpl._repeatConfig.time = newTime; tpl._repeatConfig.allDay = isAllDayNow; }
+          tpl._allDay = isAllDayNow;
+          tpl._localLastEdited = new Date().toISOString();
+          if (tpl._notionId && notionSettings.token) {
+            notionUpdateTask(tpl._notionId, tpl).catch(e => console.error('Notion同期失敗', e));
+          }
+        }
+        // 基準日以降の他インスタンス更新
+        const from = new Date(fromStr + 'T00:00:00'); from.setHours(0,0,0,0);
+        tasks.forEach(t => {
+          if (t._habitTemplateId !== tplId || t.id === inst.id) return;
+          const d = new Date(t._habitDate); d.setHours(0,0,0,0);
+          if (d < from) return;
+          t.name = newName;
+          t['(C)見込み/h'] = newHpr;
+          t['(B)実行期間'] = newKikan;
+          t._allDay = isAllDayNow;
+          if (isAllDayNow) {
+            t['(A)実行日'] = { start: t._habitDate, end: t._habitDate };
+          } else {
+            applyTimeToInstance(t, newTime);
+          }
+          t._localLastEdited = new Date().toISOString();
+          if (t._notionId && notionSettings.token) {
+            notionUpdateTask(t._notionId, t).catch(e => console.error('Notion同期失敗', e));
+          }
+        });
+      }
+    }
 
-    // Notion同期
+    localStorage.setItem('tasks', JSON.stringify(tasks));
     // 重要: closeModal() が editingTaskId を null に戻すため、setTimeout前に退避する
     const _syncEditId = editingTaskId;       // 編集中タスクのID（新規ならnull）
     const _syncIsEdit = !!editingTaskId;     // 編集かどうかを確定させておく
@@ -6063,6 +6161,126 @@
   // ドラッグ関連
   let dragState = null;
 
+  // 繰り返し（習慣）インスタンスかどうか
+  function isHabitInstance(t) {
+    return t && t['(B)種類'] === '習慣' && !!t._habitTemplateId;
+  }
+  // 繰り返しテンプレート本体か
+  function isHabitTemplate(t) {
+    return t && t['(B)種類'] === '習慣' && t._type === 'repeat';
+  }
+
+  // 「この日だけ / この日以降」を尋ねる（繰り返しタスク用）。
+  // 戻り値: 'single' | 'future' | null(キャンセル)
+  function askRepeatScope(actionLabel) {
+    return new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.className = 'scope-overlay';
+      ov.innerHTML = `
+        <div class="scope-sheet">
+          <div class="scope-title">繰り返しタスクの${actionLabel}</div>
+          <div class="scope-desc">変更の範囲を選んでください</div>
+          <button class="scope-btn" data-v="single">この日だけ変更</button>
+          <button class="scope-btn" data-v="future">この日以降すべて変更</button>
+          <button class="scope-btn cancel" data-v="cancel">キャンセル</button>
+        </div>`;
+      document.body.appendChild(ov);
+      requestAnimationFrame(() => ov.classList.add('open'));
+      const close = (val) => {
+        ov.classList.remove('open');
+        setTimeout(() => ov.remove(), 180);
+        resolve(val);
+      };
+      ov.addEventListener('click', e => {
+        if (e.target === ov) return close(null);
+        const b = e.target.closest('.scope-btn');
+        if (!b) return;
+        const v = b.getAttribute('data-v');
+        close(v === 'cancel' ? null : v);
+      });
+    });
+  }
+
+  // 1インスタンスの時刻を newTime に設定して実行日を組み直す（過去/未来共通）
+  function applyTimeToInstance(t, newTime) {
+    let [h, m] = newTime.split(':').map(Number);
+    const durMin = Math.round((t['(C)見込み/h'] || 0) * 60);
+    const pad = n => n.toString().padStart(2,'0');
+    const origDateStr = (t['(A)実行日'] && t['(A)実行日'].start) ? t['(A)実行日'].start.substring(0,10)
+      : (t._habitDate || ymd(new Date()));
+    let baseDate = new Date(origDateStr + 'T00:00:00');
+    if (h >= 24) { baseDate.setDate(baseDate.getDate() + 1); h = 0; m = 0; }
+    const endTotalMin = h*60 + m + durMin;
+    let endDate = new Date(baseDate);
+    let endH = Math.floor(endTotalMin/60), endM = endTotalMin%60;
+    if (endH >= 24) { endDate.setDate(endDate.getDate() + 1); endH -= 24; }
+    const sY = `${baseDate.getFullYear()}-${pad(baseDate.getMonth()+1)}-${pad(baseDate.getDate())}`;
+    const eY = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
+    t['(A)実行日'] = { start: `${sY}T${pad(h)}:${pad(m)}`, end: `${eY}T${pad(endH)}:${pad(endM)}` };
+    t._localLastEdited = new Date().toISOString();
+    if (t._notionId && notionSettings.token) {
+      notionUpdateTask(t._notionId, t).catch(e => console.error('Notion同期失敗', e));
+    }
+  }
+
+  // 繰り返しタスクの時刻を「この日以降」適用する。
+  // ・テンプレートの _repeatConfig.time を更新（以後の展開に反映）
+  // ・基準日(fromDateStr)以降の既存インスタンスを更新
+  function applyRepeatTimeFuture(instOrTpl, newTime, fromDateStr) {
+    const tplId = instOrTpl._habitTemplateId || instOrTpl.id;
+    const tpl = tasks.find(t => t.id === tplId);
+    if (tpl && tpl._repeatConfig) {
+      tpl._repeatConfig.time = newTime;
+      tpl._repeatConfig.allDay = false;
+      tpl._allDay = false;
+      tpl._localLastEdited = new Date().toISOString();
+      if (tpl._notionId && notionSettings.token) {
+        notionUpdateTask(tpl._notionId, tpl).catch(e => console.error('Notion同期失敗', e));
+      }
+    }
+    const from = new Date(fromDateStr + 'T00:00:00'); from.setHours(0,0,0,0);
+    tasks.forEach(t => {
+      if (t._habitTemplateId !== tplId) return;
+      const d = new Date(t._habitDate); d.setHours(0,0,0,0);
+      if (d < from) return; // 基準日より前は変えない
+      applyTimeToInstance(t, newTime);
+    });
+  }
+
+  // 描画(toY)の逆変換：タイムライン上のyピクセル → 分（描画と完全一致）
+  function timelineYToMin(y) {
+    const m = window._timelineYMap;
+    const PX = window._timelinePX || 80;
+    if (!m || !m.ys || m.ys.length === 0) return null;
+    const { mins, ys } = m;
+    if (y <= ys[0]) return mins[0] + (y - ys[0]) / PX * 60;
+    if (y >= ys[ys.length - 1]) return mins[mins.length - 1] + (y - ys[ys.length - 1]) / PX * 60;
+    for (let i = 0; i < ys.length - 1; i++) {
+      if (y >= ys[i] && y <= ys[i + 1]) {
+        const dy = ys[i + 1] - ys[i];
+        const ratio = dy === 0 ? 0 : (y - ys[i]) / dy;
+        return mins[i] + ratio * (mins[i + 1] - mins[i]);
+      }
+    }
+    return mins[mins.length - 1];
+  }
+  // 順変換：分 → yピクセル（スクロール補正用）
+  function timelineMinToY(min) {
+    const m = window._timelineYMap;
+    const PX = window._timelinePX || 80;
+    if (!m || !m.mins || m.mins.length === 0) return null;
+    const { mins, ys } = m;
+    if (min <= mins[0]) return ys[0] + (min - mins[0]) / 60 * PX;
+    if (min >= mins[mins.length - 1]) return ys[ys.length - 1] + (min - mins[mins.length - 1]) / 60 * PX;
+    for (let i = 0; i < mins.length - 1; i++) {
+      if (min >= mins[i] && min <= mins[i + 1]) {
+        const r = (min - mins[i]) / (mins[i + 1] - mins[i]);
+        return ys[i] + r * (ys[i + 1] - ys[i]);
+      }
+    }
+    return ys[ys.length - 1];
+  }
+
   function setupDrag(card, task) {
     let longPressTimer = null;
     let isDragging = false;
@@ -6073,6 +6291,8 @@
     let touchMoved = false;
     let dragStartH = 0; // ドラッグ開始時のSTART_H
     let dragPX = 80;    // ドラッグ開始時のPX
+    let lastClientY = 0;
+    let autoScrollTimer = null;
 
     function startLongPress(clientY) {
       touchStartY = clientY;
@@ -6104,23 +6324,54 @@
         document.body.appendChild(timeIndicator);
         // バイブレーション
         if (navigator.vibrate) navigator.vibrate(30);
+
+        // 空き時間を展開して15分刻みでドロップできるようにする。
+        // 指の下の時刻を保持し、再描画後もその時刻が指の位置に来るようスクロール補正。
+        const scroller = document.getElementById('timelineScroll');
+        const tlElNow = document.getElementById('timeline');
+        let minUnderFinger = null, relYfinger = 0;
+        if (tlElNow) {
+          relYfinger = touchStartY - tlElNow.getBoundingClientRect().top;
+          minUnderFinger = timelineYToMin(relYfinger);
+        }
+        window._dragExpandMode = true;
+        renderTimeline();
+        const _newCard = document.querySelector(`#timeline .tl-task-card[data-task-id="${task.id}"]`);
+        if (_newCard) _newCard.classList.add('dragging');
+        if (scroller && minUnderFinger != null) {
+          const yNew = timelineMinToY(minUnderFinger);
+          if (yNew != null) scroller.scrollTop += (yNew - relYfinger);
+        }
+        // 端で自動スクロール
+        if (scroller) {
+          autoScrollTimer = setInterval(() => {
+            if (!isDragging) return;
+            const r = scroller.getBoundingClientRect();
+            const edge = 70, speed = 12;
+            let moved = false;
+            if (lastClientY < r.top + edge) { scroller.scrollTop -= speed; moved = true; }
+            else if (lastClientY > r.bottom - edge) { scroller.scrollTop += speed; moved = true; }
+            if (moved) updateDragTime(lastClientY);
+          }, 16);
+        }
       }, 500); // 400→500msに延長
     }
 
-    function moveDrag(clientY) {
+    function updateDragTime(clientY) {
       if (!isDragging || !ghost) return;
       ghost.style.top = (clientY - 30) + 'px';
       timeIndicator.style.top = (clientY - 30) + 'px';
 
-      // timeline div の現在の画面座標を取得
       const tlEl = document.getElementById('timeline');
       const tlRect = tlEl.getBoundingClientRect();
-      const relY = clientY - tlRect.top; // timeline先頭からの相対ピクセル
+      const relY = clientY - tlRect.top;
 
-      // relY=0 が dragStartH時。分 = dragStartH*60 + relY/dragPX*60
-      const rawMin = dragStartH * 60 + relY / dragPX * 60;
-      // 15分単位で丸める
-      const clampedMin = Math.max(dragStartH * 60, Math.min(23 * 60 + 45, rawMin));
+      // 描画と同じ非線形マッピング(_yMap)の逆変換で時刻を求める（指の位置＝見た目の時刻）
+      let rawMin = timelineYToMin(relY);
+      if (rawMin == null) rawMin = dragStartH * 60 + relY / dragPX * 60; // フォールバック
+
+      const floorMin = (window._timelineStartH != null ? window._timelineStartH : dragStartH) * 60;
+      const clampedMin = Math.max(floorMin, Math.min(23 * 60 + 45, rawMin));
       const closestMin = Math.round(clampedMin / 15) * 15;
       const hh = Math.floor(closestMin / 60).toString().padStart(2,'0');
       const mm = (closestMin % 60).toString().padStart(2,'0');
@@ -6128,11 +6379,16 @@
 
       timeIndicator.textContent = newTime;
       ghost.querySelector('.task-time').textContent = newTime;
-
       dragState = { taskId: task.id, newTime };
     }
 
-    function endDrag(e) {
+    function moveDrag(clientY) {
+      if (!isDragging || !ghost) return;
+      lastClientY = clientY;
+      updateDragTime(clientY);
+    }
+
+    async function endDrag(e) {
       clearTimeout(longPressTimer);
       if (!isDragging) {
         // 少し動いていたらスクロール扱いで編集しない
@@ -6145,40 +6401,39 @@
       }
       isDragging = false;
       card.classList.remove('dragging');
+      if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
       if (ghost) { ghost.remove(); ghost = null; }
       if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
+      window._dragExpandMode = false;
 
-      if (dragState) {
-        const t = tasks.find(t => t.id === dragState.taskId);
+      const ds = dragState;
+      dragState = null;
+
+      if (ds) {
+        const t = tasks.find(t => t.id === ds.taskId);
         if (t && t['(A)実行日']) {
-          let [h, m] = dragState.newTime.split(':').map(Number);
-          const durMin = Math.round((t['(C)見込み/h'] || 0) * 60);
-          const pad = n => n.toString().padStart(2,'0');
-          const origDateStr = t['(A)実行日'].start.substring(0, 10);
-          let baseDate = new Date(origDateStr + 'T00:00:00');
-          // 23:45以降（翌日相当）は翌日の00:00に丸める
-          if (h >= 24) { baseDate.setDate(baseDate.getDate() + 1); h = 0; m = 0; }
-          const endTotalMin = h*60+m+durMin;
-          let endDate = new Date(baseDate);
-          let endH = Math.floor(endTotalMin/60), endM = endTotalMin%60;
-          if (endH >= 24) { endDate.setDate(endDate.getDate() + 1); endH -= 24; }
-          const startYmd = `${baseDate.getFullYear()}-${pad(baseDate.getMonth()+1)}-${pad(baseDate.getDate())}`;
-          const endYmd = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
-          t['(A)実行日'] = {
-            start: `${startYmd}T${pad(h)}:${pad(m)}`,
-            end:   `${endYmd}T${pad(endH)}:${pad(endM)}`
-          };
-          t._localLastEdited = new Date().toISOString();
+          // 繰り返し（習慣）なら範囲を選ばせる
+          if (isHabitInstance(t) || isHabitTemplate(t)) {
+            const scope = await askRepeatScope('時刻移動');
+            if (!scope) { renderTimeline(); return; } // キャンセル→展開を戻すだけ
+            const baseDateStr = (t['(A)実行日'].start || '').substring(0,10) || t._habitDate || ymd(new Date());
+            if (scope === 'single') {
+              applyTimeToInstance(t, ds.newTime);
+            } else {
+              applyRepeatTimeFuture(t, ds.newTime, baseDateStr);
+            }
+          } else {
+            applyTimeToInstance(t, ds.newTime);
+          }
           localStorage.setItem('tasks', JSON.stringify(tasks));
           renderTimeline();
           renderLater();
-          // Notion同期：時刻変更をNotionにも反映
-          if (t._notionId && notionSettings.token) {
-            notionUpdateTask(t._notionId, t).catch(e => console.error('Notionドラッグ同期失敗', e));
-          }
+          if (currentScreen === 'routine') renderRoutineScreen();
+          return;
         }
-        dragState = null;
       }
+      // 移動が確定しなかった場合も展開を戻す
+      renderTimeline();
     }
 
     // タッチイベント
@@ -6203,10 +6458,14 @@
 
     card.addEventListener('touchcancel', function() {
       clearTimeout(longPressTimer);
+      const was = isDragging;
       isDragging = false;
       card.classList.remove('dragging');
+      if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
       if (ghost) { ghost.remove(); ghost = null; }
       if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
+      if (was && window._dragExpandMode) { window._dragExpandMode = false; renderTimeline(); }
+      dragState = null;
     });
   }
 
