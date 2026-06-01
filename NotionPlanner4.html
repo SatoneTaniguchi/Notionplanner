@@ -739,6 +739,9 @@
     position: relative;
   }
 
+  /* ドラッグ中の元カード（タイムライン）を薄く表示 */
+  .tl-task-card.dragging { opacity: 0.3; }
+
   .drag-ghost {
     position: fixed;
     left: 76px;
@@ -3298,6 +3301,12 @@
           } else if (startingHere.length > 0) {
             // 1時間未満のカードが始まる区間 → 固定スロット高さ
             segH = SLOT_H + 16;
+          } else if (window._dragExpandMode) {
+            // ドラッグ中は空き時間を広めに展開し、15分刻みで確実にドロップできるようにする。
+            // 通常モードより狭くしない（最低でも15分あたり16px確保）。
+            const linear = segMin / 60 * SLOT_H;
+            const fine = segMin / 15 * 16; // 15分=16px
+            segH = (segMin >= 60) ? Math.max(190, linear, fine) : Math.max(SLOT_H, fine);
           } else if (isPastSeg) {
             // 過去の空き区間 → ほぼ詰める（ラベルも消えるので最小限）
             segH = Math.min(8, segMin / 60 * SLOT_H);
@@ -3313,6 +3322,11 @@
       }
       _yMap = { mins, ys };
     })();
+
+    // ドラッグの座標→時刻変換が描画と一致するよう、yMapと表示範囲をグローバル保存
+    window._timelineYMap = _yMap;
+    window._timelineStartH = START_H;
+    window._timelinePX = PX;
 
     const totalPxActual = _yMap.ys[_yMap.ys.length - 1];
     timeline.style.height = (totalPxActual + 60) + 'px';
@@ -3512,6 +3526,7 @@
 
       const card = document.createElement('div');
       card.className = 'tl-task-card' + ((isPast||_done)?' past':'');
+      card.dataset.taskId = t.id;
       card.style.cssText = `position:absolute;top:${cardTop}px;height:${cardH}px;left:${cardLeft}px;width:${cardWidth}px;box-sizing:border-box;z-index:2;${(isPast||_done)?'opacity:0.4;':''}`;
       window._maxCardBottom = Math.max(window._maxCardBottom || 0, cardTop + cardH);
       const badgeHTML = _shuruiOpt ? `<span style="background:${_shuruiOpt.bg};color:${_shuruiOpt.color};padding:1px 5px;border-radius:7px;font-size:10px;font-weight:600;">${_shuruiOpt.label}</span>` : '';
@@ -5721,6 +5736,43 @@
   // ドラッグ関連
   let dragState = null;
 
+  // 描画(toY)の逆変換：タイムライン上のyピクセル → 分
+  // renderTimelineが構築した非線形マッピング(_yMap)をそのまま逆にたどる
+  function timelineYToMin(y) {
+    const m = window._timelineYMap;
+    const PX = window._timelinePX || 80;
+    if (!m || !m.ys || m.ys.length === 0) return null;
+    const { mins, ys } = m;
+    // 範囲外は端の傾き(線形)で外挿
+    if (y <= ys[0]) return mins[0] + (y - ys[0]) / PX * 60;
+    if (y >= ys[ys.length - 1]) return mins[mins.length - 1] + (y - ys[ys.length - 1]) / PX * 60;
+    for (let i = 0; i < ys.length - 1; i++) {
+      if (y >= ys[i] && y <= ys[i + 1]) {
+        const dy = ys[i + 1] - ys[i];
+        const ratio = dy === 0 ? 0 : (y - ys[i]) / dy;
+        return mins[i] + ratio * (mins[i + 1] - mins[i]);
+      }
+    }
+    return mins[mins.length - 1];
+  }
+
+  // 順変換：分 → タイムライン上のyピクセル（描画toYと同じ）。スクロール補正に使用
+  function timelineMinToY(min) {
+    const m = window._timelineYMap;
+    const PX = window._timelinePX || 80;
+    if (!m || !m.mins || m.mins.length === 0) return null;
+    const { mins, ys } = m;
+    if (min <= mins[0]) return ys[0] + (min - mins[0]) / 60 * PX;
+    if (min >= mins[mins.length - 1]) return ys[ys.length - 1] + (min - mins[mins.length - 1]) / 60 * PX;
+    for (let i = 0; i < mins.length - 1; i++) {
+      if (min >= mins[i] && min <= mins[i + 1]) {
+        const r = (min - mins[i]) / (mins[i + 1] - mins[i]);
+        return ys[i] + r * (ys[i + 1] - ys[i]);
+      }
+    }
+    return ys[ys.length - 1];
+  }
+
   function setupDrag(card, task) {
     let longPressTimer = null;
     let isDragging = false;
@@ -5731,6 +5783,8 @@
     let touchMoved = false;
     let dragStartH = 0; // ドラッグ開始時のSTART_H
     let dragPX = 80;    // ドラッグ開始時のPX
+    let lastClientY = 0;       // 直近の指のY（自動スクロール用）
+    let autoScrollTimer = null; // 端での自動スクロール
 
     function startLongPress(clientY) {
       touchStartY = clientY;
@@ -5762,10 +5816,46 @@
         document.body.appendChild(timeIndicator);
         // バイブレーション
         if (navigator.vibrate) navigator.vibrate(30);
+
+        // ── 空き時間を展開して15分刻みでドロップできるようにする ──
+        // ドラッグ開始時点で指の下にある時刻を保持し、再描画後もその時刻が
+        // 指の位置に来るようスクロールを補正して「ジャンプ」を防ぐ。
+        const scroller = document.getElementById('timelineScroll');
+        const tlElNow = document.getElementById('timeline');
+        let minUnderFinger = null, relYfinger = 0;
+        if (tlElNow) {
+          relYfinger = touchStartY - tlElNow.getBoundingClientRect().top;
+          minUnderFinger = timelineYToMin(relYfinger);
+        }
+        window._dragExpandMode = true;
+        renderTimeline();
+        // 再描画後の同タスクのカードを薄く表示（ドラッグ中の元位置）
+        const _newCard = document.querySelector(`#timeline .tl-task-card[data-task-id="${task.id}"]`);
+        if (_newCard) _newCard.classList.add('dragging');
+        if (scroller && minUnderFinger != null) {
+          const yNew = timelineMinToY(minUnderFinger);
+          if (yNew != null) scroller.scrollTop += (yNew - relYfinger);
+        }
+
+        // 端に近づいたら自動スクロール（展開で縦長になった分も到達できるように）
+        if (scroller) {
+          autoScrollTimer = setInterval(() => {
+            if (!isDragging) return;
+            const r = scroller.getBoundingClientRect();
+            const edge = 70;        // 端の判定領域
+            const speed = 12;       // 1tickのスクロール量
+            let moved = false;
+            if (lastClientY < r.top + edge) { scroller.scrollTop -= speed; moved = true; }
+            else if (lastClientY > r.bottom - edge) { scroller.scrollTop += speed; moved = true; }
+            // 指が止まっていてもスクロールに合わせて時刻表示を更新
+            if (moved) updateDragTime(lastClientY);
+          }, 16);
+        }
       }, 500); // 400→500msに延長
     }
 
-    function moveDrag(clientY) {
+    // 指のY座標から時刻を計算してゴースト/インジケーターを更新
+    function updateDragTime(clientY) {
       if (!isDragging || !ghost) return;
       ghost.style.top = (clientY - 30) + 'px';
       timeIndicator.style.top = (clientY - 30) + 'px';
@@ -5775,10 +5865,17 @@
       const tlRect = tlEl.getBoundingClientRect();
       const relY = clientY - tlRect.top; // timeline先頭からの相対ピクセル
 
-      // relY=0 が dragStartH時。分 = dragStartH*60 + relY/dragPX*60
-      const rawMin = dragStartH * 60 + relY / dragPX * 60;
-      // 15分単位で丸める
-      const clampedMin = Math.max(dragStartH * 60, Math.min(23 * 60 + 45, rawMin));
+      // 描画と同じ非線形マッピング(_yMap)の逆変換で時刻を求める。
+      // これにより指の位置＝タイムライン上の見た目の時刻が一致する。
+      let rawMin = timelineYToMin(relY);
+      if (rawMin == null) {
+        // フォールバック（線形）
+        rawMin = dragStartH * 60 + relY / dragPX * 60;
+      }
+
+      // 上端（タイムライン開始時刻）〜23:45 にクランプし、15分単位で丸める
+      const floorMin = (window._timelineStartH != null ? window._timelineStartH : dragStartH) * 60;
+      const clampedMin = Math.max(floorMin, Math.min(23 * 60 + 45, rawMin));
       const closestMin = Math.round(clampedMin / 15) * 15;
       const hh = Math.floor(closestMin / 60).toString().padStart(2,'0');
       const mm = (closestMin % 60).toString().padStart(2,'0');
@@ -5788,6 +5885,12 @@
       ghost.querySelector('.task-time').textContent = newTime;
 
       dragState = { taskId: task.id, newTime };
+    }
+
+    function moveDrag(clientY) {
+      if (!isDragging || !ghost) return;
+      lastClientY = clientY;
+      updateDragTime(clientY);
     }
 
     function endDrag(e) {
@@ -5803,9 +5906,13 @@
       }
       isDragging = false;
       card.classList.remove('dragging');
+      if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
       if (ghost) { ghost.remove(); ghost = null; }
       if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
+      // 展開モードを解除（この後の再描画で通常の圧縮レイアウトに戻る）
+      window._dragExpandMode = false;
 
+      let didRender = false;
       if (dragState) {
         const t = tasks.find(t => t.id === dragState.taskId);
         if (t && t['(A)実行日']) {
@@ -5830,6 +5937,7 @@
           localStorage.setItem('tasks', JSON.stringify(tasks));
           renderTimeline();
           renderLater();
+          didRender = true;
           // Notion同期：時刻変更をNotionにも反映
           if (t._notionId && notionSettings.token) {
             notionUpdateTask(t._notionId, t).catch(e => console.error('Notionドラッグ同期失敗', e));
@@ -5837,6 +5945,8 @@
         }
         dragState = null;
       }
+      // 移動が確定しなかった場合も、展開レイアウトを通常に戻すため再描画
+      if (!didRender) renderTimeline();
     }
 
     // タッチイベント
@@ -5861,10 +5971,17 @@
 
     card.addEventListener('touchcancel', function() {
       clearTimeout(longPressTimer);
+      const wasDragging = isDragging;
       isDragging = false;
       card.classList.remove('dragging');
+      if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
       if (ghost) { ghost.remove(); ghost = null; }
       if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
+      if (wasDragging && window._dragExpandMode) {
+        window._dragExpandMode = false;
+        renderTimeline(); // 展開レイアウトを通常に戻す
+      }
+      dragState = null;
     });
   }
 
