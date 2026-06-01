@@ -4353,26 +4353,19 @@
     function buildJissekiDate(dateStr, startHHMM, durationMin) {
       const pad = n => n.toString().padStart(2,'0');
       let [sh, sm] = startHHMM.split(':').map(Number);
-      // 24:00以降は翌日の0:00として扱う
+      // dateStrがtoDateString形式の場合とYYYY-MM-DD形式の両方に対応
       let baseDate = new Date(dateStr);
-      if (sh >= 24) {
-        sh = sh - 24; sm = 0;
-        baseDate.setDate(baseDate.getDate() + 1);
-      }
-      const endMin = sh*60+sm+(durationMin||0);
-      const ymd = `${baseDate.getFullYear()}-${pad(baseDate.getMonth()+1)}-${pad(baseDate.getDate())}`;
-      const eh = Math.floor(endMin/60), em = endMin%60;
-      // endが24時以降なら翌日に
-      let endYmd = ymd;
-      let actualEh = eh, actualEm = em;
-      if (eh >= 24) {
-        const endDate = new Date(baseDate); endDate.setDate(endDate.getDate() + 1);
-        endYmd = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
-        actualEh = eh - 24;
-      }
+      // 24:00以降は翌日の0:00として扱う（日付文字列を汚さない）
+      if (sh >= 24) { sh = 0; sm = 0; baseDate.setDate(baseDate.getDate() + 1); }
+      const endTotalMin = sh*60+sm+(durationMin||0);
+      const startYmd = `${baseDate.getFullYear()}-${pad(baseDate.getMonth()+1)}-${pad(baseDate.getDate())}`;
+      let endH = Math.floor(endTotalMin/60), endM = endTotalMin%60;
+      let endDate = new Date(baseDate);
+      if (endH >= 24) { endDate.setDate(endDate.getDate() + 1); endH -= 24; }
+      const endYmd = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
       return {
-        start: `${ymd}T${pad(sh)}:${pad(sm)}`,
-        end:   `${endYmd}T${pad(actualEh)}:${pad(actualEm)}`
+        start: `${startYmd}T${pad(sh)}:${pad(sm)}`,
+        end:   `${endYmd}T${pad(endH)}:${pad(endM)}`
       };
     }
 
@@ -5766,20 +5759,23 @@
       ghost.style.top = (clientY - 30) + 'px';
       timeIndicator.style.top = (clientY - 30) + 'px';
 
-      // タイムラインのtopからピクセル位置→時刻を計算（START_Hオフセット考慮）
-      const tlEl = document.getElementById('timeline');
-      const tlRect = tlEl.getBoundingClientRect();
-      const scroll = document.getElementById('timelineScroll');
-      const relY = clientY - tlRect.top + scroll.scrollTop;
+      // スクロールコンテナ基準のY座標を正確に計算
+      const scrollEl = document.getElementById('timelineScroll');
+      const scrollRect = scrollEl.getBoundingClientRect();
+      // clientYからスクロールコンテナ上端を引き、スクロール量を足す
+      const relY = (clientY - scrollRect.top) + scrollEl.scrollTop;
       const PX = 80; // 1時間=80px
 
-      // タイムラインの最初の時間ラベルからSTART_Hを取得
+      // START_Hを最初のラベルから取得
+      const tlEl = document.getElementById('timeline');
       const firstLabel = tlEl.querySelector('.tl-hour-label');
-      const startH = firstLabel ? parseInt(firstLabel.textContent) || 0 : 0;
-      const rawMin = Math.max(startH * 60, Math.min(1439, startH * 60 + relY / PX * 60));
+      const startH = firstLabel ? (parseInt(firstLabel.textContent) || 0) : 0;
 
-      // 30分単位で丸める
-      const closestMin = Math.round(rawMin / 30) * 30;
+      // relYはSTART_Hからの相対ピクセル → 分に変換
+      const rawMin = startH * 60 + relY / PX * 60;
+      // 15分単位で丸める（より細かく操作できるように）
+      const clampedMin = Math.max(0, Math.min(23 * 60 + 45, rawMin));
+      const closestMin = Math.round(clampedMin / 15) * 15;
       const hh = Math.floor(closestMin / 60).toString().padStart(2,'0');
       const mm = (closestMin % 60).toString().padStart(2,'0');
       const newTime = `${hh}:${mm}`;
@@ -5811,26 +5807,20 @@
         if (t && t['(A)実行日']) {
           let [h, m] = dragState.newTime.split(':').map(Number);
           const durMin = Math.round((t['(C)見込み/h'] || 0) * 60);
-          const endMin = h*60+m+durMin;
           const pad = n => n.toString().padStart(2,'0');
-          let baseDate = new Date(t['(A)実行日'].start.substring(0, 10) + 'T00:00:00');
-          // 24:00以降なら翌日の0:00として扱う
-          if (h >= 24) {
-            h = h - 24; m = 0;
-            baseDate.setDate(baseDate.getDate() + 1);
-          }
-          const ymd = baseDate.toISOString().substring(0, 10);
-          const endH = Math.floor(endMin/60), endMm = endMin%60;
-          let endYmd = ymd;
-          let actualEndH = endH, actualEndMm = endMm;
-          if (endH >= 24) {
-            const endDate = new Date(baseDate); endDate.setDate(endDate.getDate() + 1);
-            endYmd = endDate.toISOString().substring(0, 10);
-            actualEndH = endH - 24; actualEndMm = endMm;
-          }
+          const origDateStr = t['(A)実行日'].start.substring(0, 10);
+          let baseDate = new Date(origDateStr + 'T00:00:00');
+          // 23:45以降（翌日相当）は翌日の00:00に丸める
+          if (h >= 24) { baseDate.setDate(baseDate.getDate() + 1); h = 0; m = 0; }
+          const endTotalMin = h*60+m+durMin;
+          let endDate = new Date(baseDate);
+          let endH = Math.floor(endTotalMin/60), endM = endTotalMin%60;
+          if (endH >= 24) { endDate.setDate(endDate.getDate() + 1); endH -= 24; }
+          const startYmd = `${baseDate.getFullYear()}-${pad(baseDate.getMonth()+1)}-${pad(baseDate.getDate())}`;
+          const endYmd = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
           t['(A)実行日'] = {
-            start: `${ymd}T${pad(h)}:${pad(m)}`,
-            end:   `${endYmd}T${pad(actualEndH)}:${pad(actualEndMm)}`
+            start: `${startYmd}T${pad(h)}:${pad(m)}`,
+            end:   `${endYmd}T${pad(endH)}:${pad(endM)}`
           };
           t._localLastEdited = new Date().toISOString();
           localStorage.setItem('tasks', JSON.stringify(tasks));
