@@ -940,6 +940,129 @@
     z-index: 3;
   }
 
+  /* ── 中央ポップアップ式 時刻ピッカー（開始時刻） ── */
+  .time-pop-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 24px;
+    -webkit-backdrop-filter: blur(1px);
+    backdrop-filter: blur(1px);
+  }
+  .time-pop-card {
+    background: #fff;
+    width: 100%;
+    max-width: 360px;
+    border-radius: 26px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+    overflow: hidden;
+    animation: timePopIn 0.18s ease;
+  }
+  @keyframes timePopIn {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .time-pop-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 22px 6px;
+  }
+  .time-pop-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: #1c1c1e;
+    letter-spacing: 0.5px;
+  }
+  .time-pop-done {
+    background: #1c1c1e;
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    padding: 9px 22px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .time-pop-done:active { opacity: 0.7; }
+  .time-pop-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 230px;
+    position: relative;
+    padding-bottom: 14px;
+  }
+  /* 上下のフェード */
+  .time-pop-body::before, .time-pop-body::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 86px;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .time-pop-body::before { top: 0;    background: linear-gradient(to bottom, #fff 30%, transparent); }
+  .time-pop-body::after  { bottom: 14px; background: linear-gradient(to top, #fff 30%, transparent); }
+  .time-pop-colwrap {
+    position: relative;
+    width: 92px;
+    height: 230px;
+  }
+  /* 中央の選択ハイライト（角丸） */
+  .time-pop-sel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 78px;
+    height: 46px;
+    background: #ececed;
+    border-radius: 13px;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .time-pop-col {
+    position: relative;
+    height: 230px;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    text-align: center;
+    z-index: 1;
+    scroll-behavior: auto;
+  }
+  .time-pop-col::-webkit-scrollbar { display: none; }
+  .time-pop-item {
+    height: 46px;
+    line-height: 46px;
+    font-size: 29px;
+    font-weight: 500;
+    color: #c4c4c9;
+    scroll-snap-align: center;
+    cursor: pointer;
+    transition: color 0.12s ease;
+  }
+  .time-pop-item.is-selected {
+    color: #1c1c1e;
+    font-weight: 700;
+  }
+  .time-pop-item.spacer { height: 92px; pointer-events: none; }
+  .time-pop-unit {
+    font-size: 19px;
+    color: #3c3c43;
+    font-weight: 500;
+    flex-shrink: 0;
+    z-index: 2;
+    padding: 0 2px 0 2px;
+  }
+
   /* FABボタン */
   .fab {
     position: fixed;
@@ -2405,7 +2528,7 @@
           </div>
           <!-- 時刻表示ボタン（タップでドラムロール開閉） -->
           <div id="timePickerArea">
-          <div onclick="toggleDrumPicker()" id="timeDisplayBtn" style="
+          <div onclick="openStartTimePop()" id="timeDisplayBtn" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
             <span id="timeDisplayLabel" style="font-size:22px;font-weight:600;color:#007aff;letter-spacing:1px;">07:00</span>
@@ -2579,7 +2702,7 @@
             </div>
           </div>
           <div id="repeatTimePickerArea">
-          <div onclick="toggleRepeatDrumPicker()" id="repeatTimeDisplayBtn" style="
+          <div onclick="openRepeatTimePop()" id="repeatTimeDisplayBtn" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
             <span id="repeatTimeDisplayLabel" style="font-size:22px;font-weight:600;color:#007aff;letter-spacing:1px;">07:00</span>
@@ -2686,6 +2809,28 @@
       <div class="drum-unit">時間</div>
       <div class="drum-col" id="drumMins"></div>
       <div class="drum-unit">分</div>
+    </div>
+  </div>
+</div>
+
+<!-- 中央ポップアップ式 開始時刻ピッカー -->
+<div class="time-pop-overlay" id="timePopOverlay" style="display:none;">
+  <div class="time-pop-card">
+    <div class="time-pop-header">
+      <div class="time-pop-title" id="timePopTitle">開始時刻</div>
+      <button class="time-pop-done" id="timePopDone">完了</button>
+    </div>
+    <div class="time-pop-body">
+      <div class="time-pop-colwrap">
+        <div class="time-pop-sel"></div>
+        <div class="time-pop-col" id="timePopHour"></div>
+      </div>
+      <div class="time-pop-unit">時</div>
+      <div class="time-pop-colwrap">
+        <div class="time-pop-sel"></div>
+        <div class="time-pop-col" id="timePopMin"></div>
+      </div>
+      <div class="time-pop-unit">分</div>
     </div>
   </div>
 </div>
@@ -2969,6 +3114,12 @@
     document.getElementById('drumDoneBtn').addEventListener('click', closeDrumPicker);
     document.getElementById('drumOverlay').addEventListener('click', function(e) {
       if (e.target === this) closeDrumPicker();
+    });
+
+    // 中央ポップアップ式 時刻ピッカー
+    document.getElementById('timePopDone').addEventListener('click', () => closeTimePopup(true));
+    document.getElementById('timePopOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeTimePopup(true); // 背景タップでも現在位置で確定
     });
 
     // 所要時間ボタンのイベント登録
@@ -4902,6 +5053,118 @@
     return hidden ? hidden.value : '07:00';
   }
 
+  // ============================================================
+  // 中央ポップアップ式 時刻ピッカー（スクロールスナップ方式・5分刻み）
+  // ============================================================
+  const TIMEPOP_ITEM_H = 46;     // .time-pop-item の高さ
+  let _timePopOnDone = null;      // 完了時コールバック onDone(timeStr)
+  let _timePopBuilt = false;
+
+  function buildTimePopCols() {
+    const hourCol = document.getElementById('timePopHour');
+    const minCol  = document.getElementById('timePopMin');
+    if (!hourCol || !minCol) return;
+    const spacer = '<div class="time-pop-item spacer"></div>';
+    // 時：0〜23
+    let hHtml = spacer;
+    for (let h = 0; h < 24; h++) hHtml += `<div class="time-pop-item" data-v="${h}">${h}</div>`;
+    hHtml += spacer;
+    hourCol.innerHTML = hHtml;
+    // 分：0,5,…,55（5分刻み）
+    let mHtml = spacer;
+    for (let m = 0; m < 60; m += 5) mHtml += `<div class="time-pop-item" data-v="${m}">${m.toString().padStart(2,'0')}</div>`;
+    mHtml += spacer;
+    minCol.innerHTML = mHtml;
+
+    // スクロールに応じて中央の項目を強調
+    [hourCol, minCol].forEach(col => {
+      let raf = null;
+      col.addEventListener('scroll', () => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => { raf = null; markTimePopSelected(col); });
+      }, { passive: true });
+    });
+    _timePopBuilt = true;
+  }
+
+  function markTimePopSelected(col) {
+    const idx = Math.round(col.scrollTop / TIMEPOP_ITEM_H);
+    const items = col.querySelectorAll('.time-pop-item:not(.spacer)');
+    items.forEach((el, i) => el.classList.toggle('is-selected', i === idx));
+  }
+
+  // opts: { title, time:'HH:MM', onDone:(timeStr)=>{} }
+  function openTimePopup(opts) {
+    if (!_timePopBuilt) buildTimePopCols();
+    const overlay = document.getElementById('timePopOverlay');
+    const hourCol = document.getElementById('timePopHour');
+    const minCol  = document.getElementById('timePopMin');
+    document.getElementById('timePopTitle').textContent = opts.title || '開始時刻';
+    _timePopOnDone = opts.onDone || null;
+
+    let [h, m] = (opts.time || '07:00').split(':').map(Number);
+    h = isNaN(h) ? 7 : Math.max(0, Math.min(23, h));
+    m = isNaN(m) ? 0 : Math.round(m / 5) * 5;
+    if (m >= 60) { m = 0; h = Math.min(23, h + 1); }
+
+    overlay.style.display = 'flex';
+    // display確定後にスクロール位置を設定（同期＋rAFの二段構えでスナップずれを防ぐ）
+    const place = () => {
+      hourCol.scrollTop = h * TIMEPOP_ITEM_H;
+      minCol.scrollTop  = (m / 5) * TIMEPOP_ITEM_H;
+      markTimePopSelected(hourCol);
+      markTimePopSelected(minCol);
+    };
+    place();
+    requestAnimationFrame(place);
+  }
+
+  function readTimePopValue() {
+    const hourCol = document.getElementById('timePopHour');
+    const minCol  = document.getElementById('timePopMin');
+    const h = Math.max(0, Math.min(23, Math.round(hourCol.scrollTop / TIMEPOP_ITEM_H)));
+    const mIdx = Math.max(0, Math.min(11, Math.round(minCol.scrollTop / TIMEPOP_ITEM_H)));
+    const m = mIdx * 5;
+    return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+  }
+
+  function closeTimePopup(commit) {
+    const overlay = document.getElementById('timePopOverlay');
+    if (commit && _timePopOnDone) {
+      const t = readTimePopValue();
+      _timePopOnDone(t);
+    }
+    overlay.style.display = 'none';
+    _timePopOnDone = null;
+  }
+
+  // 「時間指定」タブの開始時刻を開く
+  function openStartTimePop() {
+    openTimePopup({
+      title: '開始時刻',
+      time: getDrumTime(),
+      onDone: (t) => {
+        const [h, m] = t.split(':').map(Number);
+        drumHourIdx = h; drumMinIdx = m;
+        updateDrumHidden(); // #startTimeSelect / ラベル / 終了時刻表示を更新
+      }
+    });
+  }
+
+  // 「繰り返し」タブの開始時刻を開く
+  function openRepeatTimePop() {
+    const cur = (document.getElementById('repeatTimeSelect') || {}).value || '07:00';
+    openTimePopup({
+      title: '開始時刻',
+      time: cur,
+      onDone: (t) => {
+        const [h, m] = t.split(':').map(Number);
+        repeatDrumHourIdx = h; repeatDrumMinIdx = m;
+        updateRepeatDrumHidden();
+      }
+    });
+  }
+
   function setupDrumTouch(col, type) {
     if (!col) return;
     let startY = 0, startIdx = 0, isDrumDragging = false;
@@ -6462,6 +6725,32 @@
     return ys[ys.length - 1];
   }
 
+  // 指定タスクをタイムラインの見やすい位置（上から約1/3）にスクロールして表示する。
+  // 再描画直後はレイアウト確定前なのでrAFを2回挟んでから計算する。
+  function scrollTaskIntoView(taskId, fallbackTime) {
+    const run = () => {
+      const scroller = document.getElementById('timelineScroll');
+      if (!scroller) return;
+      const card = document.querySelector(`#timeline .tl-task-card[data-task-id="${taskId}"]`);
+      const prevBehavior = scroller.style.scrollBehavior;
+      scroller.style.scrollBehavior = 'smooth';
+      if (card) {
+        const cRect = card.getBoundingClientRect();
+        const sRect = scroller.getBoundingClientRect();
+        const target = scroller.scrollTop + (cRect.top - sRect.top) - sRect.height * 0.30;
+        scroller.scrollTop = Math.max(0, target);
+      } else if (fallbackTime) {
+        // カードが見つからない場合は時刻→yで近似スクロール
+        const [h, m] = fallbackTime.split(':').map(Number);
+        const y = timelineMinToY(h * 60 + m);
+        if (y != null) scroller.scrollTop = Math.max(0, y - scroller.getBoundingClientRect().height * 0.30);
+      }
+      // スクロール後にsmoothを元へ戻す
+      setTimeout(() => { scroller.style.scrollBehavior = prevBehavior; }, 400);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(run));
+  }
+
   function setupDrag(card, task) {
     let longPressTimer = null;
     let isDragging = false;
@@ -6473,7 +6762,14 @@
     let dragStartH = 0; // ドラッグ開始時のSTART_H
     let dragPX = 80;    // ドラッグ開始時のPX
     let lastClientY = 0;
-    let autoScrollTimer = null;
+    let autoScrollRAF = null;   // 自動スクロールのrequestAnimationFrame ID
+    let dragScroller = null;    // ドラッグ中のスクロール対象
+
+    // 自動スクロールを停止し、smoothスクロールを元に戻す
+    function stopAutoScroll() {
+      if (autoScrollRAF) { cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
+      if (dragScroller) { dragScroller.style.scrollBehavior = ''; dragScroller = null; }
+    }
 
     function startLongPress(clientY) {
       touchStartY = clientY;
@@ -6481,6 +6777,7 @@
       longPressTimer = setTimeout(() => {
         if (touchMoved) return; // 指が動いていたらドラッグ開始しない
         isDragging = true;
+        lastClientY = touchStartY; // 指の現在位置で初期化（0のまま誤って上端スクロールするのを防ぐ）
         // このタイミングでSTART_Hを確定（renderTimelineと同じPX=80を使用）
         dragPX = 80;
         const tlEl = document.getElementById('timeline');
@@ -6523,17 +6820,36 @@
           const yNew = timelineMinToY(minUnderFinger);
           if (yNew != null) scroller.scrollTop += (yNew - relYfinger);
         }
-        // 端で自動スクロール
+        // 端で自動スクロール（指が端に近いほど速くスクロール）。
+        // ※ scroll-behavior:smooth のままだと毎フレームのscrollTop変更が打ち消し合って
+        //   ほとんど動かないため、ドラッグ中は auto に切り替える。
         if (scroller) {
-          autoScrollTimer = setInterval(() => {
-            if (!isDragging) return;
+          dragScroller = scroller;
+          scroller.style.scrollBehavior = 'auto';
+          const EDGE = 96;       // 端の感知ゾーンの高さ(px)
+          const MAX_SPEED = 24;  // 1フレームあたりの最大スクロール量(px)
+          const step = () => {
+            if (!isDragging) { autoScrollRAF = null; return; }
             const r = scroller.getBoundingClientRect();
-            const edge = 70, speed = 12;
-            let moved = false;
-            if (lastClientY < r.top + edge) { scroller.scrollTop -= speed; moved = true; }
-            else if (lastClientY > r.bottom - edge) { scroller.scrollTop += speed; moved = true; }
-            if (moved) updateDragTime(lastClientY);
-          }, 16);
+            const topZone = r.top + EDGE;
+            const botZone = r.bottom - EDGE;
+            let delta = 0;
+            if (lastClientY < topZone) {
+              const ratio = Math.min(1, (topZone - lastClientY) / EDGE);
+              delta = -MAX_SPEED * ratio * ratio; // 端に近いほど加速（二乗で滑らかに）
+            } else if (lastClientY > botZone) {
+              const ratio = Math.min(1, (lastClientY - botZone) / EDGE);
+              delta = MAX_SPEED * ratio * ratio;
+            }
+            if (delta !== 0) {
+              const before = scroller.scrollTop;
+              scroller.scrollTop += delta;
+              // 実際にスクロールできたときだけ時刻を更新（端で止まったら呼ばない）
+              if (scroller.scrollTop !== before) updateDragTime(lastClientY);
+            }
+            autoScrollRAF = requestAnimationFrame(step);
+          };
+          autoScrollRAF = requestAnimationFrame(step);
         }
       }, 500); // 400→500msに延長
     }
@@ -6552,8 +6868,8 @@
       if (rawMin == null) rawMin = dragStartH * 60 + relY / dragPX * 60; // フォールバック
 
       const floorMin = (window._timelineStartH != null ? window._timelineStartH : dragStartH) * 60;
-      const clampedMin = Math.max(floorMin, Math.min(23 * 60 + 45, rawMin));
-      const closestMin = Math.round(clampedMin / 15) * 15;
+      const clampedMin = Math.max(floorMin, Math.min(23 * 60 + 55, rawMin));
+      const closestMin = Math.round(clampedMin / 5) * 5;
       const hh = Math.floor(closestMin / 60).toString().padStart(2,'0');
       const mm = (closestMin % 60).toString().padStart(2,'0');
       const newTime = `${hh}:${mm}`;
@@ -6582,7 +6898,7 @@
       }
       isDragging = false;
       card.classList.remove('dragging');
-      if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
+      stopAutoScroll();
       if (ghost) { ghost.remove(); ghost = null; }
       if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
       window._dragExpandMode = false;
@@ -6610,6 +6926,8 @@
           renderTimeline();
           renderLater();
           if (currentScreen === 'routine') renderRoutineScreen();
+          // 移動先のタスクが画面に表示されるようスクロール（再描画後に実行）
+          scrollTaskIntoView(ds.taskId, ds.newTime);
           return;
         }
       }
@@ -6642,7 +6960,7 @@
       const was = isDragging;
       isDragging = false;
       card.classList.remove('dragging');
-      if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
+      stopAutoScroll();
       if (ghost) { ghost.remove(); ghost = null; }
       if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
       if (was && window._dragExpandMode) { window._dragExpandMode = false; renderTimeline(); }
