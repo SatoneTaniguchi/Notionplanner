@@ -1809,6 +1809,13 @@
   .routine-screen::-webkit-scrollbar { display: none; }
   .routine-screen.active { display: flex; }
 
+  /* コイン獲得トースト */
+  #coinToast.show { animation: coinPop 0.28s ease; }
+  @keyframes coinPop {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.9); }
+    100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+
   /* 種類プルダウン */
   .routine-kind-select {
     font-family: inherit;
@@ -2420,6 +2427,39 @@
   <div id="routineList"></div>
 </div>
 
+<!-- ===== グラフ画面 ===== -->
+<div class="routine-screen" id="graphScreen">
+  <div style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#fff6d6,#ffe9a8);border:1px solid #f4dc8a;border-radius:18px;padding:16px 18px;margin-bottom:18px;">
+    <div style="font-size:34px;line-height:1;">🪙</div>
+    <div>
+      <div style="font-size:12px;color:#9a7b1a;font-weight:600;">貯まったコイン</div>
+      <div style="font-size:28px;font-weight:800;color:#7a5d00;line-height:1.1;"><span data-coin-count>0</span> <span style="font-size:14px;font-weight:700;">コイン</span></div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 8px;">
+    <div style="font-size:15px;font-weight:700;color:#2d2b3a;">✅ 完了タスク数の推移</div>
+    <div id="graphCompletedSum" style="font-size:12px;color:#9a97ad;"></div>
+  </div>
+  <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;margin-bottom:18px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
+    <div id="graphCompleted"></div>
+  </div>
+
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 8px;">
+    <div style="font-size:15px;font-weight:700;color:#2d2b3a;">⏱ 今週の集中時間</div>
+    <div id="graphFocusSum" style="font-size:12px;color:#9a97ad;"></div>
+  </div>
+  <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
+    <div id="graphFocus"></div>
+  </div>
+  <div style="font-size:11px;color:#b0adc0;margin-top:10px;line-height:1.5;">集中時間は、タイムラインや編集画面のタイマー（開始→終了）で計測した実働時間から集計しています。</div>
+</div>
+
+<!-- 🪙 コイン獲得トースト -->
+<div id="coinToast" style="display:none;position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:4000;background:#1c1c1e;color:#fff;border-radius:24px;padding:10px 18px;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
+  <span style="font-size:18px;">🪙</span> +1 コイン！
+</div>
+
 <!-- FAB -->
 <button class="fab" onclick="openModal()">+</button>
 
@@ -2440,6 +2480,14 @@
       </svg>
     </span>
     <span class="nav-label">ルーチン</span>
+  </button>
+  <button class="bottom-nav-item" id="navGraph" onclick="switchScreen('graph')">
+    <span class="nav-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>
+      </svg>
+    </span>
+    <span class="nav-label">グラフ</span>
   </button>
 </nav>
 
@@ -4569,6 +4617,11 @@
     task._localLastEdited = new Date().toISOString();
     updateModalDoneUI(task['(A)done']);
     localStorage.setItem('tasks', JSON.stringify(tasks));
+    { // 🪙 コイン＆完了ログ
+      const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || task.id) : task.id;
+      const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
+      if (task['(A)done']) awardCompletion(_k, task.name, _ds); else revokeCompletion(_k, _ds);
+    }
     renderTimeline();
     renderLater();
     // Notion同期
@@ -5549,6 +5602,132 @@
     return `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`;
   }
 
+  // ============================================================
+  // 🪙 報酬（コイン）＆ 完了/集中ログ ＋ グラフ
+  // ============================================================
+  function getRewardStore() {
+    try {
+      const s = JSON.parse(localStorage.getItem('rewardStore') || '{}');
+      return { coins: s.coins || 0, completions: s.completions || [], focus: s.focus || [] };
+    } catch (e) { return { coins: 0, completions: [], focus: [] }; }
+  }
+  function saveRewardStore(s) { localStorage.setItem('rewardStore', JSON.stringify(s)); }
+
+  // 完了の記録。key+dateStr で一意（同じタスク・同じ日は二重加算しない）。
+  function awardCompletion(key, name, dateStr) {
+    if (!key) return;
+    const s = getRewardStore();
+    if (s.completions.some(c => c.key === key && c.dateStr === dateStr)) return;
+    s.completions.push({ key, name: name || '', dateStr, ts: new Date().toISOString() });
+    s.coins = (s.coins || 0) + 1;
+    saveRewardStore(s);
+    showCoinToast();
+  }
+  function revokeCompletion(key, dateStr) {
+    if (!key) return;
+    const s = getRewardStore();
+    const idx = s.completions.findIndex(c => c.key === key && c.dateStr === dateStr);
+    if (idx < 0) return;
+    s.completions.splice(idx, 1);
+    s.coins = Math.max(0, (s.coins || 0) - 1);
+    saveRewardStore(s);
+    updateCoinDisplays();
+  }
+  // 集中（実働）時間の記録（分）。タイマー終了時に呼ぶ。
+  function recordFocus(minutes) {
+    if (!minutes || minutes <= 0) return;
+    const s = getRewardStore();
+    s.focus.push({ ts: new Date().toISOString(), min: Math.round(minutes * 10) / 10 });
+    saveRewardStore(s);
+    if (currentScreen === 'graph') renderGraphScreen();
+  }
+
+  function updateCoinDisplays() {
+    const s = getRewardStore();
+    document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = s.coins; });
+    if (currentScreen === 'graph') renderGraphScreen();
+  }
+  function showCoinToast() {
+    updateCoinDisplays();
+    const t = document.getElementById('coinToast');
+    if (!t) return;
+    t.style.display = 'flex';
+    t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+    clearTimeout(window._coinToastTimer);
+    window._coinToastTimer = setTimeout(() => { t.style.display = 'none'; t.classList.remove('show'); }, 1500);
+  }
+
+  // 依存のない軽量SVG棒グラフ
+  function svgBarChart(labels, values, opts) {
+    opts = opts || {};
+    const W = 340, H = 170, padL = 30, padR = 10, padT = 14, padB = 24;
+    const n = values.length || 1;
+    const maxV = Math.max(1, ...values);
+    const cw = (W - padL - padR) / n;
+    const bw = Math.min(cw * 0.62, 26);
+    const chartH = H - padT - padB;
+    const color = opts.color || '#6c5ce7';
+    let bars = '', xlabels = '';
+    values.forEach((v, i) => {
+      const h = (v / maxV) * chartH;
+      const x = padL + i * cw + (cw - bw) / 2;
+      const y = padT + chartH - h;
+      bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="3" fill="${color}"></rect>`;
+      if (v > 0 && opts.showVal) bars += `<text x="${(x+bw/2).toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="9" text-anchor="middle" fill="#8e8e93">${opts.valFmt ? opts.valFmt(v) : v}</text>`;
+      const lab = labels[i] || '';
+      if (lab) xlabels += `<text x="${(padL+i*cw+cw/2).toFixed(1)}" y="${H-8}" font-size="9" text-anchor="middle" fill="#9a97ad">${lab}</text>`;
+    });
+    const baseY = padT + chartH;
+    const baseline = `<line x1="${padL}" y1="${baseY}" x2="${W-padR}" y2="${baseY}" stroke="#e5e3f0" stroke-width="1"/>`;
+    const yTop = `<text x="3" y="${padT+8}" font-size="9" fill="#c4c1d4">${opts.yFmt ? opts.yFmt(maxV) : maxV}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${baseline}${bars}${xlabels}${yTop}</svg>`;
+  }
+
+  function fmtMinShort(min) {
+    min = Math.round(min);
+    if (min < 60) return min + '分';
+    const h = Math.floor(min / 60), m = min % 60;
+    return m ? `${h}h${m}m` : `${h}h`;
+  }
+
+  function renderGraphScreen() {
+    const store = getRewardStore();
+    document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = store.coins; });
+
+    // ① 完了タスク数の推移（直近14日）
+    const today = new Date(); today.setHours(0,0,0,0);
+    const cLabels = [], cValues = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const ds = ymd(d);
+      cValues.push(store.completions.filter(c => c.dateStr === ds).length);
+      cLabels.push(i % 2 === 0 ? `${d.getMonth()+1}/${d.getDate()}` : ''); // 1日おきにラベル
+    }
+    const totalCompleted = cValues.reduce((a, b) => a + b, 0);
+    const elC = document.getElementById('graphCompleted');
+    if (elC) elC.innerHTML = svgBarChart(cLabels, cValues, { color: '#34c759', showVal: true });
+    const elCsum = document.getElementById('graphCompletedSum');
+    if (elCsum) elCsum.textContent = `直近14日で ${totalCompleted}件`;
+
+    // ② 今週の集中時間（月〜日、実働分から）
+    const now = new Date();
+    const dow = (now.getDay() + 6) % 7; // 0=月
+    const monday = new Date(now); monday.setHours(0,0,0,0); monday.setDate(now.getDate() - dow);
+    const fLabels = ['月','火','水','木','金','土','日'];
+    const fMins = [0,0,0,0,0,0,0];
+    store.focus.forEach(f => {
+      const d = new Date(f.ts); d.setHours(0,0,0,0);
+      const diff = Math.round((d - monday) / 86400000);
+      if (diff >= 0 && diff < 7) fMins[diff] += f.min;
+    });
+    const totalFocus = fMins.reduce((a, b) => a + b, 0);
+    const elF = document.getElementById('graphFocus');
+    if (elF) elF.innerHTML = svgBarChart(fLabels, fMins, { color: '#6c5ce7', showVal: true, valFmt: v => fmtMinShort(v), yFmt: v => fmtMinShort(v) });
+    const elFsum = document.getElementById('graphFocusSum');
+    if (elFsum) elFsum.textContent = `今週 合計 ${fmtMinShort(totalFocus)}`;
+  }
+
+
   // 疑似テンプレートの繰り返しパターンを日付集合から推定する
   function getHabitFreqOverride(taskId) {
     const overrides = JSON.parse(localStorage.getItem('habitFreqOverrides') || '{}');
@@ -6320,6 +6499,10 @@
     if (newState) h[templateId][dateStr] = true;
     else delete h[templateId][dateStr];
     saveHabitHistory(h);
+    { // 🪙 ルーチン達成でもコイン
+      const _nm = (template && template.name) || (inst && inst.name) || '';
+      if (newState) awardCompletion(templateId, _nm, dateStr); else revokeCompletion(templateId, dateStr);
+    }
 
     if (inst) {
       inst['(A)done'] = newState;
@@ -6691,23 +6874,29 @@
     const todoScreen = document.getElementById('todoScreen');
     const todoHeader = document.getElementById('todoHeader');
     const routineScreen = document.getElementById('routineScreen');
+    const graphScreen = document.getElementById('graphScreen');
     const fab = document.querySelector('.fab');
+    // いったん全画面を隠す
+    todoScreen.style.display = 'none';
+    todoHeader.style.display = 'none';
+    routineScreen.classList.remove('active');
+    if (graphScreen) graphScreen.classList.remove('active');
     if (screen === 'todo') {
       todoScreen.style.display = 'flex';
       todoHeader.style.display = '';
-      routineScreen.classList.remove('active');
-      if (fab) fab.style.display = '';
       renderTimeline();
       renderLater();
-    } else {
-      todoScreen.style.display = 'none';
-      todoHeader.style.display = 'none';
+    } else if (screen === 'routine') {
       routineScreen.classList.add('active');
-      if (fab) fab.style.display = '';
       renderRoutineScreen();
+    } else if (screen === 'graph') {
+      if (graphScreen) graphScreen.classList.add('active');
+      renderGraphScreen();
     }
+    if (fab) fab.style.display = (screen === 'graph') ? 'none' : '';
     document.getElementById('navTodo').classList.toggle('active', screen === 'todo');
     document.getElementById('navRoutine').classList.toggle('active', screen === 'routine');
+    const ng = document.getElementById('navGraph'); if (ng) ng.classList.toggle('active', screen === 'graph');
   }
 
   function toggleTaskDone(id, el) {
@@ -6716,7 +6905,11 @@
     task['(A)done'] = !task['(A)done'];
     task._localLastEdited = new Date().toISOString();
     localStorage.setItem('tasks', JSON.stringify(tasks));
-    // 習慣インスタンスなら、テンプレートID×実行日で完了履歴に反映（ルーチンタブと連動）
+    { // 🪙 コイン＆完了ログ
+      const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || id) : id;
+      const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
+      if (task['(A)done']) awardCompletion(_k, task.name, _ds); else revokeCompletion(_k, _ds);
+    }
     if (task['(B)種類'] === '習慣') {
       const h = getHabitHistory();
       // インスタンスはテンプレートID+_habitDate、それ以外は自身のid+表示日付
@@ -8683,12 +8876,14 @@
   async function timerStop(id) {
     const task = findTask(id); if (!task) return;
     const t = getTimer(task);
+    const _wasActive = (t.state === 'running' || t.state === 'paused');
     if (t.state === 'running' && t.runningSince) {
       t.netMs = (t.netMs || 0) + (Date.now() - new Date(t.runningSince).getTime());
     }
     t.runningSince = null;
     t.lastStop = new Date().toISOString();
     t.state = 'stopped';
+    if (_wasActive) recordFocus((t.netMs || 0) / 60000); // 🪙 集中時間ログ
     task._localLastEdited = new Date().toISOString();
     persistTasks();
     timerRenderForTask(id);
