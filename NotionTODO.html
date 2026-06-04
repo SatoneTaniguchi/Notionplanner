@@ -2771,6 +2771,16 @@
           </div>
         </div>
       </div>
+      <!-- ⏱ 計測パネル（既存タスク編集時のみ表示） -->
+      <div id="timerPanel" style="display:none;background:#f7f7fb;border:1px solid #ececf3;border-radius:14px;padding:14px;margin-top:4px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:700;color:#1c1c1e;">⏱ 計測</div>
+          <div id="timerState" style="font-size:12px;color:#8e8e93;"></div>
+        </div>
+        <div id="timerDisplay" style="font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:1px;color:#1c1c1e;text-align:center;margin-bottom:12px;">00:00:00</div>
+        <div id="timerButtons" style="display:flex;gap:8px;"></div>
+        <div id="timerDetail" style="margin-top:10px;"></div>
+      </div>
       <!-- 削除・コピーボタン -->
       <div class="delete-row" id="editActions" style="display:none;">
         <button class="delete-btn" id="modalDoneBtn" onclick="toggleModalDone()">☑ 完了にする</button>
@@ -4323,6 +4333,7 @@
       if (!task) return;
       document.getElementById('taskNameInput').value = task.name;
       document.getElementById('editActions').style.display = 'flex';
+      timerRenderForTask(editingTaskId);
       // 完了状態をUIに反映
       updateModalDoneUI(task['(A)done'] || false);
 
@@ -4389,6 +4400,7 @@
     } else {
       document.getElementById('taskNameInput').value = '';
       document.getElementById('editActions').style.display = 'none';
+      { const _tp = document.getElementById('timerPanel'); if (_tp) _tp.style.display = 'none'; }
       document.getElementById('modalSubtitle').textContent = '・あとで';
       updateModalDoneUI(false);
       // 終日トグルをリセット
@@ -7382,6 +7394,17 @@
     mikomih:  '(C)見込み/h',
     memo:     '(e)memo',
     url:      '(e)URL',
+    // ── 計測（タイマー）関連 ──
+    // 開始日時 / 終了日時 は書き込み可能な Date プロパティ（Notionの開始/終了ボタンが入れていたもの）
+    start:    '(c)開始日時',
+    end:      '(c)終了日時',
+    // 実働分: 休止を除いた正味作業分を書き込む任意の Number プロパティ（無ければ空のまま＝書き込まない）
+    netmin:   '',
+    // 以下は Notion 側の formula（読み取り専用・アプリは書き込まない。表示にのみ使う）
+    actualout:  '(c)実績時間_out',
+    calcout:    '(c)計算用_実績時間_out',
+    efficiency: '(c)集中効率',
+    gosa:       '(c)見積り誤差',
   };
 
   let notionSettings = JSON.parse(localStorage.getItem('notionSettings') || 'null') || {
@@ -7444,6 +7467,12 @@
       mikomih: '見込み/h（Number）',
       memo:    'メモ（Text）',
       url:     'URL（URL/Text）',
+      start:      '⏱ 開始日時（Date）',
+      end:        '⏱ 終了日時（Date）',
+      netmin:     '⏱ 実働分・任意（Number）',
+      actualout:  '📊 実績時間（formula・読取）',
+      efficiency: '📊 集中効率（formula・読取）',
+      gosa:       '📊 見積り誤差（formula・読取）',
     };
     container.innerHTML = Object.entries(labels).map(([key, label]) => {
       const val = (notionSettings.props || {})[key] || NOTION_PROP_DEFAULT[key] || '';
@@ -7622,6 +7651,25 @@
       url = (urlProp.rich_text || []).map(r => r.plain_text).join('');
     }
 
+    // ── 計測関連の読み取り ──
+    // formula プロパティから値を取り出す（number / string / date のいずれにも対応）
+    function readFormula(prop) {
+      if (!prop || prop.type !== 'formula' || !prop.formula) return null;
+      const f = prop.formula;
+      if (f.type === 'number')  return f.number;
+      if (f.type === 'string')  return f.string;
+      if (f.type === 'boolean') return f.boolean;
+      if (f.type === 'date')    return f.date ? f.date.start : null;
+      return null;
+    }
+    const startProp = getProp('start');
+    const endProp   = getProp('end');
+    const notionStart = startProp?.date ? notionDateStrToLocal(startProp.date.start) : null;
+    const notionEnd   = endProp?.date   ? notionDateStrToLocal(endProp.date.start)   : null;
+    const notionActual = readFormula(getProp('actualout'));
+    const notionEff    = readFormula(getProp('efficiency'));
+    const notionGosa   = readFormula(getProp('gosa'));
+
     // _type判定: 実行日があれば 'time', なければ 'later'
     const _type = (jisseki && jisseki.start) ? 'time' : 'later';
 
@@ -7638,6 +7686,12 @@
       '(C)見込み/h': mikomih,
       '(e)memo': memo,
       '(e)URL': url,
+      // 計測表示用（読み取り専用）
+      _notionStart: notionStart,
+      _notionEnd:   notionEnd,
+      _notionActual: notionActual,
+      _notionEff:    notionEff,
+      _notionGosa:   notionGosa,
       _repeatConfig: null,
       _legacyTags: [],
       _source: 'notion',
@@ -7818,6 +7872,12 @@
               '(C)見込み/h': nTask['(C)見込み/h'],
               '(e)memo':     nTask['(e)memo'],
               '(e)URL':      nTask['(e)URL'],
+              // 計測の読み取り表示値を最新化（_timer などローカル計測状態は維持）
+              _notionStart:  nTask._notionStart,
+              _notionEnd:    nTask._notionEnd,
+              _notionActual: nTask._notionActual,
+              _notionEff:    nTask._notionEff,
+              _notionGosa:   nTask._notionGosa,
               _notionLastEdited: nTask._notionLastEdited,
             };
             updatedCount++;
@@ -8409,7 +8469,223 @@
     setTimeout(gcalInitClient, 500);
   });
 
-    function editTask(id) {
+  // ============================================================
+  // ⏱ タスク計測（タイマー）機能  — 開始 / 中断 / 再開 / 終了
+  // ============================================================
+  // 終了日時の書き込みモード:
+  //   'net'  … 終了日時 = 開始日時 + 実働(休止を除いた正味時間)。
+  //            → Notionの (c)実績時間_out が「正味の作業時間」になる（中断が反映される / 推奨）
+  //   'real' … 終了日時 = 実際に停止した壁時計の時刻。
+  //            → (c)実績時間_out は休止も含む総経過時間になる。正味時間が欲しい場合は
+  //              netmin（実働分・Number）プロパティをマッピングしておくと別途書き込まれる
+  const TIMER_END_MODE = 'net';
+
+  let timerTick = null;
+
+  function findTask(id) { return tasks.find(t => t.id === id); }
+  function persistTasks() { localStorage.setItem('tasks', JSON.stringify(tasks)); }
+
+  function getTimer(task) {
+    if (!task._timer) task._timer = { state:'idle', firstStart:null, runningSince:null, netMs:0, lastStop:null };
+    return task._timer;
+  }
+
+  // 正味作業ミリ秒（実行中の区間も含めて算出）
+  function timerNetMs(task) {
+    const t = getTimer(task);
+    let ms = t.netMs || 0;
+    if (t.state === 'running' && t.runningSince) ms += Date.now() - new Date(t.runningSince).getTime();
+    return ms;
+  }
+
+  function fmtDuration(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const p = n => String(n).padStart(2, '0');
+    return `${p(Math.floor(s/3600))}:${p(Math.floor((s%3600)/60))}:${p(s%60)}`;
+  }
+  function _localStr(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function fmtClock(iso) { const d = new Date(iso); const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+  function _timerPauseObj(t) {
+    if (t.state === 'running' && t.runningSince) {
+      t.netMs = (t.netMs || 0) + (Date.now() - new Date(t.runningSince).getTime());
+    }
+    t.runningSince = null;
+    t.state = 'paused';
+  }
+  // 同時計測は1つだけ：他の実行中タイマーを中断
+  function pauseOtherTimers(exceptId) {
+    tasks.forEach(t => {
+      if (t.id !== exceptId && t._timer && t._timer.state === 'running') _timerPauseObj(t._timer);
+    });
+  }
+
+  function timerStart(id) {
+    const task = findTask(id); if (!task) return;
+    const t = getTimer(task);
+    pauseOtherTimers(id);
+    const now = new Date().toISOString();
+    if (t.state === 'idle' || t.state === 'stopped') { t.firstStart = now; t.netMs = 0; t.lastStop = null; }
+    t.runningSince = now; t.state = 'running';
+    task._localLastEdited = now;
+    persistTasks();
+    timerSyncStartToNotion(task);
+    timerStartTick();
+    timerRenderForTask(id);
+  }
+  function timerPause(id) {
+    const task = findTask(id); if (!task) return;
+    _timerPauseObj(getTimer(task));
+    task._localLastEdited = new Date().toISOString();
+    persistTasks();
+    timerRenderForTask(id);
+  }
+  function timerResume(id) {
+    const task = findTask(id); if (!task) return;
+    const t = getTimer(task);
+    pauseOtherTimers(id);
+    t.runningSince = new Date().toISOString(); t.state = 'running';
+    persistTasks();
+    timerStartTick();
+    timerRenderForTask(id);
+  }
+  async function timerStop(id) {
+    const task = findTask(id); if (!task) return;
+    const t = getTimer(task);
+    if (t.state === 'running' && t.runningSince) {
+      t.netMs = (t.netMs || 0) + (Date.now() - new Date(t.runningSince).getTime());
+    }
+    t.runningSince = null;
+    t.lastStop = new Date().toISOString();
+    t.state = 'stopped';
+    task._localLastEdited = new Date().toISOString();
+    persistTasks();
+    timerRenderForTask(id);
+    await timerSyncStopToNotion(task);
+    timerRenderForTask(id);
+  }
+  function timerReset(id) {
+    const task = findTask(id); if (!task) return;
+    if (!confirm('このタスクの計測記録（開始/終了/実働）をリセットしますか？\nNotion側の値は変わりません。')) return;
+    task._timer = { state:'idle', firstStart:null, runningSince:null, netMs:0, lastStop:null };
+    task._localLastEdited = new Date().toISOString();
+    persistTasks();
+    timerRenderForTask(id);
+  }
+
+  // 開始時に「開始日時」を即書き込み（失敗しても計測は継続）
+  async function timerSyncStartToNotion(task) {
+    if (!task._notionId || !notionSettings.token) return;
+    const props = notionSettings.props || NOTION_PROP_DEFAULT;
+    const startName = props.start || NOTION_PROP_DEFAULT.start;
+    if (!startName) return;
+    const t = getTimer(task);
+    const body = { properties: {} };
+    body.properties[startName] = { date: { start: localDateStrToNotion(_localStr(new Date(t.firstStart))) } };
+    try { await notionApiCall(`/pages/${task._notionId}`, 'PATCH', body); }
+    catch (e) { console.warn('開始日時の書き込み失敗', e); }
+  }
+
+  // 終了時に「開始/終了(/実働分)」を書き込み、formula値を取り直して表示更新
+  async function timerSyncStopToNotion(task) {
+    if (!task._notionId || !notionSettings.token) return;
+    const props = notionSettings.props || NOTION_PROP_DEFAULT;
+    const startName = props.start || NOTION_PROP_DEFAULT.start;
+    const endName   = props.end   || NOTION_PROP_DEFAULT.end;
+    const netName   = props.netmin || '';
+    const t = getTimer(task);
+    const netMs = timerNetMs(task);
+
+    const startStr = localDateStrToNotion(_localStr(new Date(t.firstStart)));
+    let endStr;
+    if (TIMER_END_MODE === 'net') {
+      endStr = localDateStrToNotion(_localStr(new Date(new Date(t.firstStart).getTime() + netMs)));
+    } else {
+      endStr = localDateStrToNotion(_localStr(new Date(t.lastStop)));
+    }
+
+    const body = { properties: {} };
+    if (startName) body.properties[startName] = { date: { start: startStr } };
+    if (endName)   body.properties[endName]   = { date: { start: endStr } };
+    if (netName)   body.properties[netName]   = { number: Math.round(netMs / 6000) / 10 }; // 分・小数1桁
+
+    try {
+      await notionApiCall(`/pages/${task._notionId}`, 'PATCH', body);
+      if (typeof notionSyncLog === 'function') notionSyncLog(`⏱ 計測を保存: ${task.name}（実働 ${Math.round(netMs/60000)}分）`);
+      // formula（実績時間 / 集中効率 / 見積り誤差）を取り直して表示更新
+      try {
+        const page = await notionApiCall(`/pages/${task._notionId}`, 'GET');
+        const fresh = notionPageToTask(page);
+        task._notionStart = fresh._notionStart;   task._notionEnd  = fresh._notionEnd;
+        task._notionActual = fresh._notionActual; task._notionEff  = fresh._notionEff; task._notionGosa = fresh._notionGosa;
+        persistTasks();
+      } catch (_) {}
+    } catch (e) {
+      console.warn('計測の書き込み失敗', e);
+      if (typeof notionSyncLog === 'function') notionSyncLog('❌ 計測保存失敗: ' + e.message);
+    }
+  }
+
+  function timerStartTick() {
+    if (timerTick) return;
+    timerTick = setInterval(() => {
+      if (editingTaskId) {
+        const task = findTask(editingTaskId);
+        if (task && task._timer && task._timer.state === 'running') {
+          const el = document.getElementById('timerDisplay');
+          if (el) el.textContent = fmtDuration(timerNetMs(task));
+          return;
+        }
+      }
+      if (!tasks.some(t => t._timer && t._timer.state === 'running')) { clearInterval(timerTick); timerTick = null; }
+    }, 1000);
+  }
+
+  function timerRenderForTask(id) {
+    const panel = document.getElementById('timerPanel');
+    if (!panel) return;
+    const task = findTask(id);
+    if (!task) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    const t = getTimer(task);
+    const net = timerNetMs(task);
+
+    const disp = document.getElementById('timerDisplay');
+    if (disp) disp.textContent = fmtDuration(net);
+    const stEl = document.getElementById('timerState');
+    if (stEl) stEl.textContent = { idle:'未計測', running:'計測中', paused:'中断中', stopped:'計測終了' }[t.state] || '';
+
+    const btns = document.getElementById('timerButtons');
+    if (btns) {
+      const B = (label, fn, style) => `<button onclick="${fn}('${id}')" style="flex:1;border:none;border-radius:10px;padding:11px 0;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;${style}">${label}</button>`;
+      let html = '';
+      if (t.state === 'idle' || t.state === 'stopped') html += B(t.state==='stopped'?'▶ 再計測':'▶ 開始', 'timerStart', 'background:#34c759;color:#fff;');
+      if (t.state === 'running') { html += B('⏸ 中断', 'timerPause', 'background:#ff9500;color:#fff;'); html += B('⏹ 終了', 'timerStop', 'background:#ff3b30;color:#fff;'); }
+      if (t.state === 'paused')  { html += B('▶ 再開', 'timerResume', 'background:#34c759;color:#fff;'); html += B('⏹ 終了', 'timerStop', 'background:#ff3b30;color:#fff;'); }
+      btns.innerHTML = html;
+    }
+
+    const det = document.getElementById('timerDetail');
+    if (det) {
+      const rows = [];
+      const mikomi = task['(C)見込み/h'];
+      if (mikomi) rows.push(`見込み ${Math.round(mikomi*60)}分`);
+      if (t.firstStart) rows.push(`開始 ${fmtClock(t.firstStart)}`);
+      if (t.state === 'stopped' && t.lastStop) rows.push(`終了 ${fmtClock(t.lastStop)}`);
+      if (net > 0) rows.push(`実働 ${fmtDuration(net)}`);
+      if (task._notionActual != null) rows.push(`実績(Notion) ${task._notionActual}`);
+      if (task._notionEff  != null) rows.push(`集中効率 ${typeof task._notionEff==='number'?Math.round(task._notionEff*100)/100:task._notionEff}`);
+      if (task._notionGosa != null) rows.push(`見積り誤差 ${typeof task._notionGosa==='number'?Math.round(task._notionGosa*100)/100:task._notionGosa}`);
+      const reset = (t.firstStart || t.state==='stopped') ? `<button onclick="timerReset('${id}')" style="margin-top:8px;background:none;border:none;color:#ff3b30;font-size:12px;cursor:pointer;font-family:inherit;">↺ 計測をリセット</button>` : '';
+      det.innerHTML = (rows.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:#8e8e93;">${rows.map(r=>`<span>${r}</span>`).join('')}</div>` : '') + reset;
+    }
+    if (t.state === 'running') timerStartTick();
+  }
+
+  function editTask(id) {
     openModal(id);
   }
 
