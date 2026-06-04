@@ -1809,6 +1809,46 @@
   .routine-screen::-webkit-scrollbar { display: none; }
   .routine-screen.active { display: flex; }
 
+  /* 種類プルダウン */
+  .routine-kind-select {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6c5ce7;
+    background: #efeefb;
+    border: 1.5px solid #ddd9f3;
+    border-radius: 16px;
+    padding: 6px 30px 6px 14px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236c5ce7' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+
+  /* ルーチンカードを2〜3カラムのグリッドで表示（入れば3、無理なら2） */
+  #routineList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  #routineList .routine-empty { grid-column: 1 / -1; }
+  /* グリッド化に伴うサイズダウン（見た目はそのまま縮小） */
+  #routineList .routine-card { margin-bottom: 0; padding: 14px 13px 15px; border-radius: 18px; }
+  #routineList .routine-avatar,
+  #routineList .routine-avatar img {
+    width: 40px; height: 40px; min-width: 40px; min-height: 40px; max-width: 40px; max-height: 40px;
+  }
+  #routineList .routine-card-name { font-size: 15px; }
+  #routineList .routine-badge { font-size: 11px; padding: 4px 8px; }
+  #routineList .routine-grid { margin-top: 10px; }
+  #routineList .rg-cell { min-height: 38px; }
+  #routineList .routine-done-btn { font-size: 13px; padding: 9px 0; }
+  #routineList .routine-end-btn,
+  #routineList .routine-reactivate-btn { font-size: 12px; }
+
   /* 期間切り替えセグメント */
   /* ルーチン フィルター切り替え */
   .routine-filter-row {
@@ -2353,6 +2393,15 @@
   <div class="routine-status-tabs" id="routineStatusTabs">
     <button class="active" data-status="active" onclick="setRoutineStatus('active', this)">アクティブ</button>
     <button data-status="ended" onclick="setRoutineStatus('ended', this)">終了済み</button>
+  </div>
+  <!-- 種類プルダウン：習慣 / 掃除 / すべて -->
+  <div class="routine-filter-row">
+    <span class="routine-filter-label">種類：</span>
+    <select id="routineKindSelect" class="routine-kind-select" onchange="setRoutineKind(this.value)">
+      <option value="all">すべて</option>
+      <option value="習慣">習慣</option>
+      <option value="掃除">掃除</option>
+    </select>
   </div>
   <!-- フィルター：対象日 / すべて -->
   <div class="routine-filter-row" id="routineFilterRow">
@@ -3805,6 +3854,7 @@
       }
       card.appendChild(info);
       card.appendChild(checkEl);
+      if (!_done) card.appendChild(buildTlTimerControl(t)); // 完了ボタンの横に計測ボタン
       checkEl.addEventListener('click', e => { e.stopPropagation(); if (isHabit && !t['(A)done']) spawnSparkles(checkEl); toggleTaskDone(t.id, checkEl); });
       card.addEventListener('click', () => editTask(t.id));
       timeline.appendChild(card);
@@ -5659,17 +5709,19 @@
     }
   }
 
-  function getHabitTasks(includeEnded) {
+  function getHabitTasks(includeEnded, kinds) {
+    kinds = kinds || ['習慣']; // 既定は習慣のみ（既存呼び出しの互換のため）
+    const inKinds = t => kinds.includes(t['(B)種類']);
     const templates = tasks.filter(t =>
-      (t['(B)種類'] === '習慣') &&
+      inKinds(t) &&
       (t._type === 'repeat' || t._type === 'repeat_ended') &&
       !t._habitTemplateId
     );
 
-    // (2) 疑似テンプレート: テンプレートにもインスタンスにも属さない習慣タスク
-    // （Notionで直接作られた習慣など）を名前でグループ化
+    // (2) 疑似テンプレート: テンプレートにもインスタンスにも属さない繰り返しタスク
+    // （Notionで直接作られたものなど）を名前でグループ化
     const standalone = tasks.filter(t =>
-      t['(B)種類'] === '習慣' &&
+      inKinds(t) &&
       t._type !== 'repeat' &&
       !t._habitTemplateId &&
       (t['(A)実行日'] && t['(A)実行日'].start)
@@ -5687,7 +5739,7 @@
       const tpl = {
         id: 'pseudo_' + name,
         name,
-        '(B)種類': '習慣',
+        '(B)種類': (group[0] && group[0]['(B)種類']) || '習慣',
         _type: 'pseudoHabit',
         _pseudo: true,
         _pseudoDates: dateSet,
@@ -6416,6 +6468,7 @@
 
   let currentRoutineRange = '30';
   let routineFilterMode = 'target'; // 'target': 対象日のみ | 'all': すべて
+  let routineKindMode = 'all'; // '習慣' | '掃除' | 'all'（種類プルダウン）
   let routineStatusMode = 'active'; // 'active' | 'ended'
 
   function setRoutineStatus(mode, btn) {
@@ -6432,6 +6485,11 @@
     routineFilterMode = mode;
     document.querySelectorAll('#routineFilterToggle button').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
+    renderRoutineScreen();
+  }
+
+  function setRoutineKind(v) {
+    routineKindMode = v;
     renderRoutineScreen();
   }
 
@@ -6528,7 +6586,8 @@
     const container = document.getElementById('routineList');
     if (!container) return;
     const todayStr = ymd(new Date());
-    const allHabits = getHabitTasks(true); // 終了済みも含めて取得
+    const routineKinds = routineKindMode === 'all' ? ['習慣', '掃除'] : [routineKindMode];
+    const allHabits = getHabitTasks(true, routineKinds); // 終了済みも含めて取得
 
     // 終了済みタブ
     if (routineStatusMode === 'ended') {
@@ -8750,6 +8809,34 @@
       det.innerHTML = (rows.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:#8e8e93;">${rows.map(r=>`<span>${r}</span>`).join('')}</div>` : '') + reset;
     }
     if (t.state === 'running') timerStartTick();
+  }
+
+  // ── タイムラインのタスクカード用 計測ボタン（完了ボタンの横）──
+  function tlTimerStart(id)  { timerStart(id);  renderTimeline(); }
+  function tlTimerPause(id)  { timerPause(id);  renderTimeline(); }
+  function tlTimerResume(id) { timerResume(id); renderTimeline(); }
+  async function tlTimerStop(id) { await timerStop(id); renderTimeline(); }
+  function buildTlTimerControl(t) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:4px;flex-shrink:0;align-items:center;';
+    const st = (t._timer && t._timer.state) || 'idle';
+    const mk = (label, fn, bg) => {
+      const b = document.createElement('div');
+      b.textContent = label;
+      b.style.cssText = `width:20px;height:20px;border-radius:50%;background:${bg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;cursor:pointer;flex-shrink:0;line-height:1;`;
+      b.addEventListener('click', e => { e.stopPropagation(); fn(t.id); });
+      return b;
+    };
+    if (st === 'running') {            // 計測中 → 中断・終了
+      wrap.appendChild(mk('⏸', tlTimerPause, '#ff9500'));
+      wrap.appendChild(mk('■', tlTimerStop, '#ff3b30'));
+    } else if (st === 'paused') {      // 中断中 → 再開・終了
+      wrap.appendChild(mk('▶', tlTimerResume, '#34c759'));
+      wrap.appendChild(mk('■', tlTimerStop, '#ff3b30'));
+    } else {                           // 未計測/終了 → 開始
+      wrap.appendChild(mk('▶', tlTimerStart, '#34c759'));
+    }
+    return wrap;
   }
 
   function editTask(id) {
