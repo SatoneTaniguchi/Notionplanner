@@ -3314,21 +3314,7 @@
       return false;
     });
 
-    const allLaterTasks = tasks.filter(t => {
-      if (t['(A)done']) return false;
-      if (t['(B)種類'] === '習慣') return false; // 習慣はあとでやるに振り分けない
-      if (t._type === 'later') return true;
-      if (t._type === 'time' && !isAllDayTask(t)) {
-        try {
-          // 実行日が「今日より前の日（前日以前）」なら期限切れ＝あとでやる
-          // （今日の早い時間に過ぎただけのものは、まだ今日中に実行できるので含めない）
-          const td = new Date(t['(A)実行日'].start); td.setHours(0,0,0,0);
-          const today0 = new Date(now); today0.setHours(0,0,0,0);
-          return td < today0;
-        } catch(e) { return false; }
-      }
-      return false;
-    });
+    const allLaterTasks = collectLaterTasks();
     _scheduleLaterTasks = allLaterTasks; // 「さらに表示」ポップアップ用にキャッシュ
 
     const routinesDoneMap = JSON.parse(localStorage.getItem('routinesDone') || '{}');
@@ -4042,6 +4028,26 @@
     { key: '4', label: '🧊⏳ 低長', color: '#8e8e93', bg: '#f2f2f7' },
   ];
 
+  // 「あとで」に表示すべきタスクの正準集合（下部パネルと空き時間カードで共用）。
+  //  ・習慣以外、かつ未完了
+  //  ・_type==='later'、または 時間指定で実行日が「今日より前の日（前日以前）」のもの
+  //  ※ 時刻なし＝日付のみ（Notion終日扱い）の期限切れタスクも必ず含める。
+  function collectLaterTasks() {
+    const today0 = new Date(); today0.setHours(0,0,0,0);
+    return tasks.filter(t => {
+      if (t['(A)done']) return false;
+      if (t['(B)種類'] === '習慣') return false; // 習慣は振り分けない
+      if (t._type === 'later') return true;
+      if (t._type === 'time') {
+        try {
+          const td = new Date(t['(A)実行日'].start); td.setHours(0,0,0,0);
+          return td < today0; // 前日以前（終日／時刻なしも含む）
+        } catch(e) { return false; }
+      }
+      return false;
+    });
+  }
+
   // 実行期間（1〜4）でグルーピング。該当外は「その他」へ。空き時間カードとポップアップで共用。
   function laterGroupData(taskArr) {
     const groups = KIKAN_GROUPS.map(g => ({
@@ -4198,18 +4204,9 @@
       const mn = d.match(/(\d+)分/); if (mn) return parseInt(mn[1]);
       return 0;
     };
-    const laterTasks = tasks.filter(t => t._type === 'later' && !t['(A)done'] && t['(B)種類'] !== '習慣');
-    const overdueTasks = tasks.filter(t => {
-      if (t['(A)done'] || t._type !== 'time') return false;
-      if (t['(B)種類'] === '習慣') return false; // 習慣はあとでやるに振り分けない
-      if (isAllDayTask(t)) return false;
-      try {
-        // 実行日が今日より前の日（前日以前）のみ期限切れ扱い
-        const td = new Date(t['(A)実行日'].start); td.setHours(0,0,0,0);
-        const today0 = new Date(now); today0.setHours(0,0,0,0);
-        return td < today0;
-      } catch(e) { return false; }
-    });
+    const _allLaterSet = collectLaterTasks();
+    const overdueTasks = _allLaterSet.filter(t => t._type === 'time'); // 期限切れ（時間指定・終日含む）
+    const laterTasks   = _allLaterSet.filter(t => t._type === 'later');
     let allLater = [...overdueTasks, ...laterTasks];
     if (laterSortMode===1) allLater.sort((a,b)=>(a['(C)見込み/h']||0)-(b['(C)見込み/h']||0));
     else if (laterSortMode===2) allLater.sort((a,b)=>(b['(C)見込み/h']||0)-(a['(C)見込み/h']||0));
