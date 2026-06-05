@@ -3025,16 +3025,6 @@
   </div>
 </div>
 
-<!-- あとで・期限切れ 全面ポップアップ（空き時間カードの「さらに表示」から開く） -->
-<div id="laterPopupOverlay" onclick="if(event.target===this)closeLaterPopup()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:3000;align-items:flex-end;justify-content:center;">
-  <div style="background:#fff;width:100%;max-width:560px;max-height:85vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px;border-bottom:1px solid #f0f0f0;flex-shrink:0;">
-      <div style="font-size:16px;font-weight:700;color:#1c1c1e;">⏰ あとで・期限切れ</div>
-      <button onclick="closeLaterPopup()" style="background:#f2f2f7;border:none;border-radius:50%;width:30px;height:30px;font-size:15px;color:#8e8e93;cursor:pointer;line-height:1;">✕</button>
-    </div>
-    <div id="laterPopupBody" style="overflow-y:auto;padding:16px;"></div>
-  </div>
-</div>
 
 <script>
   // ============================================================
@@ -4052,7 +4042,7 @@
 
       const freeDiv = document.createElement('div');
       freeDiv.className = 'tl-free-card';
-      freeDiv.style.cssText = `top:${yTop}px;height:${Math.max(60,yH)}px;left:100px;right:16px;overflow-y:auto;z-index:1;`;
+      freeDiv.style.cssText = `top:${yTop}px;height:${Math.max(60,yH)}px;left:100px;right:16px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;z-index:1;`;
 
       const uid = 'ftg-' + i + '-' + Date.now();
       const allGroupData = laterGroupData(allLaterTasks).map((g, gi) => ({ ...g, id: `${uid}-${gi}` }));
@@ -4063,13 +4053,22 @@
       });
       freeDiv.innerHTML = `<div class="free-time-header">🕐 空き時間</div><div class="free-time-duration">${hh>0?hh+'<span>時間</span>':''}${mm>0?mm+'<span>分</span>':''}</div>${groupsHTML}`;
 
-      // 「さらに表示」: 中身がカードからあふれたら表示。タップで全面ポップアップ。
+      // 続きはカード内スクロールで表示（ポップアップは廃止）。
+      // あふれているときだけ下端にスクロール誘導を表示し、タップでカード内を下にスクロール。
       const moreBtn = document.createElement('div');
-      moreBtn.textContent = 'さらに表示 ▾';
-      moreBtn.style.cssText = 'display:none;text-align:center;font-size:11px;color:#007aff;font-weight:700;padding:5px 0 2px;cursor:pointer;position:sticky;bottom:0;background:linear-gradient(to top,#fff 55%,rgba(255,255,255,0));';
-      moreBtn.addEventListener('click', e => { e.stopPropagation(); openLaterPopup(); });
+      moreBtn.textContent = '▾ スクロールで続きを表示';
+      moreBtn.style.cssText = 'display:none;text-align:center;font-size:11px;color:#007aff;font-weight:700;padding:6px 0 3px;cursor:pointer;position:sticky;bottom:0;background:linear-gradient(to top,#f2f2f7 60%,rgba(242,242,247,0));';
+      moreBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        freeDiv.scrollBy({ top: Math.max(40, freeDiv.clientHeight - 24), behavior: 'smooth' });
+      });
       freeDiv.appendChild(moreBtn);
-      const checkFreeOverflow = () => { moreBtn.style.display = (freeDiv.scrollHeight - freeDiv.clientHeight > 4) ? 'block' : 'none'; };
+      const checkFreeOverflow = () => {
+        const hasOverflow = freeDiv.scrollHeight - freeDiv.clientHeight > 4;
+        const atBottom = freeDiv.scrollHeight - freeDiv.clientHeight - freeDiv.scrollTop <= 4;
+        moreBtn.style.display = (hasOverflow && !atBottom) ? 'block' : 'none';
+      };
+      freeDiv.addEventListener('scroll', checkFreeOverflow, { passive: true });
 
       freeDiv.querySelectorAll('.ftg-header').forEach(hdr => {
         hdr.addEventListener('click', e => { e.stopPropagation(); const body=freeDiv.querySelector('#'+hdr.dataset.group); const arrow=hdr.querySelector('.ftg-arrow'); if(!body)return; const open=body.style.display!=='none'; body.style.display=open?'none':'flex'; arrow.style.transform=open?'':'rotate(90deg)'; checkFreeOverflow(); });
@@ -4254,33 +4253,6 @@
     }
     const icon = g.isUngrouped ? '🕐' : `<span style="color:${g.color};font-size:9px;">●</span>`;
     return `<div class="free-task-chip" data-id="${t.id}" style="cursor:pointer;">${icon} ${t.name}${extra}</div>`;
-  }
-
-  // 空き時間カードに入りきらない時に開く全面ポップアップ
-  function openLaterPopup() {
-    const overlay = document.getElementById('laterPopupOverlay');
-    const body = document.getElementById('laterPopupBody');
-    if (!overlay || !body) return;
-    const data = laterGroupData(_scheduleLaterTasks);
-    if (!data.length) {
-      body.innerHTML = '<div style="text-align:center;color:#8e8e93;padding:40px 0;">あとで・期限切れのタスクはありません</div>';
-    } else {
-      body.innerHTML = data.map(g => {
-        const chips = g.tasks.map(t => laterChipHTML(t, g)).join('');
-        return `<div style="margin-bottom:16px;">
-          <div style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:${g.color};background:${g.bg};border-radius:8px;padding:3px 10px;margin-bottom:8px;">${g.label} ${g.tasks.length}件</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;">${chips}</div>
-        </div>`;
-      }).join('');
-    }
-    body.querySelectorAll('.free-task-chip[data-id]').forEach(chip => {
-      chip.addEventListener('click', e => { e.stopPropagation(); closeLaterPopup(); editTask(chip.dataset.id); });
-    });
-    overlay.style.display = 'flex';
-  }
-  function closeLaterPopup() {
-    const o = document.getElementById('laterPopupOverlay');
-    if (o) o.style.display = 'none';
   }
 
   function createFreeTimeCard(minutes, laterTasks) {
