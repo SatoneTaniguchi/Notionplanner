@@ -1815,6 +1815,20 @@
     0%   { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.9); }
     100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
   }
+  /* コインピル（ヘッダー） */
+  .coin-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #fff7da; border: 1.5px solid #f0dd91; color: #7a5d00;
+    font-weight: 800; font-size: 14px; border-radius: 16px; padding: 5px 11px;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  /* ごほうびタブ */
+  .rw-tab {
+    border: none; border-radius: 20px; padding: 9px 18px; font-size: 14px; font-weight: 700;
+    font-family: inherit; cursor: pointer; background: #fff; color: #9a97ad;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .rw-tab.rw-tab-active { background: #1c1c1e; color: #fff; }
 
   /* 種類プルダウン */
   .routine-kind-select {
@@ -2155,6 +2169,7 @@
       </div>
     </div>
     <div class="header-right">
+      <button class="coin-pill" onclick="openRewards()" title="ごほうび">🪙 <span data-coin-count>0</span></button>
       <div class="nav-group">
         <button class="icon-btn" onclick="changeDay(-7)">‹</button>
         <button class="today-btn" onclick="goToday()">今日</button>
@@ -2283,6 +2298,19 @@
       <div style="margin-bottom:14px;">
         <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;font-weight:500;">データベースID (32桁の英数字)</div>
         <input id="notionDbIdInput" type="text" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;"
+          value="">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;font-weight:500;">🎁 ごほうびDB ID（任意）</div>
+        <input id="notionRewardDbInput" type="text" placeholder="ごほうびDBのID"
+          style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;"
+          value="">
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;font-weight:500;">🎁 受け取り履歴DB ID（任意）</div>
+        <input id="notionHistoryDbInput" type="text" placeholder="受け取り履歴DBのID"
           style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;"
           value="">
       </div>
@@ -2458,6 +2486,39 @@
 <!-- 🪙 コイン獲得トースト -->
 <div id="coinToast" style="display:none;position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:4000;background:#1c1c1e;color:#fff;border-radius:24px;padding:10px 18px;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
   <span style="font-size:18px;">🪙</span> +1 コイン！
+</div>
+
+<!-- 🎁 ごほうび画面 -->
+<div id="rewardOverlay" style="display:none;position:fixed;inset:0;background:#f4f3f8;z-index:3500;flex-direction:column;">
+  <div style="padding:14px 16px 0;flex-shrink:0;">
+    <button onclick="closeRewards()" style="background:#fff;border:none;border-radius:20px;padding:9px 18px 9px 14px;font-size:15px;font-weight:700;color:#1c1c1e;cursor:pointer;font-family:inherit;box-shadow:0 1px 5px rgba(0,0,0,0.06);">‹ 戻る</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 2px 2px;">
+      <div style="font-size:26px;font-weight:800;color:#1c1c1e;">ごほうび</div>
+      <div class="coin-pill" style="cursor:default;">🪙 <span data-coin-count>0</span></div>
+    </div>
+    <div style="display:flex;gap:10px;margin:14px 0 6px;">
+      <button id="rwTabList" class="rw-tab rw-tab-active" onclick="rewardSwitchTab('list')">ごほうび一覧</button>
+      <button id="rwTabHistory" class="rw-tab" onclick="rewardSwitchTab('history')">受け取り履歴</button>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:14px 16px 40px;">
+    <div id="rwListView"></div>
+    <div id="rwHistoryView" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- 🎁 ごほうび追加フォーム -->
+<div id="rewardAddOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:4200;align-items:center;justify-content:center;padding:24px;" onclick="if(event.target===this)rewardCloseAddForm()">
+  <div style="background:#fff;border-radius:20px;padding:20px;width:100%;max-width:340px;">
+    <div style="font-size:17px;font-weight:700;margin-bottom:16px;color:#1c1c1e;">ごほうびを追加</div>
+    <input id="rwAddName" placeholder="名前（例: アイスを食べる）" style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;margin-bottom:10px;box-sizing:border-box;">
+    <input id="rwAddEmoji" placeholder="絵文字（例: 🍦）" style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;margin-bottom:10px;box-sizing:border-box;">
+    <input id="rwAddCost" type="number" inputmode="numeric" placeholder="必要コイン（例: 15）" style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;margin-bottom:16px;box-sizing:border-box;">
+    <div style="display:flex;gap:8px;">
+      <button onclick="rewardCloseAddForm()" style="flex:1;background:#f2f2f7;color:#1c1c1e;border:none;border-radius:12px;padding:12px 0;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">キャンセル</button>
+      <button onclick="rewardSubmitAdd()" style="flex:1;background:#1c1c1e;color:#fff;border:none;border-radius:12px;padding:12px 0;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">追加</button>
+    </div>
+  </div>
 </div>
 
 <!-- FAB -->
@@ -3205,6 +3266,7 @@
     scrollToNow();
     document.getElementById('laterList').classList.remove('expanded');
     initLaterPanel();
+    try { updateCoinDisplays(); } catch(e) {}
 
     // Notion自動同期 - GCalより独立して実行（GCalキャッシュは触らない）
     if (notionSettings.autoSync && notionSettings.token && notionSettings.dbId) {
@@ -5643,18 +5705,25 @@
   }
 
   function updateCoinDisplays() {
-    const s = getRewardStore();
-    document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = s.coins; });
+    const bal = getCoinBalance();
+    document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = bal; });
     if (currentScreen === 'graph') renderGraphScreen();
   }
-  function showCoinToast() {
-    updateCoinDisplays();
+  function showToast(html) {
     const t = document.getElementById('coinToast');
     if (!t) return;
+    t.innerHTML = html;
     t.style.display = 'flex';
     t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     clearTimeout(window._coinToastTimer);
     window._coinToastTimer = setTimeout(() => { t.style.display = 'none'; t.classList.remove('show'); }, 1500);
+  }
+  function showCoinToast() {
+    updateCoinDisplays();
+    showToast('<span style="font-size:18px;">🪙</span> +1 コイン！');
+  }
+  function showRewardToast(msg) {
+    showToast('<span style="font-size:18px;">🎁</span> ' + msg);
   }
 
   // 依存のない軽量SVG棒グラフ
@@ -5692,7 +5761,7 @@
 
   function renderGraphScreen() {
     const store = getRewardStore();
-    document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = store.coins; });
+    document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = getCoinBalance(); });
 
     // ① 完了タスク数の推移（直近14日）
     const today = new Date(); today.setHours(0,0,0,0);
@@ -5725,6 +5794,175 @@
     if (elF) elF.innerHTML = svgBarChart(fLabels, fMins, { color: '#6c5ce7', showVal: true, valFmt: v => fmtMinShort(v), yFmt: v => fmtMinShort(v) });
     const elFsum = document.getElementById('graphFocusSum');
     if (elFsum) elFsum.textContent = `今週 合計 ${fmtMinShort(totalFocus)}`;
+  }
+
+  // ============================================================
+  // 🎁 ごほうび（Notion連携）
+  //  残高 = 累計獲得(完了数) − 受け取り履歴の消費コイン合計
+  // ============================================================
+  const REWARD_PROPS  = { name: '名前', cost: '必要コイン', emoji: '絵文字', order: '並び順' };
+  const HISTORY_PROPS = { name: '名前', cost: '消費コイン' };
+  let _rewardCache = [];
+  let rewardTab = 'list';
+
+  function getCoinBalance() {
+    const s = getRewardStore();
+    return Math.max(0, (s.coins || 0) - (s.spent || 0));
+  }
+  function _rwNum(prop)  { return (prop && typeof prop.number === 'number') ? prop.number : 0; }
+  function _rwText(prop) {
+    if (!prop) return '';
+    if (Array.isArray(prop.rich_text)) return prop.rich_text.map(r => r.plain_text).join('');
+    if (Array.isArray(prop.title))     return prop.title.map(r => r.plain_text).join('');
+    return '';
+  }
+
+  async function rewardFetchAll() {
+    if (!notionSettings.token || !notionSettings.rewardDbId) return [];
+    const res = await notionApiCall(`/databases/${notionSettings.rewardDbId}/query`, 'POST', {});
+    const list = (res.results || []).map(p => {
+      const pr = p.properties || {};
+      return {
+        id: p.id,
+        name: _rwText(pr[REWARD_PROPS.name]) || '(無題)',
+        cost: _rwNum(pr[REWARD_PROPS.cost]),
+        emoji: (_rwText(pr[REWARD_PROPS.emoji]) || '🎁').trim() || '🎁',
+        order: _rwNum(pr[REWARD_PROPS.order]),
+      };
+    });
+    list.sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name));
+    _rewardCache = list;
+    return list;
+  }
+
+  async function rewardFetchHistory() {
+    if (!notionSettings.token || !notionSettings.historyDbId) return [];
+    const res = await notionApiCall(`/databases/${notionSettings.historyDbId}/query`, 'POST', {
+      sorts: [{ timestamp: 'created_time', direction: 'descending' }],
+    });
+    const items = (res.results || []).map(p => {
+      const pr = p.properties || {};
+      return { name: _rwText(pr[HISTORY_PROPS.name]) || '(無題)', cost: _rwNum(pr[HISTORY_PROPS.cost]), date: p.created_time };
+    });
+    const s = getRewardStore();
+    s.spent = items.reduce((sum, x) => sum + (x.cost || 0), 0); // 消費合計をキャッシュ
+    saveRewardStore(s);
+    return items;
+  }
+
+  async function rewardCreate(name, cost, emoji) {
+    const props = {};
+    props[REWARD_PROPS.name]  = { title: [{ text: { content: name } }] };
+    props[REWARD_PROPS.cost]  = { number: cost };
+    props[REWARD_PROPS.emoji] = { rich_text: [{ text: { content: emoji || '🎁' } }] };
+    props[REWARD_PROPS.order] = { number: Math.floor(Date.now() / 1000) };
+    return notionApiCall('/pages', 'POST', { parent: { database_id: notionSettings.rewardDbId }, properties: props });
+  }
+
+  function rewardRedeemById(id) {
+    const r = _rewardCache.find(x => x.id === id);
+    if (!r) return;
+    if (getCoinBalance() < r.cost) { alert('コインが足りません'); return; }
+    if (!confirm(`「${r.name}」を ${r.cost} コインで交換しますか？`)) return;
+    const props = {};
+    props[HISTORY_PROPS.name] = { title: [{ text: { content: r.name } }] };
+    props[HISTORY_PROPS.cost] = { number: r.cost };
+    notionApiCall('/pages', 'POST', { parent: { database_id: notionSettings.historyDbId }, properties: props })
+      .then(() => {
+        const s = getRewardStore(); s.spent = (s.spent || 0) + r.cost; saveRewardStore(s);
+        updateCoinDisplays();
+        showRewardToast(`「${r.name}」を交換しました！`);
+        renderRewardList();
+      })
+      .catch(e => alert('交換に失敗しました: ' + e.message));
+  }
+
+  // ── ごほうび画面（オーバーレイ）──
+  function openRewards() {
+    if (!notionSettings.token || !notionSettings.rewardDbId) {
+      alert('先にNボタン（Notion設定）で「ごほうびDB」と「受け取り履歴DB」のIDを設定してください。');
+      openNotionPanel();
+      return;
+    }
+    document.getElementById('rewardOverlay').style.display = 'flex';
+    rewardSwitchTab('list');
+    // 残高を最新化（消費合計を取得）
+    rewardFetchHistory().then(() => { updateCoinDisplays(); if (rewardTab === 'history') renderRewardHistory(); }).catch(() => {});
+  }
+  function closeRewards() { document.getElementById('rewardOverlay').style.display = 'none'; }
+
+  function rewardSwitchTab(tab) {
+    rewardTab = tab;
+    const lb = document.getElementById('rwTabList'), hb = document.getElementById('rwTabHistory');
+    if (lb) lb.classList.toggle('rw-tab-active', tab === 'list');
+    if (hb) hb.classList.toggle('rw-tab-active', tab === 'history');
+    document.getElementById('rwListView').style.display = tab === 'list' ? 'block' : 'none';
+    document.getElementById('rwHistoryView').style.display = tab === 'history' ? 'block' : 'none';
+    if (tab === 'list') renderRewardList(); else renderRewardHistory();
+  }
+
+  async function renderRewardList() {
+    const wrap = document.getElementById('rwListView');
+    if (!wrap) return;
+    document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = getCoinBalance(); });
+    wrap.innerHTML = '<div style="text-align:center;color:#b0adc0;padding:30px;">読み込み中...</div>';
+    let rewards = [];
+    try { rewards = await rewardFetchAll(); }
+    catch (e) { wrap.innerHTML = '<div style="text-align:center;color:#ff3b30;padding:30px;">取得に失敗しました</div>'; return; }
+    const bal = getCoinBalance();
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">';
+    rewards.forEach(r => {
+      const affordable = bal >= r.cost && r.cost > 0;
+      const pct = r.cost > 0 ? Math.min(100, Math.round(bal / r.cost * 100)) : 0;
+      const footer = affordable
+        ? `<button onclick='rewardRedeemById(${JSON.stringify(r.id)})' style="margin-top:10px;width:100%;background:#f5c518;color:#5a4500;border:none;border-radius:12px;padding:9px 0;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">🪙 ${r.cost} で交換</button>`
+        : `<div style="margin-top:10px;width:100%;"><div style="height:7px;background:#ececf3;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#f5c518;border-radius:4px;"></div></div><div style="font-size:11px;color:#9a97ad;text-align:center;margin-top:5px;">${bal}/${r.cost}</div></div>`;
+      html += `<div style="background:#fff;border-radius:18px;padding:16px 14px;box-shadow:0 2px 10px rgba(80,70,140,0.05);display:flex;flex-direction:column;align-items:center;text-align:center;">
+        <div style="font-size:40px;line-height:1;margin-bottom:10px;">${r.emoji}</div>
+        <div style="font-size:14px;font-weight:600;color:#2d2b3a;line-height:1.3;">${r.name}</div>
+        ${footer}
+      </div>`;
+    });
+    html += `<div onclick="rewardOpenAddForm()" style="border:2px dashed #d6d3e6;border-radius:18px;min-height:150px;display:flex;align-items:center;justify-content:center;color:#c4c1d4;font-size:34px;cursor:pointer;">＋</div>`;
+    html += '</div>';
+    wrap.innerHTML = html;
+  }
+
+  async function renderRewardHistory() {
+    const wrap = document.getElementById('rwHistoryView');
+    if (!wrap) return;
+    wrap.innerHTML = '<div style="text-align:center;color:#b0adc0;padding:30px;">読み込み中...</div>';
+    let items = [];
+    try { items = await rewardFetchHistory(); }
+    catch (e) { wrap.innerHTML = '<div style="text-align:center;color:#ff3b30;padding:30px;">取得に失敗しました</div>'; return; }
+    updateCoinDisplays();
+    if (!items.length) { wrap.innerHTML = '<div style="text-align:center;color:#b0adc0;padding:40px;">まだ受け取り履歴がありません</div>'; return; }
+    wrap.innerHTML = items.map(it => {
+      const d = new Date(it.date); const p = n => String(n).padStart(2, '0');
+      const ds = `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:14px;padding:13px 16px;margin-bottom:8px;box-shadow:0 1px 6px rgba(80,70,140,0.04);">
+        <div><div style="font-size:14px;font-weight:600;color:#2d2b3a;">${it.name}</div><div style="font-size:11px;color:#9a97ad;margin-top:2px;">${ds}</div></div>
+        <div style="font-size:13px;font-weight:800;color:#c08a00;">−🪙${it.cost}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function rewardOpenAddForm() {
+    document.getElementById('rwAddName').value = '';
+    document.getElementById('rwAddEmoji').value = '';
+    document.getElementById('rwAddCost').value = '';
+    document.getElementById('rewardAddOverlay').style.display = 'flex';
+  }
+  function rewardCloseAddForm() { document.getElementById('rewardAddOverlay').style.display = 'none'; }
+  function rewardSubmitAdd() {
+    const name = document.getElementById('rwAddName').value.trim();
+    const emoji = document.getElementById('rwAddEmoji').value.trim() || '🎁';
+    const cost = parseInt(document.getElementById('rwAddCost').value, 10);
+    if (!name) { alert('名前を入力してください'); return; }
+    if (!cost || cost <= 0) { alert('必要コインを正しく入力してください'); return; }
+    rewardCreate(name, cost, emoji)
+      .then(() => { rewardCloseAddForm(); renderRewardList(); })
+      .catch(e => alert('追加に失敗しました: ' + e.message));
   }
 
 
@@ -7731,6 +7969,8 @@
   let notionSettings = JSON.parse(localStorage.getItem('notionSettings') || 'null') || {
     token: '',
     dbId: '',
+    rewardDbId: '',
+    historyDbId: '',
     props: { ...NOTION_PROP_DEFAULT },
     autoSync: false,
   };
@@ -7773,6 +8013,8 @@
   function notionLoadSettingsUI() {
     document.getElementById('notionTokenInput').value = notionSettings.token || '';
     document.getElementById('notionDbIdInput').value  = notionSettings.dbId  || '';
+    const rdb = document.getElementById('notionRewardDbInput'); if (rdb) rdb.value = notionSettings.rewardDbId || '';
+    const hdb = document.getElementById('notionHistoryDbInput'); if (hdb) hdb.value = notionSettings.historyDbId || '';
     renderNotionPropMappings();
   }
 
@@ -7812,11 +8054,15 @@
   async function notionSaveSettings() {
     const token = document.getElementById('notionTokenInput').value.trim();
     const dbId  = document.getElementById('notionDbIdInput').value.trim().replace(/-/g,'');
+    const rwEl = document.getElementById('notionRewardDbInput');
+    const hsEl = document.getElementById('notionHistoryDbInput');
+    const rewardDbId  = rwEl ? rwEl.value.trim().replace(/-/g,'') : (notionSettings.rewardDbId || '');
+    const historyDbId = hsEl ? hsEl.value.trim().replace(/-/g,'') : (notionSettings.historyDbId || '');
     const props  = {};
     document.querySelectorAll('#notionPropMappings [data-prop-key]').forEach(inp => {
       props[inp.dataset.propKey] = inp.value.trim() || NOTION_PROP_DEFAULT[inp.dataset.propKey];
     });
-    notionSettings = { token, dbId, props, autoSync: notionSettings.autoSync };
+    notionSettings = { token, dbId, rewardDbId, historyDbId, props, autoSync: notionSettings.autoSync };
     localStorage.setItem('notionSettings', JSON.stringify(notionSettings));
 
     const statusEl = document.getElementById('notionConnStatus');
