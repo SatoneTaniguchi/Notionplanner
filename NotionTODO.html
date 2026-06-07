@@ -1854,6 +1854,27 @@
     flex-shrink: 0;
   }
   .proj-card.open .proj-card-arrow { transform: rotate(90deg); }
+  .proj-status-chip {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 1px 7px;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+  .proj-sort-btn {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6a6a6c;
+    background: #f2f2f7;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .proj-sort-btn.active { color: #fff; background: #6c5ce7; }
   .proj-task-list { display: none; margin-top: 10px; }
   .proj-card.open .proj-task-list { display: block; }
   .proj-task-item {
@@ -2452,6 +2473,18 @@
           <div>
             <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">Next Action（関数可）</div>
             <input id="notionProjNextInput" type="text" placeholder="(A)Next Action" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">親目標リレーション</div>
+            <input id="notionProjGoalInput" type="text" placeholder="(D)目標連携" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">期限の日付プロパティ（編集可）</div>
+            <input id="notionProjDateInput" type="text" placeholder="(A)期間" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">ステータス（status型）</div>
+            <input id="notionProjStatusInput" type="text" placeholder="(A)ステータス" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
           </div>
         </div>
       </div>
@@ -7612,7 +7645,11 @@
   }
 
   // ===== プロジェクト画面 =====
-  let projectOpenState = {}; // プロジェクト名 → 展開中か
+  let projectOpenState = {}; // プロジェクトID → 展開中か
+  let projectStatusFilter = null; // null=すべて, それ以外=ステータス名
+  let projectSortMode = 'name';   // 'name' | 'date_desc'
+  function setProjectStatusFilter(v) { projectStatusFilter = v; renderProjectScreen(); }
+  function setProjectSort(mode) { projectSortMode = mode; renderProjectScreen(); }
   function toggleProjectCard(key) {
     projectOpenState[key] = !projectOpenState[key];
     renderProjectScreen();
@@ -7674,14 +7711,68 @@
       </div>`;
     const metaLine = (p) => {
       let s = '';
-      if (p.deadline)   s += `<div style="font-size:11px;color:#e8590c;margin-top:3px;">🗓 ${_escapeHtml(p.deadline)}</div>`;
+      if (p.goalNames && p.goalNames.length) s += `<div style="font-size:11px;color:#2c8a4a;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎯 ${_escapeHtml(p.goalNames.join(', '))}</div>`;
+      if (p.deadline)   s += `<div style="font-size:11px;color:#e8590c;margin-top:2px;">🗓 ${_escapeHtml(p.deadline)}</div>`;
       if (p.nextAction) s += `<div style="font-size:11px;color:#6a6a6c;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">▶ ${_escapeHtml(p.nextAction)}</div>`;
       return s;
     };
+    const statusChip = (st) => st ? `<span class="proj-status-chip" style="${statusColorStyle(st)}">${_escapeHtml(st)}</span>` : '';
+    // 展開エリア: ステータス変更 + 期限編集
+    const editArea = (p) => {
+      const opts = notionProjectStatusOptions || [];
+      let statusBtns = '';
+      if (opts.length) {
+        statusBtns = `<div style="margin-top:10px;"><div style="font-size:11px;color:#8e8e93;margin-bottom:5px;">ステータス</div><div style="display:flex;flex-wrap:wrap;gap:6px;">`
+          + opts.map(o => {
+              const active = o.name === p.status;
+              return `<button data-proj-status="${_escapeHtml(p.id)}" data-status-val="${_escapeHtml(o.name)}" style="${statusColorStyle(o.name)}border:${active?'2px solid #6c5ce7':'1px solid transparent'};border-radius:12px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;opacity:${active?'1':'0.75'};">${_escapeHtml(o.name)}</button>`;
+            }).join('')
+          + `</div></div>`;
+      }
+      const dateEdit = `<div style="margin-top:10px;"><div style="font-size:11px;color:#8e8e93;margin-bottom:5px;">期限日（${_escapeHtml(notionSettings.projDateProp||'(A)期間')}）</div>
+        <input type="date" data-proj-date="${_escapeHtml(p.id)}" value="${_escapeHtml(p.date||'')}" style="background:#fff;border:1px solid #e3e0f0;border-radius:10px;padding:7px 11px;font-size:13px;font-family:inherit;outline:none;">
+        ${p.date ? `<button data-proj-date-clear="${_escapeHtml(p.id)}" style="margin-left:8px;background:none;border:none;color:#c4392f;font-size:12px;cursor:pointer;font-family:inherit;">クリア</button>` : ''}</div>`;
+      return statusBtns + dateEdit;
+    };
 
-    const sorted = [...notionProjects].sort((a,b)=>a.name.localeCompare(b.name,'ja'));
-    let html = '';
-    sorted.forEach(p => {
+    // 絞り込み・並べ替えコントロール
+    let controls = '';
+    const statusesPresent = (projectStatusFilter ? notionProjects : notionProjects.filter(()=>true)).map(p=>p.status).filter(Boolean);
+    const optNames = (notionProjectStatusOptions||[]).map(o=>o.name).filter(n => notionProjects.some(p=>p.status===n));
+    const filterStatuses = optNames.length ? optNames : [...new Set(statusesPresent)];
+    if (filterStatuses.length) {
+      controls += '<div class="proj-filter-row">';
+      controls += `<button class="proj-filter-chip${projectStatusFilter==null?' active':''}" data-proj-statfilter="__all__">すべて</button>`;
+      filterStatuses.forEach(st => {
+        controls += `<button class="proj-filter-chip${projectStatusFilter===st?' active':''}" data-proj-statfilter="${_escapeHtml(st)}">${_escapeHtml(st)}</button>`;
+      });
+      controls += '</div>';
+    }
+    controls += `<div style="display:flex;gap:8px;padding:2px 2px 10px;">
+      <button class="proj-sort-btn${projectSortMode==='name'?' active':''}" data-proj-sort="name">名前順</button>
+      <button class="proj-sort-btn${projectSortMode==='date_desc'?' active':''}" data-proj-sort="date_desc">日付 新しい順</button>
+    </div>`;
+
+    // 並べ替え
+    let list = [...notionProjects];
+    if (projectSortMode === 'date_desc') {
+      list.sort((a,b) => {
+        const da = a.date || '', db = b.date || '';
+        if (!da && !db) return a.name.localeCompare(b.name,'ja');
+        if (!da) return 1; if (!db) return -1;
+        return db.localeCompare(da); // 新しい順
+      });
+    } else {
+      list.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+    }
+    // 絞り込み
+    if (projectStatusFilter != null) list = list.filter(p => p.status === projectStatusFilter);
+
+    let html = controls;
+    if (!list.length) {
+      html += '<div class="proj-empty" style="padding:24px 0;">該当するプロジェクトがありません</div>';
+    }
+    list.forEach(p => {
       const nid = _normId(p.id);
       const ts = (byId.get(nid) || []).slice().sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0));
       const total = ts.length;
@@ -7691,13 +7782,18 @@
       html += `<div class="proj-card${open?' open':''}">
         <div class="proj-card-head" data-proj-toggle="${_escapeHtml(p.id)}">
           <div style="flex:1;min-width:0;">
-            <div class="proj-card-name">📁 ${_escapeHtml(p.name)}</div>
+            <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+              <span class="proj-card-name" style="flex:0 1 auto;">📁 ${_escapeHtml(p.name)}</span>
+              ${statusChip(p.status)}
+            </div>
             ${metaLine(p)}
           </div>
           <span class="proj-card-count">${total ? remaining+'/'+total : '0'}</span>
           <span class="proj-card-arrow">›</span>
         </div>
         <div class="proj-task-list">
+          ${editArea(p)}
+          <div style="height:8px;"></div>
           ${total ? ts.map(taskRow).join('')
                   : '<div style="font-size:13px;color:#b0adc0;padding:6px 2px;">表示範囲内のタスクはありません</div>'}
           ${addRow(_escapeHtml(p.id))}
@@ -7706,7 +7802,7 @@
       </div>`;
     });
 
-    if (noProject.length) {
+    if (noProject.length && projectStatusFilter == null) {
       const open = !!projectOpenState['__none__'];
       const remaining = noProject.filter(t => !t['(A)done']).length;
       const ts = noProject.slice().sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0));
@@ -7722,6 +7818,12 @@
 
     container.innerHTML = html;
 
+    container.querySelectorAll('[data-proj-statfilter]').forEach(el => {
+      el.addEventListener('click', function() { const v = this.dataset.projStatfilter; setProjectStatusFilter(v === '__all__' ? null : v); });
+    });
+    container.querySelectorAll('[data-proj-sort]').forEach(el => {
+      el.addEventListener('click', function() { setProjectSort(this.dataset.projSort); });
+    });
     container.querySelectorAll('[data-proj-toggle]').forEach(el => {
       el.addEventListener('click', function() { toggleProjectCard(this.dataset.projToggle); });
     });
@@ -7731,7 +7833,16 @@
     container.querySelectorAll('.proj-task-item[data-task-id]').forEach(el => {
       el.addEventListener('click', function(e) { e.stopPropagation(); editTask(this.dataset.taskId); });
     });
-    // クリックがカード開閉に伝播しないように
+    container.querySelectorAll('[data-proj-status]').forEach(el => {
+      el.addEventListener('click', function(e) { e.stopPropagation(); notionUpdateProjectStatus(this.dataset.projStatus, this.dataset.statusVal); });
+    });
+    container.querySelectorAll('[data-proj-date]').forEach(el => {
+      el.addEventListener('click', e => e.stopPropagation());
+      el.addEventListener('change', function() { notionUpdateProjectDate(this.dataset.projDate, this.value || ''); });
+    });
+    container.querySelectorAll('[data-proj-date-clear]').forEach(el => {
+      el.addEventListener('click', function(e) { e.stopPropagation(); notionUpdateProjectDate(this.dataset.projDateClear, ''); });
+    });
     container.querySelectorAll('[data-proj-add-input]').forEach(el => {
       el.addEventListener('click', e => e.stopPropagation());
       el.addEventListener('keydown', function(e) {
@@ -8626,13 +8737,18 @@
     projExcludeTypes: '目標',
     projDeadlineProp: '(A)期限',
     projNextProp: '(A)Next Action',
+    projGoalRelProp: '(D)目標連携',
+    projDateProp: '(A)期間',
+    projStatusProp: '(A)ステータス',
     props: { ...NOTION_PROP_DEFAULT },
     autoSync: false,
   };
   // プロジェクト relation のページID → 名前 マップ（前回同期分をキャッシュ）
   let notionProjectMap = JSON.parse(localStorage.getItem('notionProjectMap') || '{}');
-  // プロジェクト（目標を除いた実プロジェクト）の詳細: [{id,name,type,deadline,nextAction}]
+  // プロジェクト（目標を除いた実プロジェクト）の詳細: [{id,name,type,deadline,nextAction,date,dateText,status,goalNames}]
   let notionProjects = JSON.parse(localStorage.getItem('notionProjects') || '[]');
+  // ステータスの選択肢 [{name,color}] と 全エントリ（目標含む）id→名前
+  let notionProjectStatusOptions = JSON.parse(localStorage.getItem('notionProjectStatusOptions') || '[]');
   let notionCurrentTab = 'setup';
   let notionTasks = []; // Notionから取得したタスクキャッシュ
 
@@ -8679,6 +8795,9 @@
     const pex = document.getElementById('notionProjExcludeInput'); if (pex) pex.value = notionSettings.projExcludeTypes || '';
     const pdl = document.getElementById('notionProjDeadlineInput'); if (pdl) pdl.value = notionSettings.projDeadlineProp || '';
     const pna = document.getElementById('notionProjNextInput'); if (pna) pna.value = notionSettings.projNextProp || '';
+    const pgl = document.getElementById('notionProjGoalInput'); if (pgl) pgl.value = notionSettings.projGoalRelProp || '';
+    const pdt = document.getElementById('notionProjDateInput'); if (pdt) pdt.value = notionSettings.projDateProp || '';
+    const pst = document.getElementById('notionProjStatusInput'); if (pst) pst.value = notionSettings.projStatusProp || '';
     renderNotionPropMappings();
   }
 
@@ -8731,11 +8850,14 @@
     const projExcludeTypes = (document.getElementById('notionProjExcludeInput')?.value.trim())  || notionSettings.projExcludeTypes || '目標';
     const projDeadlineProp = (document.getElementById('notionProjDeadlineInput')?.value.trim()) || notionSettings.projDeadlineProp || '(A)期限';
     const projNextProp     = (document.getElementById('notionProjNextInput')?.value.trim())     || notionSettings.projNextProp     || '(A)Next Action';
+    const projGoalRelProp  = (document.getElementById('notionProjGoalInput')?.value.trim())     || notionSettings.projGoalRelProp  || '(D)目標連携';
+    const projDateProp     = (document.getElementById('notionProjDateInput')?.value.trim())     || notionSettings.projDateProp     || '(A)期間';
+    const projStatusProp   = (document.getElementById('notionProjStatusInput')?.value.trim())   || notionSettings.projStatusProp   || '(A)ステータス';
     const props  = {};
     document.querySelectorAll('#notionPropMappings [data-prop-key]').forEach(inp => {
       props[inp.dataset.propKey] = inp.value.trim() || NOTION_PROP_DEFAULT[inp.dataset.propKey];
     });
-    notionSettings = { token, dbId, rewardDbId, historyDbId, projectDbId, projTypeProp, projExcludeTypes, projDeadlineProp, projNextProp, props, autoSync: notionSettings.autoSync };
+    notionSettings = { token, dbId, rewardDbId, historyDbId, projectDbId, projTypeProp, projExcludeTypes, projDeadlineProp, projNextProp, projGoalRelProp, projDateProp, projStatusProp, props, autoSync: notionSettings.autoSync };
     localStorage.setItem('notionSettings', JSON.stringify(notionSettings));
 
     const statusEl = document.getElementById('notionConnStatus');
@@ -9048,10 +9170,42 @@
     }
   }
 
+  // Notionのカラー名 → 表示色
+  const NOTION_COLOR_HEX = {
+    default: { bg:'#f2f2f7', color:'#6a6a6c' }, gray:{ bg:'#eaeaec', color:'#6a6a6c' },
+    brown:{ bg:'#efe7e1', color:'#8a6d56' }, orange:{ bg:'#fceadb', color:'#c4621d' },
+    yellow:{ bg:'#faf3d6', color:'#9c7a17' }, green:{ bg:'#dff2e3', color:'#2c8a4a' },
+    blue:{ bg:'#dcebf7', color:'#2b6cb0' }, purple:{ bg:'#ece6fb', color:'#6c5ce7' },
+    pink:{ bg:'#fbe4f0', color:'#b24a82' }, red:{ bg:'#fbe0df', color:'#c4392f' },
+  };
+  function statusColorStyle(name) {
+    const opt = (notionProjectStatusOptions || []).find(o => o.name === name);
+    const c = NOTION_COLOR_HEX[opt ? opt.color : 'default'] || NOTION_COLOR_HEX.default;
+    return `background:${c.bg};color:${c.color};`;
+  }
+
+  // ステータスプロパティの選択肢をDBスキーマから取得
+  async function notionFetchProjectStatusOptions() {
+    if (!notionSettings.token || !notionSettings.projectDbId) return;
+    const statusProp = notionSettings.projStatusProp || '(A)ステータス';
+    try {
+      const db = await notionApiCall(`/databases/${notionSettings.projectDbId}`, 'GET');
+      const prop = (db.properties || {})[statusProp];
+      if (prop && prop.type === 'status' && prop.status) {
+        notionProjectStatusOptions = (prop.status.options || []).map(o => ({ name: o.name, color: o.color }));
+        localStorage.setItem('notionProjectStatusOptions', JSON.stringify(notionProjectStatusOptions));
+      } else if (prop && prop.type === 'select' && prop.select) {
+        notionProjectStatusOptions = (prop.select.options || []).map(o => ({ name: o.name, color: o.color }));
+        localStorage.setItem('notionProjectStatusOptions', JSON.stringify(notionProjectStatusOptions));
+      }
+    } catch(e) { /* スキーマ取得失敗時は前回分を使用 */ }
+  }
+
   // --- プロジェクトDBを取得（種類「目標」等は除外）し、id→名前マップと詳細配列を構築 ---
   async function notionFetchProjects() {
     if (!notionSettings.token || !notionSettings.projectDbId) return notionProjectMap;
     try {
+      await notionFetchProjectStatusOptions();
       let allPages = [];
       let cursor = undefined;
       do {
@@ -9065,26 +9219,54 @@
       const typeProp     = notionSettings.projTypeProp     || '(D)種類';
       const deadlineProp = notionSettings.projDeadlineProp || '(A)期限';
       const nextProp     = notionSettings.projNextProp     || '(A)Next Action';
+      const goalProp     = notionSettings.projGoalRelProp  || '(D)目標連携';
+      const dateProp     = notionSettings.projDateProp     || '(A)期間';
+      const statusProp   = notionSettings.projStatusProp   || '(A)ステータス';
       const excludeTypes = (notionSettings.projExcludeTypes || '目標')
         .split(',').map(s => s.trim()).filter(Boolean);
+
+      // 1) 全エントリ（目標含む）の id→名前 を先に作る（親目標名の解決用）
+      const allNameMap = {};
+      allPages.forEach(page => {
+        const P = page.properties || {};
+        const te = Object.values(P).find(v => v && v.type === 'title');
+        const nm = (te ? (te.title || []).map(r => r.plain_text).join('') : '') || '(無題)';
+        allNameMap[page.id] = nm;
+        allNameMap[page.id.replace(/-/g,'')] = nm;
+      });
 
       const map = {};
       const arr = [];
       let excluded = 0;
       allPages.forEach(page => {
         const P = page.properties || {};
-        const titleEntry = Object.values(P).find(v => v && v.type === 'title');
-        const name = (titleEntry ? (titleEntry.title || []).map(r => r.plain_text).join('') : '') || '(無題)';
-        // 種類（select/status）
+        const name = allNameMap[page.id];
         let type = '';
         const tp = P[typeProp];
         if (tp) type = notionPropToText(tp);
         if (type && excludeTypes.includes(type)) { excluded++; return; } // 目標などは除外
+
         const deadline   = P[deadlineProp] ? notionPropToText(P[deadlineProp]) : '';
         const nextAction = P[nextProp]     ? notionPropToText(P[nextProp])     : '';
+        // 期限の生日付（編集・ソート用）
+        let dateRaw = '';
+        const dp = P[dateProp];
+        if (dp && dp.type === 'date' && dp.date && dp.date.start) dateRaw = String(dp.date.start).substring(0,10);
+        const dateText = dateRaw ? dateRaw.replace(/^\d{4}-/, '').replace('-', '/') : '';
+        // ステータス
+        let status = '';
+        const sp = P[statusProp];
+        if (sp) status = notionPropToText(sp);
+        // 親目標
+        let goalNames = [];
+        const gp = P[goalProp];
+        if (gp && gp.type === 'relation') {
+          goalNames = (gp.relation || []).map(r => allNameMap[r.id] || allNameMap[r.id.replace(/-/g,'')] || null).filter(Boolean);
+        }
+
         map[page.id] = name;
         map[page.id.replace(/-/g,'')] = name;
-        arr.push({ id: page.id, name, type, deadline, nextAction });
+        arr.push({ id: page.id, name, type, deadline, nextAction, date: dateRaw, dateText, status, goalNames });
       });
       notionProjectMap = map;
       notionProjects = arr;
@@ -9095,6 +9277,52 @@
       notionSyncLog('⚠️ プロジェクト取得失敗: ' + e.message);
     }
     return notionProjectMap;
+  }
+
+  // --- プロジェクトの期限日（(A)期間）を更新 ---
+  async function notionUpdateProjectDate(projectId, ymdStr) {
+    const dateProp = notionSettings.projDateProp || '(A)期間';
+    try {
+      await notionApiCall(`/pages/${projectId}`, 'PATCH', {
+        properties: { [dateProp]: { date: ymdStr ? { start: ymdStr } : null } }
+      });
+      // ローカル即時反映（期限formulaは再取得で更新）
+      const p = (notionProjects || []).find(x => x.id === projectId);
+      if (p) { p.date = ymdStr || ''; p.dateText = ymdStr ? ymdStr.replace(/^\d{4}-/, '').replace('-', '/') : ''; }
+      localStorage.setItem('notionProjects', JSON.stringify(notionProjects));
+      renderProjectScreen();
+      // (A)期限（残り日数などの関数）も更新するため裏で再取得
+      notionFetchProjects().then(() => { if (currentScreen === 'project') renderProjectScreen(); });
+    } catch(e) {
+      alert('期限の更新に失敗しました: ' + e.message);
+    }
+  }
+
+  // --- プロジェクトのステータスを更新 ---
+  async function notionUpdateProjectStatus(projectId, statusName) {
+    const statusProp = notionSettings.projStatusProp || '(A)ステータス';
+    try {
+      await notionApiCall(`/pages/${projectId}`, 'PATCH', {
+        properties: { [statusProp]: { status: { name: statusName } } }
+      });
+      const p = (notionProjects || []).find(x => x.id === projectId);
+      if (p) p.status = statusName;
+      localStorage.setItem('notionProjects', JSON.stringify(notionProjects));
+      renderProjectScreen();
+    } catch(e) {
+      // status型でなくselect型の可能性 → selectで再試行
+      try {
+        await notionApiCall(`/pages/${projectId}`, 'PATCH', {
+          properties: { [statusProp]: { select: { name: statusName } } }
+        });
+        const p = (notionProjects || []).find(x => x.id === projectId);
+        if (p) p.status = statusName;
+        localStorage.setItem('notionProjects', JSON.stringify(notionProjects));
+        renderProjectScreen();
+      } catch(e2) {
+        alert('ステータスの更新に失敗しました: ' + e2.message);
+      }
+    }
   }
 
   // --- Notionからタスクを取得（前後1ヵ月・実行日あり or 実行期間1〜4のみ後でやる対象） ---
