@@ -1762,6 +1762,122 @@
     margin-left: 4px;
   }
 
+  /* ===== プロジェクト（Notion relation） ===== */
+  .proj-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #6c5ce7;
+    background: #efecfd;
+    border-radius: 8px;
+    padding: 1px 6px;
+    margin-left: 4px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  /* あとでやる：プロジェクトの絞り込みチップ列 */
+  .proj-filter-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 6px 2px 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .proj-filter-row::-webkit-scrollbar { display: none; }
+  .proj-filter-chip {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6a6a6c;
+    background: #f2f2f7;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    padding: 4px 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .proj-filter-chip.active {
+    color: #fff;
+    background: #6c5ce7;
+  }
+  .later-group-head {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6c5ce7;
+    padding: 10px 2px 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  /* プロジェクト画面 */
+  .proj-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 10px rgba(80,70,140,0.05);
+  }
+  .proj-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .proj-card-name {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 700;
+    color: #2d2b3a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .proj-card-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6c5ce7;
+    background: #efecfd;
+    border-radius: 12px;
+    padding: 2px 9px;
+    flex-shrink: 0;
+  }
+  .proj-card-arrow {
+    color: #c7c7cc;
+    font-size: 13px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .proj-card.open .proj-card-arrow { transform: rotate(90deg); }
+  .proj-task-list { display: none; margin-top: 10px; }
+  .proj-card.open .proj-task-list { display: block; }
+  .proj-task-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 2px;
+    border-top: 1px solid #f2f2f7;
+    cursor: pointer;
+  }
+  .proj-task-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .proj-task-name {
+    flex: 1; font-size: 14px; color: #1c1c1e;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .proj-task-meta { font-size: 11px; color: #8e8e93; flex-shrink: 0; }
+  .proj-empty {
+    text-align: center; color: #8e8e93; font-size: 14px;
+    padding: 40px 0; line-height: 1.6;
+  }
+
   /* ===================================================== */
   /* ルーチンタブ                                          */
   /* ===================================================== */
@@ -2314,6 +2430,13 @@
           style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;"
           value="">
       </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;font-weight:500;">📁 プロジェクトDB ID（任意）</div>
+        <input id="notionProjectDbInput" type="text" placeholder="プロジェクトDBのID"
+          style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;"
+          value="">
+        <div style="font-size:11px;color:#b0adc0;margin-top:5px;line-height:1.5;">設定するとタスクに紐づくプロジェクト名を表示し、絞り込みやプロジェクト画面で使えます。下のマッピングで「プロジェクト（relation）」のプロパティ名も合わせてください。</div>
+      </div>
 
       <!-- プロパティマッピング -->
       <div style="margin-bottom:14px;background:#f8f8f8;border-radius:12px;padding:14px;">
@@ -2414,6 +2537,7 @@
         <span class="later-count" id="laterCount">0</span>
       </div>
       <div class="later-actions">
+        <button class="later-action-btn" id="laterGroupBtn" title="プロジェクトでグループ" onclick="toggleLaterGroup()">📁</button>
         <button class="later-action-btn" id="laterSortBtn" title="並び順">🕐</button>
         <button class="later-action-btn" id="laterReorderBtn" title="並び替え">↕</button>
       </div>
@@ -2483,6 +2607,15 @@
   <div style="font-size:11px;color:#b0adc0;margin-top:10px;line-height:1.5;">集中時間は、タイムラインや編集画面のタイマー（開始→終了）で計測した実働時間から集計しています。</div>
 </div>
 
+<!-- ===== プロジェクト画面 ===== -->
+<div class="routine-screen" id="projectScreen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:2px 2px 12px;">
+    <div style="font-size:18px;font-weight:800;color:#2d2b3a;">📁 プロジェクト</div>
+    <button onclick="notionFullSync()" style="background:#f2f2f7;border:none;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:#6c5ce7;">🔄 同期</button>
+  </div>
+  <div id="projectList"></div>
+</div>
+
 <!-- 🪙 コイン獲得トースト -->
 <div id="coinToast" style="display:none;position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:4000;background:#1c1c1e;color:#fff;border-radius:24px;padding:10px 18px;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
   <span style="font-size:18px;">🪙</span> +1 コイン！
@@ -2541,6 +2674,14 @@
       </svg>
     </span>
     <span class="nav-label">ルーチン</span>
+  </button>
+  <button class="bottom-nav-item" id="navProject" onclick="switchScreen('project')">
+    <span class="nav-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      </svg>
+    </span>
+    <span class="nav-label">プロジェクト</span>
   </button>
   <button class="bottom-nav-item" id="navGraph" onclick="switchScreen('graph')">
     <span class="nav-ico">
@@ -2944,6 +3085,13 @@
         <div id="timerDisplay" style="font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:1px;color:#1c1c1e;text-align:center;margin-bottom:12px;">00:00:00</div>
         <div id="timerButtons" style="display:flex;gap:8px;"></div>
         <div id="timerDetail" style="margin-top:10px;"></div>
+      </div>
+      <!-- ⬇ サブタスク（既存タスク編集時のみ・Notion relation） -->
+      <div id="subtaskPanel" style="display:none;background:#f7f7fb;border:1px solid #ececf3;border-radius:14px;padding:14px;margin-top:4px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:700;color:#1c1c1e;">⬇ サブタスク <span id="subtaskCount" style="color:#6c5ce7;"></span></div>
+        </div>
+        <div id="subtaskList"></div>
       </div>
       <!-- 削除・コピーボタン -->
       <div class="delete-row" id="editActions" style="display:none;">
@@ -3954,11 +4102,11 @@
       info.className = 'tl-task-info';
       if (isNarrow) {
         info.innerHTML = `<div class="tl-task-time">${st} ${badgeHTML}</div>`
-          + `<div class="tl-task-name" style="${_done?'text-decoration:line-through;color:#8e8e93;':''}">${t.name}${repeatBadge}</div>`
+          + `<div class="tl-task-name" style="${_done?'text-decoration:line-through;color:#8e8e93;':''}">${t.name}${repeatBadge}${projectBadgeHTML(t)}</div>`
           + (durLabel2 ? `<div class="tl-task-dur">${durLabel2}</div>` : '');
       } else {
         info.innerHTML = `<div class="tl-task-time">${st}〜${et} ${badgeHTML}</div>`
-          + `<div class="tl-task-name" style="${_done?'text-decoration:line-through;color:#8e8e93;':''}">${t.name}${repeatBadge}</div>`;
+          + `<div class="tl-task-name" style="${_done?'text-decoration:line-through;color:#8e8e93;':''}">${t.name}${repeatBadge}${projectBadgeHTML(t)}</div>`;
       }
 
       // チェックボタン（小さめ）
@@ -4348,6 +4496,99 @@
     return Math.max(0, Math.floor((end - n) / 60000));
   }
 
+  // プロジェクト名のバッジHTML（relation・読み取り表示用）
+  function _escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+  function getTaskProjectNames(t) {
+    return (t && Array.isArray(t._projectNames)) ? t._projectNames.filter(Boolean) : [];
+  }
+  function projectBadgeHTML(t) {
+    const names = getTaskProjectNames(t);
+    if (!names.length) return '';
+    const first = _escapeHtml(names[0]);
+    const extra = names.length > 1 ? ` +${names.length - 1}` : '';
+    return `<span class="proj-badge" title="${_escapeHtml(names.join(', '))}">📁 ${first}${extra}</span>`;
+  }
+
+  // ===== サブタスク（Notion relation: (d)サブアイテム） =====
+  let notionSubtaskCache = {}; // notionId -> {name, done, date}
+  function findLocalByNotionId(nid) {
+    if (!nid) return null;
+    const bare = nid.replace(/-/g,'');
+    return (tasks || []).find(t => t._notionId === nid || t._notionId === bare || t.id === 'notion_' + bare) || null;
+  }
+  function _taskDateLabel(t) {
+    const s = (t && t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : '';
+    return s ? s.replace(/^\d{4}-/, '').replace('-', '/') : '';
+  }
+  async function notionFetchSubtaskInfo(id) {
+    if (notionSubtaskCache[id]) return notionSubtaskCache[id];
+    if (!notionSettings.token) return null;
+    try {
+      const page = await notionApiCall(`/pages/${id}`, 'GET');
+      const t = notionPageToTask(page);
+      const info = { name: t.name || '(無題)', done: !!t['(A)done'], date: _taskDateLabel(t) };
+      notionSubtaskCache[id] = info;
+      return info;
+    } catch(e) { return null; }
+  }
+  function _subtaskRowHTML(info, localId) {
+    const done = !!info.done;
+    const dot  = done ? '#34c759' : '#6c5ce7';
+    const meta = info.date || '';
+    const attr = localId
+      ? `data-sub-open="${localId}" style="cursor:pointer;"`
+      : `style="cursor:default;opacity:0.85;"`;
+    return `<div class="proj-task-item" ${attr}>
+      <span class="proj-task-dot" style="background:${dot};"></span>
+      <span class="proj-task-name" style="${done?'text-decoration:line-through;color:#8e8e93;':''}">${_escapeHtml(info.name || '読み込み中…')}</span>
+      <span class="proj-task-meta">${_escapeHtml(meta)}</span>
+    </div>`;
+  }
+  function _buildSubtaskItems(subIds) {
+    return subIds.map(id => {
+      const local = findLocalByNotionId(id);
+      if (local) return { id, localId: local.id, info: { name: local.name, done: local['(A)done'], date: _taskDateLabel(local) } };
+      if (notionSubtaskCache[id]) return { id, localId: null, info: notionSubtaskCache[id] };
+      return { id, localId: null, info: { name: '', done: false, date: '' }, pending: true };
+    });
+  }
+  function _bindSubtaskTaps(listEl) {
+    listEl.querySelectorAll('[data-sub-open]').forEach(el => {
+      el.addEventListener('click', function() { openModal(this.dataset.subOpen); });
+    });
+  }
+  function renderSubtasksForTask(task) {
+    const panel  = document.getElementById('subtaskPanel');
+    const listEl = document.getElementById('subtaskList');
+    const countEl= document.getElementById('subtaskCount');
+    if (!panel || !listEl) return;
+    const subIds = (task && Array.isArray(task._subIds)) ? task._subIds : [];
+    if (!subIds.length) { panel.style.display = 'none'; listEl.innerHTML = ''; if (countEl) countEl.textContent = ''; return; }
+    panel.style.display = '';
+    if (countEl) countEl.textContent = subIds.length;
+
+    const items = _buildSubtaskItems(subIds);
+    listEl.innerHTML = items.map(it => _subtaskRowHTML(it.info, it.localId)).join('');
+    _bindSubtaskTaps(listEl);
+
+    // 未解決（ローカルに無い）サブタスクの名前をNotionから遅延取得
+    const pending = items.filter(it => it.pending);
+    if (pending.length && notionSettings.token) {
+      const openedId = task.id;
+      (async () => {
+        for (const p of pending) { await notionFetchSubtaskInfo(p.id); }
+        if (editingTaskId !== openedId) return; // モーダルが切り替わっていたら何もしない
+        const items2 = _buildSubtaskItems(subIds).map(it =>
+          (it.pending && !notionSubtaskCache[it.id]) ? { ...it, info: { name: '(取得できませんでした)', done: false, date: '' } } : it
+        );
+        listEl.innerHTML = items2.map(it => _subtaskRowHTML(it.info, it.localId)).join('');
+        _bindSubtaskTaps(listEl);
+      })();
+    }
+  }
+
   function renderLater() {
     const now = new Date();
     const durToMin = d => {
@@ -4366,9 +4607,42 @@
     else if (laterSortMode===2) allLater.sort((a,b)=>(b['(C)見込み/h']||0)-(a['(C)見込み/h']||0));
     document.getElementById('laterCount').textContent = allLater.length;
     const list = document.getElementById('laterList');
-    if (allLater.length===0) { list.innerHTML='<div style="text-align:center;color:#8e8e93;padding:20px;font-size:14px;">タスクがありません</div>'; return; }
-    let html = `<div class="later-section-title">≡ あとでやる ${allLater.length}</div>`;
+
+    // ── プロジェクトの絞り込みチップ列（プロジェクトを持つタスクがある場合のみ） ──
+    const projNameSet = new Set();
+    let anyNoProject = false;
     allLater.forEach(t => {
+      const ns = getTaskProjectNames(t);
+      if (ns.length) ns.forEach(n => projNameSet.add(n));
+      else anyNoProject = true;
+    });
+    const projNames = [...projNameSet].sort((a,b)=>a.localeCompare(b,'ja'));
+    let chipRow = '';
+    if (projNames.length) {
+      const chip = (val, label, active) =>
+        `<button class="proj-filter-chip${active?' active':''}" data-proj-filter="${val==null?'__all__':_escapeHtml(val)}">${_escapeHtml(label)}</button>`;
+      chipRow = '<div class="proj-filter-row">';
+      chipRow += chip(null, 'すべて', laterProjectFilter == null);
+      projNames.forEach(n => { chipRow += chip(n, '📁 ' + n, laterProjectFilter === n); });
+      if (anyNoProject) chipRow += chip('__none__', 'なし', laterProjectFilter === '__none__');
+      chipRow += '</div>';
+    } else {
+      // 絞り込み対象が無くなったらフィルタ解除
+      laterProjectFilter = null;
+    }
+
+    // ── フィルタ適用 ──
+    let shown = allLater;
+    if (laterProjectFilter === '__none__') {
+      shown = allLater.filter(t => getTaskProjectNames(t).length === 0);
+    } else if (laterProjectFilter != null) {
+      shown = allLater.filter(t => getTaskProjectNames(t).includes(laterProjectFilter));
+    }
+
+    if (allLater.length===0) { list.innerHTML='<div style="text-align:center;color:#8e8e93;padding:20px;font-size:14px;">タスクがありません</div>'; return; }
+
+    // 1タスク分のHTMLを生成
+    const itemHTML = (t) => {
       const isOverdue = t._type==='time';
       const durLabel = hToLabel(t['(C)見込み/h']);
       let tl = '';
@@ -4388,15 +4662,51 @@
       const _notionBadge = t._notionId
         ? `<span class="notion-sync-badge" title="Notion連携中"><span style="font-weight:900;font-size:9px;background:#1c1c1e;color:white;border-radius:3px;padding:0 3px;">N</span></span>`
         : '';
+      // グループ表示中はバッジ重複を避けるため、グループ化のときはバッジ非表示
+      const _projBadge = laterGroupByProject ? '' : projectBadgeHTML(t);
       const _isHabitL = t['(B)種類'] === '習慣';
       const _repeatBadgeL = _isHabitL ? '<span style="font-size:11px;margin-left:4px;opacity:0.6;">🔁</span>' : '';
       const _checkL = _isHabitL
         ? `<div class="habit-star ${_done?'done':''}" onclick="event.stopPropagation();if(!${_done})spawnSparkles(this);toggleTaskDone('${t.id}',this)">${_done?'⭐':'☆'}</div>`
         : `<div class="task-check ${_done?'checked':''}" onclick="event.stopPropagation();toggleTaskDone('${t.id}',this)">${_done?'✓':''}</div>`;
       const dh = laterReorderMode ? `<div class="drag-handle" data-drag="${t.id}">≡</div>` : '';
-      html += `<div class="later-item${laterReorderMode?' reorder-mode':''}" data-id="${t.id}">${dh}<div class="later-item-icon">${isOverdue?'🕐':'✨'}</div><div class="later-item-info"><div class="later-item-name">${t.name}${_repeatBadgeL}${_lsBadge}${_notionBadge}</div>${tl}</div>${_checkL}</div>`;
-    });
+      return `<div class="later-item${laterReorderMode?' reorder-mode':''}" data-id="${t.id}">${dh}<div class="later-item-icon">${isOverdue?'🕐':'✨'}</div><div class="later-item-info"><div class="later-item-name">${t.name}${_repeatBadgeL}${_lsBadge}${_projBadge}${_notionBadge}</div>${tl}</div>${_checkL}</div>`;
+    };
+
+    let html = `<div class="later-section-title">≡ あとでやる ${shown.length}</div>` + chipRow;
+
+    if (shown.length === 0) {
+      html += '<div style="text-align:center;color:#8e8e93;padding:20px;font-size:14px;">該当するタスクがありません</div>';
+    } else if (laterGroupByProject && !laterReorderMode) {
+      // プロジェクトごとにグループ化（並び替えモード中はフラット表示）
+      const groups = new Map(); // name -> tasks
+      const noProj = [];
+      shown.forEach(t => {
+        const ns = getTaskProjectNames(t);
+        if (!ns.length) { noProj.push(t); return; }
+        ns.forEach(n => { if (!groups.has(n)) groups.set(n, []); groups.get(n).push(t); });
+      });
+      [...groups.keys()].sort((a,b)=>a.localeCompare(b,'ja')).forEach(name => {
+        html += `<div class="later-group-head">📁 ${_escapeHtml(name)} <span style="color:#b0adc0;font-weight:600;">${groups.get(name).length}</span></div>`;
+        groups.get(name).forEach(t => { html += itemHTML(t); });
+      });
+      if (noProj.length) {
+        html += `<div class="later-group-head" style="color:#8e8e93;">📭 プロジェクトなし <span style="color:#b0adc0;font-weight:600;">${noProj.length}</span></div>`;
+        noProj.forEach(t => { html += itemHTML(t); });
+      }
+    } else {
+      shown.forEach(t => { html += itemHTML(t); });
+    }
+
     list.innerHTML = html;
+    // プロジェクト絞り込みチップのクリック
+    list.querySelectorAll('[data-proj-filter]').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const v = this.dataset.projFilter;
+        setLaterProjectFilter(v === '__all__' ? null : v);
+      });
+    });
     list.querySelectorAll('.later-item[data-id]').forEach(item => {
       item.addEventListener('click', function(e) {
         if (e.target.closest('.task-check')||e.target.closest('.drag-handle')||laterReorderMode) return;
@@ -4449,6 +4759,18 @@
   // あとでやるパネル
   let laterSortMode = 0; // 0=日付順, 1=短い順↑, 2=長い順↓
   let laterReorderMode = false;
+  let laterProjectFilter = null;   // null=すべて, '__none__'=プロジェクトなし, それ以外=プロジェクト名
+  let laterGroupByProject = false; // プロジェクトでグループ表示
+  function toggleLaterGroup() {
+    laterGroupByProject = !laterGroupByProject;
+    const btn = document.getElementById('laterGroupBtn');
+    if (btn) { btn.style.color = laterGroupByProject ? '#6c5ce7' : ''; btn.style.background = laterGroupByProject ? '#efecfd' : ''; }
+    renderLater();
+  }
+  function setLaterProjectFilter(val) {
+    laterProjectFilter = val;
+    renderLater();
+  }
   let reorderDragId = null;
 
   function toggleLater() {
@@ -4555,6 +4877,7 @@
       document.getElementById('taskNameInput').value = task.name;
       document.getElementById('editActions').style.display = 'flex';
       timerRenderForTask(editingTaskId);
+      renderSubtasksForTask(task);
       // 完了状態をUIに反映
       updateModalDoneUI(task['(A)done'] || false);
 
@@ -4622,6 +4945,7 @@
       document.getElementById('taskNameInput').value = '';
       document.getElementById('editActions').style.display = 'none';
       { const _tp = document.getElementById('timerPanel'); if (_tp) _tp.style.display = 'none'; }
+      { const _sp = document.getElementById('subtaskPanel'); if (_sp) _sp.style.display = 'none'; }
       document.getElementById('modalSubtitle').textContent = '・あとで';
       updateModalDoneUI(false);
       // 終日トグルをリセット
@@ -7239,12 +7563,14 @@
     const todoHeader = document.getElementById('todoHeader');
     const routineScreen = document.getElementById('routineScreen');
     const graphScreen = document.getElementById('graphScreen');
+    const projectScreen = document.getElementById('projectScreen');
     const fab = document.querySelector('.fab');
     // いったん全画面を隠す
     todoScreen.style.display = 'none';
     todoHeader.style.display = 'none';
     routineScreen.classList.remove('active');
     if (graphScreen) graphScreen.classList.remove('active');
+    if (projectScreen) projectScreen.classList.remove('active');
     if (screen === 'todo') {
       todoScreen.style.display = 'flex';
       todoHeader.style.display = '';
@@ -7256,11 +7582,125 @@
     } else if (screen === 'graph') {
       if (graphScreen) graphScreen.classList.add('active');
       renderGraphScreen();
+    } else if (screen === 'project') {
+      if (projectScreen) projectScreen.classList.add('active');
+      renderProjectScreen();
     }
-    if (fab) fab.style.display = (screen === 'graph') ? 'none' : '';
+    if (fab) fab.style.display = (screen === 'graph' || screen === 'project') ? 'none' : '';
     document.getElementById('navTodo').classList.toggle('active', screen === 'todo');
     document.getElementById('navRoutine').classList.toggle('active', screen === 'routine');
     const ng = document.getElementById('navGraph'); if (ng) ng.classList.toggle('active', screen === 'graph');
+    const np = document.getElementById('navProject'); if (np) np.classList.toggle('active', screen === 'project');
+  }
+
+  // ===== プロジェクト画面 =====
+  let projectOpenState = {}; // プロジェクト名 → 展開中か
+  function toggleProjectCard(key) {
+    projectOpenState[key] = !projectOpenState[key];
+    renderProjectScreen();
+  }
+  // プロジェクト画面からあとでやるリストへ絞り込みジャンプ
+  function jumpToProjectFilter(name) {
+    laterProjectFilter = name;
+    switchScreen('todo');
+    const panel = document.getElementById('laterPanel');
+    if (panel && typeof laterExpanded !== 'undefined') {
+      try { laterExpanded = true; document.getElementById('laterList').classList.add('expanded'); } catch(e){}
+    }
+    renderLater();
+  }
+
+  function renderProjectScreen() {
+    const container = document.getElementById('projectList');
+    if (!container) return;
+
+    if (!notionSettings.projectDbId) {
+      container.innerHTML = `<div class="proj-empty">📁 プロジェクトDBが未設定です。<br>右上のNボタン（Notion設定）で<br>「プロジェクトDB ID」を入力すると<br>ここにプロジェクトが表示されます。</div>`;
+      return;
+    }
+
+    // ローカルタスクをプロジェクト名ごとに集計
+    const byProject = new Map(); // name -> [tasks]
+    const noProject = [];
+    (tasks || []).forEach(t => {
+      if (t._type === 'repeat' || t._habitTemplateId) return; // テンプレートは除外
+      const ns = getTaskProjectNames(t);
+      if (!ns.length) { noProject.push(t); return; }
+      ns.forEach(n => { if (!byProject.has(n)) byProject.set(n, []); byProject.get(n).push(t); });
+    });
+
+    // Notionのプロジェクト一覧（タスク0件のものも表示）
+    const allProjNames = new Set([...byProject.keys()]);
+    Object.values(notionProjectMap || {}).forEach(n => { if (n) allProjNames.add(n); });
+    const names = [...allProjNames].sort((a,b)=>a.localeCompare(b,'ja'));
+
+    if (!names.length) {
+      container.innerHTML = `<div class="proj-empty">プロジェクトがまだありません。<br>「🔄 同期」でNotionから取得してください。</div>`;
+      return;
+    }
+
+    const taskRow = (t) => {
+      const done = t['(A)done'];
+      const dotColor = done ? '#34c759' : '#6c5ce7';
+      let meta = '';
+      const ds = t['(A)実行日'] && t['(A)実行日'].start ? String(t['(A)実行日'].start).substring(0,10) : '';
+      if (ds) meta = ds.replace(/^\d{4}-/, '').replace('-', '/');
+      else if (t['(B)種類']) meta = t['(B)種類'];
+      return `<div class="proj-task-item" data-task-id="${t.id}">
+        <span class="proj-task-dot" style="background:${dotColor};"></span>
+        <span class="proj-task-name" style="${done?'text-decoration:line-through;color:#8e8e93;':''}">${_escapeHtml(t.name)}</span>
+        <span class="proj-task-meta">${_escapeHtml(meta)}</span>
+      </div>`;
+    };
+
+    let html = '';
+    names.forEach(name => {
+      const ts = byProject.get(name) || [];
+      const total = ts.length;
+      const remaining = ts.filter(t => !t['(A)done']).length;
+      const open = !!projectOpenState[name];
+      const key = _escapeHtml(name).replace(/'/g, '&#39;');
+      const countLabel = total ? `${remaining}/${total}` : '0';
+      html += `<div class="proj-card${open?' open':''}">
+        <div class="proj-card-head" data-proj-toggle="${key}">
+          <div class="proj-card-name">📁 ${_escapeHtml(name)}</div>
+          <span class="proj-card-count">${countLabel}</span>
+          <span class="proj-card-arrow">›</span>
+        </div>
+        <div class="proj-task-list">
+          ${total ? ts.sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0)).map(taskRow).join('')
+                  : '<div style="font-size:13px;color:#b0adc0;padding:10px 2px;">表示範囲内（前後1ヵ月）のタスクはありません</div>'}
+          ${total ? `<div style="text-align:center;padding:8px 0 2px;"><button data-proj-jump="${key}" style="background:none;border:none;color:#6c5ce7;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">あとでやるで絞り込む →</button></div>` : ''}
+        </div>
+      </div>`;
+    });
+
+    if (noProject.length) {
+      const open = !!projectOpenState['__none__'];
+      const remaining = noProject.filter(t => !t['(A)done']).length;
+      html += `<div class="proj-card${open?' open':''}">
+        <div class="proj-card-head" data-proj-toggle="__none__">
+          <div class="proj-card-name" style="color:#8e8e93;">📭 プロジェクトなし</div>
+          <span class="proj-card-count" style="color:#8e8e93;background:#f2f2f7;">${remaining}/${noProject.length}</span>
+          <span class="proj-card-arrow">›</span>
+        </div>
+        <div class="proj-task-list">
+          ${noProject.sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0)).map(taskRow).join('')}
+        </div>
+      </div>`;
+    }
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('[data-proj-toggle]').forEach(el => {
+      el.addEventListener('click', function() { toggleProjectCard(this.dataset.projToggle); });
+    });
+    container.querySelectorAll('[data-proj-jump]').forEach(el => {
+      el.addEventListener('click', function(e) { e.stopPropagation(); jumpToProjectFilter(this.dataset.projJump); });
+    });
+    container.querySelectorAll('.proj-task-item[data-task-id]').forEach(el => {
+      el.addEventListener('click', function() { editTask(this.dataset.taskId); });
+    });
   }
 
   function toggleTaskDone(id, el) {
@@ -8079,6 +8519,11 @@
     mikomih:  '(C)見込み/h',
     memo:     '(e)memo',
     url:      '(e)URL',
+    // プロジェクト（Tasks DB 上の relation プロパティ名）
+    project:  '(d)プロジェクト/目標',
+    // 親 / サブタスクの relation（プロジェクト自動検出から除外＆将来のサブタスク表示用）
+    parent:   '(d)親アイテム',
+    subitems: '(d)サブアイテム',
     // ── 計測（タイマー）関連 ──
     // 開始日時 / 終了日時 は書き込み可能な Date プロパティ（Notionの開始/終了ボタンが入れていたもの）
     start:    '(c)開始日時',
@@ -8097,9 +8542,12 @@
     dbId: '',
     rewardDbId: '',
     historyDbId: '',
+    projectDbId: '',
     props: { ...NOTION_PROP_DEFAULT },
     autoSync: false,
   };
+  // プロジェクト relation のページID → 名前 マップ（前回同期分をキャッシュ）
+  let notionProjectMap = JSON.parse(localStorage.getItem('notionProjectMap') || '{}');
   let notionCurrentTab = 'setup';
   let notionTasks = []; // Notionから取得したタスクキャッシュ
 
@@ -8141,6 +8589,7 @@
     document.getElementById('notionDbIdInput').value  = notionSettings.dbId  || '';
     const rdb = document.getElementById('notionRewardDbInput'); if (rdb) rdb.value = notionSettings.rewardDbId || '';
     const hdb = document.getElementById('notionHistoryDbInput'); if (hdb) hdb.value = notionSettings.historyDbId || '';
+    const pdb = document.getElementById('notionProjectDbInput'); if (pdb) pdb.value = notionSettings.projectDbId || '';
     renderNotionPropMappings();
   }
 
@@ -8156,6 +8605,9 @@
       mikomih: '見込み/h（Number）',
       memo:    'メモ（Text）',
       url:     'URL（URL/Text）',
+      project: '📁 プロジェクト（relation）',
+      parent:  '⬆ 親アイテム（relation）',
+      subitems:'⬇ サブアイテム（relation）',
       start:      '⏱ 開始日時（Date）',
       end:        '⏱ 終了日時（Date）',
       netmin:     '⏱ 実働分・任意（Number）',
@@ -8184,11 +8636,13 @@
     const hsEl = document.getElementById('notionHistoryDbInput');
     const rewardDbId  = rwEl ? rwEl.value.trim().replace(/-/g,'') : (notionSettings.rewardDbId || '');
     const historyDbId = hsEl ? hsEl.value.trim().replace(/-/g,'') : (notionSettings.historyDbId || '');
+    const pjEl = document.getElementById('notionProjectDbInput');
+    const projectDbId = pjEl ? pjEl.value.trim().replace(/-/g,'') : (notionSettings.projectDbId || '');
     const props  = {};
     document.querySelectorAll('#notionPropMappings [data-prop-key]').forEach(inp => {
       props[inp.dataset.propKey] = inp.value.trim() || NOTION_PROP_DEFAULT[inp.dataset.propKey];
     });
-    notionSettings = { token, dbId, rewardDbId, historyDbId, props, autoSync: notionSettings.autoSync };
+    notionSettings = { token, dbId, rewardDbId, historyDbId, projectDbId, props, autoSync: notionSettings.autoSync };
     localStorage.setItem('notionSettings', JSON.stringify(notionSettings));
 
     const statusEl = document.getElementById('notionConnStatus');
@@ -8344,6 +8798,25 @@
       url = (urlProp.rich_text || []).map(r => r.plain_text).join('');
     }
 
+    // ── プロジェクト / 親 / サブ（relation） ──
+    const props2 = notionSettings.props || NOTION_PROP_DEFAULT;
+    const relName = key => props2[key] || NOTION_PROP_DEFAULT[key];
+    const relIds = prop => (prop && prop.type === 'relation') ? (prop.relation || []).map(r => r.id).filter(Boolean) : [];
+
+    // プロジェクト：マッピング名で取得。無ければ「親/サブ以外」の最初の relation を採用。
+    let projectProp = getProp('project');
+    if (!projectProp || projectProp.type !== 'relation') {
+      const excludeNames = new Set([relName('parent'), relName('subitems')]);
+      const entry = Object.entries(P).find(([nm, v]) => v && v.type === 'relation' && !excludeNames.has(nm));
+      if (entry) projectProp = entry[1];
+    }
+    const projectIds = relIds(projectProp);
+    const projectNames = projectIds.map(id => notionProjectMap[id] || notionProjectMap[id.replace(/-/g,'')] || null).filter(Boolean);
+
+    // 親 / サブタスク（IDのみ保持。将来のサブタスク表示用）
+    const parentIds = relIds(getProp('parent'));
+    const subIds    = relIds(getProp('subitems'));
+
     // ── 計測関連の読み取り ──
     // formula プロパティから値を取り出す（number / string / date のいずれにも対応）
     function readFormula(prop) {
@@ -8379,6 +8852,11 @@
       '(C)見込み/h': mikomih,
       '(e)memo': memo,
       '(e)URL': url,
+      // プロジェクト（relation・読み取り専用）
+      _projectIds: projectIds,
+      _projectNames: projectNames,
+      _parentIds: parentIds,
+      _subIds: subIds,
       // 計測表示用（読み取り専用）
       _notionStart: notionStart,
       _notionEnd:   notionEnd,
@@ -8442,6 +8920,37 @@
     return result;
   }
 
+  // --- プロジェクトDBを取得して id→名前 マップを構築 ---
+  async function notionFetchProjects() {
+    if (!notionSettings.token || !notionSettings.projectDbId) return notionProjectMap;
+    try {
+      let allPages = [];
+      let cursor = undefined;
+      do {
+        const body = { page_size: 100 };
+        if (cursor) body.start_cursor = cursor;
+        const data = await notionApiCall(`/databases/${notionSettings.projectDbId}/query`, 'POST', body);
+        allPages = allPages.concat(data.results || []);
+        cursor = data.has_more ? data.next_cursor : undefined;
+      } while (cursor);
+
+      const map = {};
+      allPages.forEach(page => {
+        const titleEntry = Object.values(page.properties || {}).find(v => v && v.type === 'title');
+        const name = titleEntry ? (titleEntry.title || []).map(r => r.plain_text).join('') : '';
+        const nm = name || '(無題プロジェクト)';
+        map[page.id] = nm;
+        map[page.id.replace(/-/g,'')] = nm;
+      });
+      notionProjectMap = map;
+      localStorage.setItem('notionProjectMap', JSON.stringify(notionProjectMap));
+      notionSyncLog(`📁 プロジェクト取得: ${allPages.length}件`);
+    } catch(e) {
+      notionSyncLog('⚠️ プロジェクト取得失敗: ' + e.message);
+    }
+    return notionProjectMap;
+  }
+
   // --- Notionからタスクを取得（前後1ヵ月・実行日あり or 実行期間1〜4のみ後でやる対象） ---
   async function notionFetchTasks() {
     if (!notionSettings.token || !notionSettings.dbId) {
@@ -8449,6 +8958,11 @@
       return;
     }
     notionSyncLog('Notionからタスク取得中...');
+
+    // プロジェクト名を先に解決できるようマップを更新
+    if (notionSettings.projectDbId) {
+      try { await notionFetchProjects(); } catch(e) {}
+    }
 
     const today = new Date();
     const monthAgo  = new Date(today); monthAgo.setMonth(monthAgo.getMonth() - 1);
@@ -8565,6 +9079,10 @@
               '(C)見込み/h': nTask['(C)見込み/h'],
               '(e)memo':     nTask['(e)memo'],
               '(e)URL':      nTask['(e)URL'],
+              _projectIds:   nTask._projectIds,
+              _projectNames: nTask._projectNames,
+              _parentIds:    nTask._parentIds,
+              _subIds:       nTask._subIds,
               // 計測の読み取り表示値を最新化（_timer などローカル計測状態は維持）
               _notionStart:  nTask._notionStart,
               _notionEnd:    nTask._notionEnd,
@@ -8639,6 +9157,7 @@
       renderTimeline();
       renderLater();
       notionRenderTaskList();
+      if (typeof renderProjectScreen === 'function') renderProjectScreen();
 
     } catch(e) {
       appendLog('❌ 同期エラー: ' + e.message);
