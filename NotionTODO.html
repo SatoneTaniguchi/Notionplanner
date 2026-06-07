@@ -2611,6 +2611,7 @@
       <option value="all">すべて</option>
       <option value="習慣">習慣</option>
       <option value="掃除">掃除</option>
+      <option value="美容">美容</option>
     </select>
   </div>
   <!-- フィルター：対象日 / すべて -->
@@ -3238,7 +3239,7 @@
   //   "(A)実行日"   : { start: 'YYYY-MM-DDTHH:MM', end: 'YYYY-MM-DDTHH:MM' } | null
   //                   — Notionのdate型プロパティ形式
   //
-  //   "(B)種類"     : string  — セレクト: '雑務'|'勉強'|'仕事'|'課題'|'Wish_list'|'習慣'|'掃除'
+  //   "(B)種類"     : string  — セレクト: '雑務'|'勉強'|'仕事'|'課題'|'Wish_list'|'習慣'|'掃除'|'美容'
   //   "(B)実行期間" : string  — セレクト: '1.🔥⚡優短(<30m)'|'2.🔥⏳優長(>30m)'|
   //                             '3.🧊⚡低短(<30m)'|'4.🧊⏳低長(>30m)'|
   //                             '5.長期スパン'|'6.締め切り'|'7.依頼'|
@@ -7510,7 +7511,7 @@
     const container = document.getElementById('routineList');
     if (!container) return;
     const todayStr = ymd(new Date());
-    const routineKinds = routineKindMode === 'all' ? ['習慣', '掃除'] : [routineKindMode];
+    const routineKinds = routineKindMode === 'all' ? ['習慣', '掃除', '美容'] : [routineKindMode];
     const allHabits = getHabitTasks(true, routineKinds); // 終了済みも含めて取得
 
     // 終了済みタブ
@@ -7647,7 +7648,7 @@
   // ===== プロジェクト画面 =====
   let projectOpenState = {}; // プロジェクトID → 展開中か
   let projectStatusFilter = null; // null=すべて, それ以外=ステータス名
-  let projectSortMode = 'name';   // 'name' | 'date_desc'
+  let projectSortMode = 'date_desc';   // 'name' | 'date_desc'（既定は日付の新しい順）
   function setProjectStatusFilter(v) { projectStatusFilter = v; renderProjectScreen(); }
   function setProjectSort(mode) { projectSortMode = mode; renderProjectScreen(); }
   function toggleProjectCard(key) {
@@ -8307,6 +8308,7 @@
     { value: 'Wish_list',label: 'Wish_list',bg: '#f5e5ff', color: '#af52de' },
     { value: '習慣',     label: '習慣',     bg: '#f0fff4', color: '#34c759' },
     { value: '掃除',     label: '掃除',     bg: '#fffbe5', color: '#b8860b' },
+    { value: '美容',     label: '美容',     bg: '#ffe9f3', color: '#d6457f' },
   ];
 
   const KIKAN_OPTIONS = [
