@@ -2436,6 +2436,24 @@
           style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;"
           value="">
         <div style="font-size:11px;color:#b0adc0;margin-top:5px;line-height:1.5;">設定するとタスクに紐づくプロジェクト名を表示し、絞り込みやプロジェクト画面で使えます。下のマッピングで「プロジェクト（relation）」のプロパティ名も合わせてください。</div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">種類プロパティ</div>
+            <input id="notionProjTypeInput" type="text" placeholder="(D)種類" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">除外する種類（,区切り）</div>
+            <input id="notionProjExcludeInput" type="text" placeholder="目標" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">期限プロパティ（関数可）</div>
+            <input id="notionProjDeadlineInput" type="text" placeholder="(A)期限" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">Next Action（関数可）</div>
+            <input id="notionProjNextInput" type="text" placeholder="(A)Next Action" style="width:100%;background:#f2f2f7;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+        </div>
       </div>
 
       <!-- プロパティマッピング -->
@@ -7618,26 +7636,24 @@
       container.innerHTML = `<div class="proj-empty">📁 プロジェクトDBが未設定です。<br>右上のNボタン（Notion設定）で<br>「プロジェクトDB ID」を入力すると<br>ここにプロジェクトが表示されます。</div>`;
       return;
     }
-
-    // ローカルタスクをプロジェクト名ごとに集計
-    const byProject = new Map(); // name -> [tasks]
-    const noProject = [];
-    (tasks || []).forEach(t => {
-      if (t._type === 'repeat' || t._habitTemplateId) return; // テンプレートは除外
-      const ns = getTaskProjectNames(t);
-      if (!ns.length) { noProject.push(t); return; }
-      ns.forEach(n => { if (!byProject.has(n)) byProject.set(n, []); byProject.get(n).push(t); });
-    });
-
-    // Notionのプロジェクト一覧（タスク0件のものも表示）
-    const allProjNames = new Set([...byProject.keys()]);
-    Object.values(notionProjectMap || {}).forEach(n => { if (n) allProjNames.add(n); });
-    const names = [...allProjNames].sort((a,b)=>a.localeCompare(b,'ja'));
-
-    if (!names.length) {
-      container.innerHTML = `<div class="proj-empty">プロジェクトがまだありません。<br>「🔄 同期」でNotionから取得してください。</div>`;
+    if (!notionProjects || !notionProjects.length) {
+      container.innerHTML = `<div class="proj-empty">プロジェクトがまだありません。<br>「🔄 同期」でNotionから取得してください。<br><small style="color:#b0adc0;">（種類「${_escapeHtml(notionSettings.projExcludeTypes||'目標')}」は除外されます）</small></div>`;
       return;
     }
+
+    const _normId = s => String(s || '').replace(/-/g,'');
+    const realIdSet = new Set(notionProjects.map(p => _normId(p.id)));
+    const taskRealIds = (t) => ((t._projectIds || []).map(_normId)).filter(id => realIdSet.has(id));
+
+    // タスクを実プロジェクトIDごとに集計
+    const byId = new Map();      // normId -> [tasks]
+    const noProject = [];
+    (tasks || []).forEach(t => {
+      if (t._type === 'repeat' || t._habitTemplateId) return;
+      const ids = taskRealIds(t);
+      if (!ids.length) { noProject.push(t); return; }
+      ids.forEach(id => { if (!byId.has(id)) byId.set(id, []); byId.get(id).push(t); });
+    });
 
     const taskRow = (t) => {
       const done = t['(A)done'];
@@ -7652,25 +7668,40 @@
         <span class="proj-task-meta">${_escapeHtml(meta)}</span>
       </div>`;
     };
+    const addRow = (pid) => `<div style="display:flex;gap:6px;margin-top:10px;">
+        <input data-proj-add-input="${pid}" placeholder="＋ このプロジェクトにタスク追加" style="flex:1;background:#fff;border:1px solid #e3e0f0;border-radius:10px;padding:8px 11px;font-size:13px;font-family:inherit;outline:none;">
+        <button data-proj-add="${pid}" style="background:#6c5ce7;color:#fff;border:none;border-radius:10px;padding:0 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">追加</button>
+      </div>`;
+    const metaLine = (p) => {
+      let s = '';
+      if (p.deadline)   s += `<div style="font-size:11px;color:#e8590c;margin-top:3px;">🗓 ${_escapeHtml(p.deadline)}</div>`;
+      if (p.nextAction) s += `<div style="font-size:11px;color:#6a6a6c;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">▶ ${_escapeHtml(p.nextAction)}</div>`;
+      return s;
+    };
 
+    const sorted = [...notionProjects].sort((a,b)=>a.name.localeCompare(b.name,'ja'));
     let html = '';
-    names.forEach(name => {
-      const ts = byProject.get(name) || [];
+    sorted.forEach(p => {
+      const nid = _normId(p.id);
+      const ts = (byId.get(nid) || []).slice().sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0));
       const total = ts.length;
       const remaining = ts.filter(t => !t['(A)done']).length;
-      const open = !!projectOpenState[name];
-      const key = _escapeHtml(name).replace(/'/g, '&#39;');
-      const countLabel = total ? `${remaining}/${total}` : '0';
+      const open = !!projectOpenState[p.id];
+      const nameKey = _escapeHtml(p.name).replace(/'/g, '&#39;');
       html += `<div class="proj-card${open?' open':''}">
-        <div class="proj-card-head" data-proj-toggle="${key}">
-          <div class="proj-card-name">📁 ${_escapeHtml(name)}</div>
-          <span class="proj-card-count">${countLabel}</span>
+        <div class="proj-card-head" data-proj-toggle="${_escapeHtml(p.id)}">
+          <div style="flex:1;min-width:0;">
+            <div class="proj-card-name">📁 ${_escapeHtml(p.name)}</div>
+            ${metaLine(p)}
+          </div>
+          <span class="proj-card-count">${total ? remaining+'/'+total : '0'}</span>
           <span class="proj-card-arrow">›</span>
         </div>
         <div class="proj-task-list">
-          ${total ? ts.sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0)).map(taskRow).join('')
-                  : '<div style="font-size:13px;color:#b0adc0;padding:10px 2px;">表示範囲内（前後1ヵ月）のタスクはありません</div>'}
-          ${total ? `<div style="text-align:center;padding:8px 0 2px;"><button data-proj-jump="${key}" style="background:none;border:none;color:#6c5ce7;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">あとでやるで絞り込む →</button></div>` : ''}
+          ${total ? ts.map(taskRow).join('')
+                  : '<div style="font-size:13px;color:#b0adc0;padding:6px 2px;">表示範囲内のタスクはありません</div>'}
+          ${addRow(_escapeHtml(p.id))}
+          ${total ? `<div style="text-align:center;padding:8px 0 2px;"><button data-proj-jump="${nameKey}" style="background:none;border:none;color:#6c5ce7;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">あとでやるで絞り込む →</button></div>` : ''}
         </div>
       </div>`;
     });
@@ -7678,15 +7709,14 @@
     if (noProject.length) {
       const open = !!projectOpenState['__none__'];
       const remaining = noProject.filter(t => !t['(A)done']).length;
+      const ts = noProject.slice().sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0));
       html += `<div class="proj-card${open?' open':''}">
         <div class="proj-card-head" data-proj-toggle="__none__">
-          <div class="proj-card-name" style="color:#8e8e93;">📭 プロジェクトなし</div>
+          <div class="proj-card-name" style="color:#8e8e93;flex:1;">📭 プロジェクトなし</div>
           <span class="proj-card-count" style="color:#8e8e93;background:#f2f2f7;">${remaining}/${noProject.length}</span>
           <span class="proj-card-arrow">›</span>
         </div>
-        <div class="proj-task-list">
-          ${noProject.sort((a,b)=>(a['(A)done']?1:0)-(b['(A)done']?1:0)).map(taskRow).join('')}
-        </div>
+        <div class="proj-task-list">${ts.map(taskRow).join('')}</div>
       </div>`;
     }
 
@@ -7699,8 +7729,57 @@
       el.addEventListener('click', function(e) { e.stopPropagation(); jumpToProjectFilter(this.dataset.projJump); });
     });
     container.querySelectorAll('.proj-task-item[data-task-id]').forEach(el => {
-      el.addEventListener('click', function() { editTask(this.dataset.taskId); });
+      el.addEventListener('click', function(e) { e.stopPropagation(); editTask(this.dataset.taskId); });
     });
+    // クリックがカード開閉に伝播しないように
+    container.querySelectorAll('[data-proj-add-input]').forEach(el => {
+      el.addEventListener('click', e => e.stopPropagation());
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); quickAddProjectTask(this.dataset.projAddInput, this.value); }
+      });
+    });
+    container.querySelectorAll('[data-proj-add]').forEach(el => {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const input = container.querySelector(`[data-proj-add-input="${this.dataset.projAdd}"]`);
+        quickAddProjectTask(this.dataset.projAdd, input ? input.value : '');
+      });
+    });
+  }
+
+  // プロジェクトにタスクを即時追加（Notionへrelation付きで作成）
+  function quickAddProjectTask(projectId, rawName) {
+    const name = (rawName || '').trim();
+    if (!name) return;
+    const proj = (notionProjects || []).find(p => p.id === projectId || p.id.replace(/-/g,'') === String(projectId).replace(/-/g,''));
+    const pname = proj ? proj.name : '';
+    const realId = proj ? proj.id : projectId;
+    const task = {
+      id: Date.now().toString(),
+      _notionId: null,
+      _type: 'later',
+      name,
+      '(A)done': false,
+      '(A)実行日': null,
+      '(B)種類': null,
+      '(B)実行期間': null,
+      '(C)見込み/h': 0,
+      '(e)memo': '',
+      '(e)URL': '',
+      _repeatConfig: null,
+      _legacyTags: [],
+      _projectIds: [realId],
+      _projectNames: pname ? [pname] : [],
+      _localLastEdited: new Date().toISOString(),
+    };
+    tasks.push(task);
+    projectOpenState[projectId] = true; // 追加後は開いたまま
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    renderProjectScreen();
+    renderLater();
+    if (notionSettings.token && notionSettings.dbId) {
+      pushNewProjectTaskToNotion(task, realId);
+    }
   }
 
   function toggleTaskDone(id, el) {
@@ -8543,11 +8622,17 @@
     rewardDbId: '',
     historyDbId: '',
     projectDbId: '',
+    projTypeProp: '(D)種類',
+    projExcludeTypes: '目標',
+    projDeadlineProp: '(A)期限',
+    projNextProp: '(A)Next Action',
     props: { ...NOTION_PROP_DEFAULT },
     autoSync: false,
   };
   // プロジェクト relation のページID → 名前 マップ（前回同期分をキャッシュ）
   let notionProjectMap = JSON.parse(localStorage.getItem('notionProjectMap') || '{}');
+  // プロジェクト（目標を除いた実プロジェクト）の詳細: [{id,name,type,deadline,nextAction}]
+  let notionProjects = JSON.parse(localStorage.getItem('notionProjects') || '[]');
   let notionCurrentTab = 'setup';
   let notionTasks = []; // Notionから取得したタスクキャッシュ
 
@@ -8590,6 +8675,10 @@
     const rdb = document.getElementById('notionRewardDbInput'); if (rdb) rdb.value = notionSettings.rewardDbId || '';
     const hdb = document.getElementById('notionHistoryDbInput'); if (hdb) hdb.value = notionSettings.historyDbId || '';
     const pdb = document.getElementById('notionProjectDbInput'); if (pdb) pdb.value = notionSettings.projectDbId || '';
+    const ptp = document.getElementById('notionProjTypeInput'); if (ptp) ptp.value = notionSettings.projTypeProp || '';
+    const pex = document.getElementById('notionProjExcludeInput'); if (pex) pex.value = notionSettings.projExcludeTypes || '';
+    const pdl = document.getElementById('notionProjDeadlineInput'); if (pdl) pdl.value = notionSettings.projDeadlineProp || '';
+    const pna = document.getElementById('notionProjNextInput'); if (pna) pna.value = notionSettings.projNextProp || '';
     renderNotionPropMappings();
   }
 
@@ -8638,11 +8727,15 @@
     const historyDbId = hsEl ? hsEl.value.trim().replace(/-/g,'') : (notionSettings.historyDbId || '');
     const pjEl = document.getElementById('notionProjectDbInput');
     const projectDbId = pjEl ? pjEl.value.trim().replace(/-/g,'') : (notionSettings.projectDbId || '');
+    const projTypeProp     = (document.getElementById('notionProjTypeInput')?.value.trim())     || notionSettings.projTypeProp     || '(D)種類';
+    const projExcludeTypes = (document.getElementById('notionProjExcludeInput')?.value.trim())  || notionSettings.projExcludeTypes || '目標';
+    const projDeadlineProp = (document.getElementById('notionProjDeadlineInput')?.value.trim()) || notionSettings.projDeadlineProp || '(A)期限';
+    const projNextProp     = (document.getElementById('notionProjNextInput')?.value.trim())     || notionSettings.projNextProp     || '(A)Next Action';
     const props  = {};
     document.querySelectorAll('#notionPropMappings [data-prop-key]').forEach(inp => {
       props[inp.dataset.propKey] = inp.value.trim() || NOTION_PROP_DEFAULT[inp.dataset.propKey];
     });
-    notionSettings = { token, dbId, rewardDbId, historyDbId, projectDbId, props, autoSync: notionSettings.autoSync };
+    notionSettings = { token, dbId, rewardDbId, historyDbId, projectDbId, projTypeProp, projExcludeTypes, projDeadlineProp, projNextProp, props, autoSync: notionSettings.autoSync };
     localStorage.setItem('notionSettings', JSON.stringify(notionSettings));
 
     const statusEl = document.getElementById('notionConnStatus');
@@ -8920,7 +9013,42 @@
     return result;
   }
 
-  // --- プロジェクトDBを取得して id→名前 マップを構築 ---
+  // Notionプロパティ → 表示用テキスト（formula/date/rich_text/title/number/select/status/rollup対応）
+  function notionPropToText(prop) {
+    if (!prop) return '';
+    const fmtDate = d => {
+      if (!d || !d.start) return '';
+      const s = String(d.start).substring(0,10);
+      return d.end ? `${s}〜${String(d.end).substring(0,10)}` : s;
+    };
+    switch (prop.type) {
+      case 'formula': {
+        const f = prop.formula || {};
+        if (f.type === 'string')  return f.string || '';
+        if (f.type === 'number')  return (f.number != null ? String(f.number) : '');
+        if (f.type === 'boolean') return f.boolean ? '✓' : '';
+        if (f.type === 'date')    return fmtDate(f.date);
+        return '';
+      }
+      case 'rollup': {
+        const r = prop.rollup || {};
+        if (r.type === 'number') return (r.number != null ? String(r.number) : '');
+        if (r.type === 'date')   return fmtDate(r.date);
+        if (r.type === 'array')  return (r.array || []).map(notionPropToText).filter(Boolean).join(', ');
+        return '';
+      }
+      case 'date':      return fmtDate(prop.date);
+      case 'rich_text': return (prop.rich_text || []).map(x => x.plain_text).join('');
+      case 'title':     return (prop.title || []).map(x => x.plain_text).join('');
+      case 'number':    return (prop.number != null ? String(prop.number) : '');
+      case 'select':    return prop.select ? prop.select.name : '';
+      case 'status':    return prop.status ? prop.status.name : '';
+      case 'checkbox':  return prop.checkbox ? '✓' : '';
+      default:          return '';
+    }
+  }
+
+  // --- プロジェクトDBを取得（種類「目標」等は除外）し、id→名前マップと詳細配列を構築 ---
   async function notionFetchProjects() {
     if (!notionSettings.token || !notionSettings.projectDbId) return notionProjectMap;
     try {
@@ -8934,17 +9062,35 @@
         cursor = data.has_more ? data.next_cursor : undefined;
       } while (cursor);
 
+      const typeProp     = notionSettings.projTypeProp     || '(D)種類';
+      const deadlineProp = notionSettings.projDeadlineProp || '(A)期限';
+      const nextProp     = notionSettings.projNextProp     || '(A)Next Action';
+      const excludeTypes = (notionSettings.projExcludeTypes || '目標')
+        .split(',').map(s => s.trim()).filter(Boolean);
+
       const map = {};
+      const arr = [];
+      let excluded = 0;
       allPages.forEach(page => {
-        const titleEntry = Object.values(page.properties || {}).find(v => v && v.type === 'title');
-        const name = titleEntry ? (titleEntry.title || []).map(r => r.plain_text).join('') : '';
-        const nm = name || '(無題プロジェクト)';
-        map[page.id] = nm;
-        map[page.id.replace(/-/g,'')] = nm;
+        const P = page.properties || {};
+        const titleEntry = Object.values(P).find(v => v && v.type === 'title');
+        const name = (titleEntry ? (titleEntry.title || []).map(r => r.plain_text).join('') : '') || '(無題)';
+        // 種類（select/status）
+        let type = '';
+        const tp = P[typeProp];
+        if (tp) type = notionPropToText(tp);
+        if (type && excludeTypes.includes(type)) { excluded++; return; } // 目標などは除外
+        const deadline   = P[deadlineProp] ? notionPropToText(P[deadlineProp]) : '';
+        const nextAction = P[nextProp]     ? notionPropToText(P[nextProp])     : '';
+        map[page.id] = name;
+        map[page.id.replace(/-/g,'')] = name;
+        arr.push({ id: page.id, name, type, deadline, nextAction });
       });
       notionProjectMap = map;
+      notionProjects = arr;
       localStorage.setItem('notionProjectMap', JSON.stringify(notionProjectMap));
-      notionSyncLog(`📁 プロジェクト取得: ${allPages.length}件`);
+      localStorage.setItem('notionProjects', JSON.stringify(notionProjects));
+      notionSyncLog(`📁 プロジェクト取得: ${arr.length}件（除外 ${excluded}件）`);
     } catch(e) {
       notionSyncLog('⚠️ プロジェクト取得失敗: ' + e.message);
     }
@@ -9214,6 +9360,34 @@
     }).catch(e => {
       delete t._notionPushing;
       console.error('Notion新規作成失敗', e);
+    });
+  }
+
+  // プロジェクト指定で新規タスクをNotion作成（relationを自動セット）
+  function pushNewProjectTaskToNotion(t, projectId) {
+    if (!t || t._notionId || t._notionPushing) return;
+    if (!notionSettings.token || !notionSettings.dbId) return;
+    t._notionPushing = true;
+    delete t._notionDirty;
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    const props = notionSettings.props || NOTION_PROP_DEFAULT;
+    const relName = props.project || NOTION_PROP_DEFAULT.project;
+    const body = taskToNotionProps(t);
+    if (projectId) body[relName] = { relation: [{ id: projectId }] };
+    notionApiCall('/pages', 'POST', {
+      parent: { database_id: notionSettings.dbId },
+      properties: body,
+    }).then(page => {
+      t._notionId = page.id;
+      t._source = 'notion';
+      delete t._notionPushing;
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      if (currentScreen === 'project') renderProjectScreen();
+    }).catch(e => {
+      delete t._notionPushing;
+      console.error('Notionプロジェクトタスク作成失敗', e);
+      notionSyncLog('⚠️ タスク作成失敗: ' + e.message);
+      alert('Notionへのタスク作成に失敗しました: ' + e.message);
     });
   }
 
