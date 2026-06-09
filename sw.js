@@ -1,80 +1,61 @@
-/* Any Planner - Service Worker */
-const CACHE_NAME = 'any-planner-v1';
+// NotionTODO Service Worker
+// HTML(ナビゲーション)はネットワーク優先で常に最新を取得し、
+// 古い版が動き続ける問題を防ぐ。アセットはキャッシュ優先＋裏で更新。
+const CACHE = 'notiontodo-2026-06-10g';
 
-// オフラインでも開けるよう最低限キャッシュするファイル
-const PRECACHE_URLS = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './icon-192.svg',
-  './icon-512.svg',
-];
-
-// インストール時に基本ファイルをキャッシュ
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS).catch(() => {}))
-      .then(() => self.skipWaiting())
-  );
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
 });
 
-// 旧キャッシュの掃除
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
 
-  // GET以外（POST/PATCH等のAPI書き込み）はそのままネットワークへ
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
   if (req.method !== 'GET') return;
 
-  const url = new URL(req.url);
+  let url;
+  try { url = new URL(req.url); } catch (_) { return; }
+  // 別オリジン（Notion/Google等のAPI）は素通し
+  if (url.origin !== self.location.origin) return;
 
-  // 外部API（Notion / Google など）は絶対にキャッシュせず素通し
-  // ※同期データが古くならないようにするため
-  const isApi =
-    url.hostname.includes('api.notion.com') ||
-    url.hostname.includes('googleapis.com') ||
-    url.hostname.includes('google.com') ||
-    url.hostname.includes('gstatic.com') ||
-    url.hostname.includes('script.google.com');
-  if (isApi) return; // fetchイベントに介入しない＝通常のネットワーク通信
+  const accept = req.headers.get('accept') || '';
+  const isHTML = req.mode === 'navigate' || accept.includes('text/html');
 
-  // 自分のオリジン以外（CDN等）はネットワーク優先・失敗時キャッシュ
-  const sameOrigin = url.origin === self.location.origin;
-
-  // HTML本体（ナビゲーション）はネットワーク優先（常に最新を取得、オフライン時のみキャッシュ）
-  if (req.mode === 'navigate' || (sameOrigin && url.pathname.endsWith('.html'))) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
-    );
+  if (isHTML) {
+    // ネットワーク優先：常に最新のHTMLを取得。失敗時のみキャッシュ。
+    e.respondWith((async () => {
+      try {
+        const fresh = await fetch(req, { cache: 'no-store' });
+        const c = await caches.open(CACHE);
+        c.put(req, fresh.clone());
+        return fresh;
+      } catch (err) {
+        const cached = await caches.match(req);
+        return cached || (await caches.match('./')) || Response.error();
+      }
+    })());
     return;
   }
 
-  // 静的アセット（アイコン・manifest等）はキャッシュ優先
-  event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).then((res) => {
-        // 取得できたものはキャッシュに保存（同一オリジンのみ）
-        if (sameOrigin && res && res.status === 200) {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
-        }
-        return res;
-      }).catch(() => cached);
-    })
-  );
+  // その他アセット：キャッシュ優先（あれば即返し、裏で更新）
+  e.respondWith((async () => {
+    const cached = await caches.match(req);
+    const network = fetch(req).then((res) => {
+      if (res && res.status === 200) {
+        caches.open(CACHE).then(c => c.put(req, res.clone()));
+      }
+      return res;
+    }).catch(() => cached);
+    return cached || network;
+  })());
 });
