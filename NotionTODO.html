@@ -1899,47 +1899,66 @@
     padding: 40px 0; line-height: 1.6;
   }
 
-  /* ===== AI PM モーダル ===== */
-  .ai-overlay {
-    position: fixed; inset: 0; z-index: 2000;
-    background: rgba(0,0,0,0.4);
-    display: none; align-items: flex-end; justify-content: center;
-  }
-  .ai-overlay.active { display: flex; }
-  .ai-sheet {
-    background: #f4f3f9; width: 100%; max-width: 640px;
-    max-height: 92vh; border-radius: 20px 20px 0 0;
-    display: flex; flex-direction: column;
-    animation: aiSlideUp 0.25s ease;
-  }
-  @keyframes aiSlideUp { from { transform: translateY(40px); opacity: 0.6; } to { transform: translateY(0); opacity: 1; } }
-  .ai-sheet-head {
+  /* ===== AI チャット画面 ===== */
+  #aiScreen.active { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+  .ai-top {
     flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 18px 12px; border-bottom: 1px solid #e7e5f0;
+    padding: 12px 16px; border-bottom: 1px solid #e7e5f0; background: #fff;
   }
-  .ai-sheet-body { overflow-y: auto; padding: 16px 18px 28px; }
-  .ai-sheet-body::-webkit-scrollbar { display: none; }
-  .ai-chip {
-    flex-shrink: 0; font-size: 13px; font-weight: 600; color: #6c5ce7;
+  .ai-top-btn {
+    background: #f2f2f7; border: none; border-radius: 16px; padding: 6px 12px;
+    font-size: 13px; font-weight: 600; color: #6a6a6c; cursor: pointer; font-family: inherit;
+  }
+  .ai-settings-box { flex-shrink: 0; background: #fff; border-bottom: 1px solid #e7e5f0; padding: 14px 16px; }
+  .ai-messages {
+    flex: 1; overflow-y: auto; padding: 16px 14px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .ai-messages::-webkit-scrollbar { display: none; }
+  .ai-bubble-user {
+    align-self: flex-end; background: #6c5ce7; color: #fff;
+    border-radius: 16px 16px 5px 16px; padding: 9px 13px; max-width: 85%;
+    font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  }
+  .ai-bubble-ai {
+    align-self: flex-start; background: #fff; color: #2d2b3a;
+    border-radius: 16px 16px 16px 5px; padding: 11px 14px; max-width: 92%;
+    font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+    box-shadow: 0 1px 4px rgba(80,70,140,0.06);
+  }
+  .ai-action-card {
+    align-self: flex-start; max-width: 94%; background: #f3f1fd; border: 1px solid #ddd6f7;
+    border-radius: 14px; padding: 12px 14px; width: 100%; box-sizing: border-box;
+  }
+  .ai-act-item { display: flex; align-items: flex-start; gap: 9px; padding: 6px 0; }
+  .ai-act-cb { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; accent-color: #6c5ce7; }
+  .ai-applied-note { align-self: flex-start; font-size: 12px; color: #2c8a4a; font-weight: 600; padding-left: 4px; }
+  .ai-chip2 {
     background: #efecfd; border: none; border-radius: 16px; padding: 8px 14px;
-    cursor: pointer; font-family: inherit; white-space: nowrap;
+    font-size: 13px; font-weight: 600; color: #6c5ce7; cursor: pointer; font-family: inherit; text-align: left;
   }
+  .ai-input-bar {
+    flex-shrink: 0; border-top: 1px solid #e7e5f0; padding: 10px 12px;
+    background: #fff; display: flex; gap: 8px; align-items: flex-end;
+  }
+  .ai-chat-input {
+    flex: 1; resize: none; max-height: 120px; box-sizing: border-box;
+    background: #f2f2f7; border: 1px solid transparent; border-radius: 18px;
+    padding: 10px 14px; font-size: 14px; font-family: inherit; outline: none; line-height: 1.4;
+  }
+  .ai-chat-input:focus { border-color: #d8d2f5; background: #fff; }
+  .ai-send-btn {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; border: none;
+    background: #6c5ce7; color: #fff; font-size: 16px; cursor: pointer; font-family: inherit;
+  }
+  .ai-send-btn:disabled { opacity: 0.5; }
   .ai-field {
-    width: 100%; box-sizing: border-box; background: #fff; border: 1px solid #e3e0f0;
-    border-radius: 12px; padding: 11px 13px; font-size: 14px; font-family: inherit; outline: none;
+    width: 100%; box-sizing: border-box; background: #f7f7fb; border: 1px solid #e3e0f0;
+    border-radius: 10px; padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none;
   }
-  .ai-plan {
-    background: #fff; border-radius: 14px; padding: 14px 16px; margin-top: 14px;
-    font-size: 14px; line-height: 1.7; color: #2d2b3a; white-space: pre-wrap; word-break: break-word;
-  }
-  .ai-task-row {
-    display: flex; align-items: flex-start; gap: 10px; padding: 10px 2px;
-    border-top: 1px solid #f0eff7;
-  }
-  .ai-task-cb { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; accent-color: #6c5ce7; }
   .ai-primary-btn {
     background: #6c5ce7; color: #fff; border: none; border-radius: 12px;
-    padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; width: 100%;
+    padding: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; width: 100%;
   }
   .ai-primary-btn:disabled { opacity: 0.5; }
 
@@ -2717,12 +2736,21 @@
   <div id="projectList"></div>
 </div>
 
-<!-- ===== AI 画面 ===== -->
+<!-- ===== AI 画面（チャット） ===== -->
 <div class="routine-screen" id="aiScreen">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin:2px 2px 12px;">
-    <div style="font-size:18px;font-weight:800;color:#2d2b3a;">🤖 AI アシスタント</div>
+  <div class="ai-top">
+    <div style="font-size:17px;font-weight:800;color:#2d2b3a;">🤖 AI アシスタント</div>
+    <div style="display:flex;gap:6px;">
+      <button class="ai-top-btn" onclick="aiNewChat()">🗑 新規</button>
+      <button class="ai-top-btn" onclick="aiToggleSettings()">⚙︎</button>
+    </div>
   </div>
-  <div id="aiBody"></div>
+  <div id="aiSettingsBox" class="ai-settings-box" style="display:none;"></div>
+  <div id="aiMessages" class="ai-messages"></div>
+  <div class="ai-input-bar">
+    <textarea id="aiInput" class="ai-chat-input" rows="1" placeholder="メッセージを入力…"></textarea>
+    <button id="aiSendBtn" class="ai-send-btn" onclick="aiSend()">➤</button>
+  </div>
 </div>
 
 <!-- 🪙 コイン獲得トースト -->
@@ -7816,12 +7844,13 @@
 
   // ===== AI プロジェクトマネージャー（Google Gemini） =====
   let aiSettings = JSON.parse(localStorage.getItem('aiSettings') || 'null') || { apiKey:'', model:'gemini-2.5-flash', weekdayHours:1, weekendHours:3 };
-  // 旧Anthropic設定からの移行
   if (!aiSettings.model || /^claude/i.test(aiSettings.model)) aiSettings.model = 'gemini-2.5-flash';
   let aiBusy = false;
-  let aiProposedTasks = [];
-  let aiProposedUpdates = [];
-
+  let aiMessages = JSON.parse(localStorage.getItem('aiMessages') || '[]');
+  let aiSettingsOpen = false;
+  function persistAiMessages() {
+    try { localStorage.setItem('aiMessages', JSON.stringify(aiMessages.slice(-40))); } catch(e) {}
+  }
   function saveAiSettings() {
     const g = id => document.getElementById(id);
     if (g('aiKey'))   aiSettings.apiKey = g('aiKey').value.trim();
@@ -7830,98 +7859,164 @@
     if (g('aiWeH'))   aiSettings.weekendHours = parseFloat(g('aiWeH').value) || 3;
     localStorage.setItem('aiSettings', JSON.stringify(aiSettings));
   }
-  function openAiModal() {
-    switchScreen('ai');
-  }
-  function closeAiModal() {
-    try { saveAiSettings(); } catch(e) {}
-    switchScreen('todo');
-  }
+  function openAiModal() { switchScreen('ai'); }
+  function closeAiModal() { try { saveAiSettings(); } catch(e) {} switchScreen('todo'); }
   function renderAiBody() {
-    const body = document.getElementById('aiBody'); if (!body) return;
-    const projOpts = (notionProjects||[]).map(p=>`<option value="${_escapeHtml(p.id)}">${_escapeHtml(p.name)}</option>`).join('');
-    body.innerHTML = `
-      <details ${aiSettings.apiKey?'':'open'} style="margin-bottom:14px;">
-        <summary style="font-size:13px;color:#6a6a6c;cursor:pointer;font-weight:600;">⚙︎ APIキー・作業時間の設定</summary>
-        <div style="margin-top:10px;">
-          <div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">Google AI Studio APIキー（AIza…・無料）</div>
-          <input id="aiKey" type="password" class="ai-field" value="${_escapeHtml(aiSettings.apiKey||'')}" placeholder="AIza...">
-          <div style="font-size:11px;color:#b0adc0;margin-top:5px;line-height:1.5;">キーはこの端末のブラウザにのみ保存され、Googleへ直接送信されます。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#6c5ce7;">無料でキーを取得</a></div>
-          <div style="display:flex;gap:8px;margin-top:10px;">
-            <div style="flex:2;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">モデル</div><input id="aiModel" class="ai-field" value="${_escapeHtml(aiSettings.model)}"></div>
-            <div style="flex:1;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">平日h/日</div><input id="aiWdH" type="number" step="0.5" class="ai-field" value="${aiSettings.weekdayHours}"></div>
-            <div style="flex:1;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">休日h/日</div><input id="aiWeH" type="number" step="0.5" class="ai-field" value="${aiSettings.weekendHours}"></div>
-          </div>
-          <div style="font-size:11px;color:#b0adc0;margin-top:6px;line-height:1.5;">無料枠は gemini-2.5-flash（既定）。より賢くしたい場合は gemini-2.5-pro 等に変更（無料枠の制限あり）。</div>
-        </div>
-      </details>
-      <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">対象プロジェクト（任意・計画時に紐付け）</div>
-      <select id="aiProject" class="ai-field" style="margin-bottom:12px;"><option value="">（プロジェクトなし）</option>${projOpts}</select>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;">
-        <button class="ai-chip" onclick="aiRun('today')">🎯 今日やること</button>
-        <button class="ai-chip" onclick="aiRun('estimate')">⏱ 今日の見込み時間を入力</button>
-        <button class="ai-chip" onclick="aiRun('schedule')">📅 終日をタイムライン化</button>
-        <button class="ai-chip" onclick="aiRun('plan')">📋 ゴールを計画</button>
-        <button class="ai-chip" onclick="aiRun('prioritize')">⚖️ 優先順位を見直す</button>
-      </div>
-      <textarea id="aiInput" class="ai-field" rows="3" placeholder="例: 今日のタスクに見込み時間を入れて ／ 終日タスクを必要時間を見積もってタイムラインに置いて ／ 成果報告発表会を6/30完成目標で計画して"></textarea>
-      <button class="ai-primary-btn" style="margin-top:12px;" id="aiSendBtn" onclick="aiRun('')">送信</button>
-      <div id="aiResultWrap"></div>
-    `;
+    renderAiSettings();
+    renderAiMessages();
+    setTimeout(() => {
+      const inp = document.getElementById('aiInput');
+      if (inp && !inp._aiBound) {
+        inp._aiBound = true;
+        inp.addEventListener('input', () => { inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 120) + 'px'; });
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiSend(); } });
+      }
+      aiScrollBottom();
+    }, 30);
+  }
+  function aiToggleSettings(forceOpen) {
+    aiSettingsOpen = (forceOpen === true) ? true : !aiSettingsOpen;
+    const box = document.getElementById('aiSettingsBox');
+    if (!box) return;
+    box.style.display = aiSettingsOpen ? 'block' : 'none';
+    if (aiSettingsOpen) renderAiSettings();
+  }
+  function renderAiSettings() {
+    const box = document.getElementById('aiSettingsBox');
+    if (!box) return;
+    if (!aiSettings.apiKey) aiSettingsOpen = true;
+    box.style.display = aiSettingsOpen ? 'block' : 'none';
+    box.innerHTML = ''
+      + '<div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">Google AI Studio APIキー（AIza…・無料）</div>'
+      + '<input id="aiKey" type="password" class="ai-field" value="' + _escapeHtml(aiSettings.apiKey||'') + '" placeholder="AIza..." oninput="saveAiSettings()">'
+      + '<div style="font-size:11px;color:#b0adc0;margin-top:5px;line-height:1.5;">キーはこの端末にのみ保存され、Googleへ直接送信されます。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#6c5ce7;">無料でキーを取得</a></div>'
+      + '<div style="display:flex;gap:8px;margin-top:10px;">'
+      + '<div style="flex:2;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">モデル</div><input id="aiModel" class="ai-field" value="' + _escapeHtml(aiSettings.model) + '" oninput="saveAiSettings()"></div>'
+      + '<div style="flex:1;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">平日h/日</div><input id="aiWdH" type="number" step="0.5" class="ai-field" value="' + aiSettings.weekdayHours + '" oninput="saveAiSettings()"></div>'
+      + '<div style="flex:1;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">休日h/日</div><input id="aiWeH" type="number" step="0.5" class="ai-field" value="' + aiSettings.weekendHours + '" oninput="saveAiSettings()"></div>'
+      + '</div>';
+  }
+  function aiNewChat() {
+    aiMessages = [];
+    persistAiMessages();
+    renderAiMessages();
+  }
+  function aiScrollBottom() {
+    const wrap = document.getElementById('aiMessages');
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+  }
+  function aiCleanText(text) {
+    return String(text || '')
+      .replace(/```json[\s\S]*?```/ig, '')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/\[id:[^\]]*\]/g, '')
+      .trim();
+  }
+  function renderAiMessages(typing) {
+    const wrap = document.getElementById('aiMessages');
+    if (!wrap) return;
+    let html = '';
+    if (!aiMessages.length) {
+      html += '<div class="ai-bubble-ai">こんにちは。タスクの作成・整理・今日やることの提案など、ラフに話しかけてください。下のボタンか、自由入力でどうぞ。</div>';
+      const chips = [
+        '今日やることを教えて',
+        '今日の予定に見込み時間を入れて',
+        '今日の終日タスクを時間を見積もってタイムラインに置いて',
+        '溜まってるタスクの優先順位を整理して',
+      ];
+      html += '<div style="display:flex;flex-direction:column;gap:6px;align-self:flex-start;max-width:94%;">'
+        + chips.map(c => '<button class="ai-chip2" onclick="aiSend(\'' + c.replace(/'/g,"\\'") + '\')">' + _escapeHtml(c) + '</button>').join('')
+        + '</div>';
+    }
+    aiMessages.forEach((m, idx) => {
+      if (m.role === 'user') {
+        html += '<div class="ai-bubble-user">' + _escapeHtml(m.text) + '</div>';
+      } else {
+        const disp = aiCleanText(m.text);
+        const hasAct = (m.tasks && m.tasks.length) || (m.updates && m.updates.length);
+        if (disp || !hasAct) {
+          html += '<div class="ai-bubble-ai">' + (_escapeHtml(disp) || '…') + '</div>';
+        }
+        if (hasAct && !m.applied) {
+          html += '<div class="ai-action-card" data-ai-card="' + idx + '">';
+          if (m.tasks && m.tasks.length) {
+            html += '<div style="font-size:12px;font-weight:700;color:#2d2b3a;margin-bottom:4px;">追加するタスク</div>';
+            m.tasks.forEach((t, i) => {
+              const meta = [];
+              if (t.date) meta.push(String(t.date));
+              if (t.estimateHours != null && t.estimateHours !== '') meta.push(t.estimateHours + 'h');
+              if (t.project) meta.push('📁' + t.project);
+              html += '<label class="ai-act-item"><input type="checkbox" class="ai-act-cb" data-kind="task" data-i="' + i + '" checked>'
+                + '<span style="flex:1;font-size:13px;color:#1c1c1e;">' + _escapeHtml(t.name||'')
+                + (meta.length ? ' <span style="color:#8e8e93;font-size:11px;">' + _escapeHtml(meta.join(' ・ ')) + '</span>' : '')
+                + '</span></label>';
+            });
+          }
+          if (m.updates && m.updates.length) {
+            html += '<div style="font-size:12px;font-weight:700;color:#2d2b3a;margin:6px 0 4px;">変更する既存タスク</div>';
+            m.updates.forEach((u, i) => {
+              const t = (tasks||[]).find(x => x.id === u.id || (x._notionId && x._notionId === u.id));
+              const nm = t ? t.name : '(不明なタスク)';
+              const ch = [];
+              if (u.estimateHours != null && u.estimateHours !== '') ch.push('見込み' + u.estimateHours + 'h');
+              if (u.time) ch.push('🕐' + u.time);
+              if (u.allDay === true) ch.push('終日');
+              if (u.date) ch.push('📅' + u.date);
+              if (u.done === true) ch.push('完了');
+              if (u.shurui) ch.push(String(u.shurui));
+              html += '<label class="ai-act-item"><input type="checkbox" class="ai-act-cb" data-kind="upd" data-i="' + i + '" ' + (t?'checked':'disabled') + '>'
+                + '<span style="flex:1;font-size:13px;color:#1c1c1e;' + (t?'':'opacity:0.5;') + '">' + _escapeHtml(nm)
+                + (ch.length ? ' <span style="color:#6c5ce7;font-size:11px;">' + _escapeHtml(ch.join(' ・ ')) + '</span>' : '')
+                + '</span></label>';
+            });
+          }
+          html += '<button class="ai-primary-btn" style="margin-top:10px;" onclick="aiApplyMessage(' + idx + ')">反映する</button>';
+          html += '</div>';
+        } else if (hasAct && m.applied) {
+          html += '<div class="ai-applied-note">✅ 反映済み</div>';
+        }
+      }
+    });
+    if (typing) html += '<div class="ai-bubble-ai">🤖 …</div>';
+    wrap.innerHTML = html;
   }
   function aiSystemPrompt() {
-    const pm = `あなたは私専属の優秀なプロジェクトマネージャーです。私の目的はタスクを記録することではなく「今何をやるべきかを判断すること」です。あなたはタスク管理・優先順位付け・スケジュール作成・再計画を行う「判断役」として振る舞うこと。
+    const pm = `あなたは私専属の優秀なプロジェクトマネージャー兼タスク管理アシスタントです。目的は「私が考えなくても、何を・どの順番で・今日何をやるべきかが分かる状態」を作ること。記録係ではなく判断役として振る舞う。
 
-【基本方針】
-・ゴール達成を最優先する。
-・タスクは可能な限り具体的に分解する（できれば1〜3時間で完了できる粒度）。依存関係も考慮する。
-・優先順位はあなたが決定する。理由も説明する。
-・遅延が発生したら再計画する。期限に間に合わない場合は必ず警告する。
-・私に判断を丸投げしない。「どれを優先しますか？」等と聞かず、まず推奨案を提示する。
+【共通方針】
+・簡潔第一。前置き・挨拶・自明な説明・繰り返しは書かない。
+・私に判断を丸投げしない（「どれを優先しますか？」と聞かず、まず推奨を出す）。
+・情報が足りなくても妥当な仮定を置いて進める。仮定を使ったら一言だけ添える。質問は本当に必要な時だけ最小限。
+・回答の本文に内部ID（[id:...] など）や生データを絶対に書かない。idはJSONのupdates内だけで使う。
 
-【不足情報の扱い】
-・情報不足でも、まず推測・仮定を置いて進める。質問は最後の手段。重要情報（期限/完成条件/作業可能時間/依存関係/制約）が無いと精度に大きく影響する場合のみ、最小限だけ質問してよい。
-・仮定を使った場合は必ず明記する。
+【応答の使い分け（最重要）】
+A) 単純な依頼＝タスクの作成・変更・完了・並べ替え・短い質問（例:「今日ご飯作るってタスク作って」「これ終わった」「今日のタスクに見込み時間入れて」）
+   → 長い分析や見出しは一切使わない。「〜を今日のタスクとして追加します」など1〜3文だけ述べ、最後にJSONを出す。
+B) プロジェクトやゴールの計画・スケジュール作成・全体の優先順位見直しを明確に求められた時だけ
+   → 下の詳しい出力形式を使う（必要な見出しだけ／不要な見出しは省く）。
 
-【優先順位の判断基準】
-締切の近さ / 他タスクへの影響度 / ゴール貢献度 / 依存関係 / 作業時間 / リスク / 放置コスト を総合評価する。
+【Bのときだけ使う出力形式（日本語プレーンテキスト）】
+# 今日やること（最優先 / 次 / 余裕があれば、最大3件）
+# 優先順位（上位数件＋理由）
+# スケジュール（必要なら日付ごと）
+# リスク・警告（あれば）
+# 使った仮定（あれば）
 
-【スケジュール】
-期限・作業可能時間・休日・依存関係・優先順位から逆算して計画する。
-
-【今日やること】
-常に「今やるべきこと」を最大3件、優先度順に提示する。
-
-【出力形式（この見出し構成で、日本語のプレーンテキストで出力）】
-# プロジェクト概要
-目標／期限
-# 現在の状況
-完了／進行中／未着手
-# 優先順位
-1位（理由）／2位（理由）…
-# スケジュール
-日付ごとの予定
-# 今日やること
-最優先 / 次にやること / 余裕があれば
-# リスク・警告
-# 使用した仮定`;
+【優先順位の判断軸】締切の近さ / 他への影響 / ゴール貢献 / 依存関係 / 作業時間 / リスク / 放置コスト。
+【粒度】タスクは具体的に。大きすぎる場合は1〜3時間で終わる単位に分解する。`;
     const fmt = '\n\n━━━ システム連携の追加ルール（厳守） ━━━\n'
-      + '・必ず日本語で回答する。装飾は最小限（#見出しと箇条書きの・のみ）。\n'
-      + '・あなたは新規タスクの作成だけでなく、既存タスクの変更（見込み時間の設定、終日タスクをタイムラインへ配置、日付・優先度の変更、完了化など）も指示できる。\n'
-      + '・実行すべき操作がある場合は、回答の一番最後に必ず次の形式のJSONコードブロックを1つだけ出力する。操作が無い項目は空配列にする。\n'
+      + '・必ず日本語。装飾は最小限。本文に [id:...] を書かない。\n'
+      + '・あなたは新規タスク作成だけでなく既存タスクの変更（見込み時間設定・終日をタイムライン配置・日付/優先度変更・完了化）も指示できる。\n'
+      + '・実行すべき操作がある場合は、回答の一番最後に必ず次の形式のJSONコードブロックを1つだけ出力する。該当が無い項目は空配列にする。操作が全く無いなら両方空配列。\n'
       + '```json\n'
       + '{"tasks":[{"name":"新規タスク名","estimateHours":1.5,"date":"YYYY-MM-DD または null","priority":1,"reason":"理由"}],'
-      + '"updates":[{"id":"既存タスクのid（[id:...]のidを正確に）","estimateHours":1.0,"date":"YYYY-MM-DD","time":"HH:MM","allDay":false,"done":false,"shurui":"勉強","memo":"補足"}]}\n'
+      + '"updates":[{"id":"既存タスクのid（[id:...]の値を正確に）","estimateHours":1.0,"date":"YYYY-MM-DD","time":"HH:MM","allDay":false,"done":false,"shurui":"勉強","memo":"補足"}]}\n'
       + '```\n'
-      + '・tasks は新規作成。priority は1が最優先。estimateHours は見込み作業時間(数値・時間)。\n'
-      + '・updates は既存タスクの変更。変更したいフィールドだけ入れる（不要なキーは省く）。\n'
-      + '  - 見込み時間を入れる: estimateHours を設定。\n'
-      + '  - 終日タスクをタイムラインに配置/時間を割り当てる: time を "HH:MM"（開始時刻）で設定し、必要なら estimateHours（所要時間）も設定する。allDay は false にする。既存予定や今日のタスク同士が重ならないよう開始時刻をずらす。\n'
-      + '  - 終日のままにしたい場合は allDay:true、date を設定。\n'
-      + '  - 完了にする: done:true。\n'
-      + '  - shurui は次のいずれか: 雑務 / 勉強 / 仕事 / 課題 / Wish_list / 習慣 / 掃除 / 美容。\n'
-      + '・id は必ず提供された [id:...] の値をそのまま使う。存在しないidは作らない。\n'
-      + '・既存タスクと重複する新規提案はしない。';
+      + '・「今日◯◯するタスク作って」のような依頼は、tasks に {name:"◯◯", date:"今日の日付"} を1件入れるだけでよい（updatesは空、本文は1文）。\n'
+      + '・updates は変更したいフィールドだけ入れる。終日→タイムライン配置は time を "HH:MM" にし allDay:false。完了は done:true。\n'
+      + '・shurui は 雑務/勉強/仕事/課題/Wish_list/習慣/掃除/美容 のいずれか。\n'
+      + '・id は提供された [id:...] の値をそのまま使う。存在しないidは作らない。既存と重複する新規提案はしない。\n'
+      + '・これはチャットです。重要な情報が欠けていて勝手に進めると困る場合は、長文を返さず短い質問を1つだけ返す（その際は tasks も updates も空でよい）。それ以外は仮定を置いて進める。';
     return pm + fmt;
   }
   function aiBuildContext(projectId) {
@@ -8005,84 +8100,40 @@
     if (!m) return null;
     try { return JSON.parse(m[1].trim()); } catch(e) { return null; }
   }
-  async function aiRun(action) {
+  async function aiSend(presetText) {
     if (aiBusy) return;
     saveAiSettings();
-    if (!aiSettings.apiKey) { alert('先にGoogle AI StudioのAPIキーを入力してください（⚙︎の中）'); return; }
-    const instrEl = document.getElementById('aiInput');
-    let instruction = (instrEl ? instrEl.value : '').trim();
-    const projectId = (document.getElementById('aiProject') || {}).value || '';
-    if (action === 'today' && !instruction) instruction = '今日やることだけを、最優先から最大3件、理由つきで教えて。新規タスクの提案は不要なら出さなくてよい。';
-    if (action === 'estimate' && !instruction) instruction = '今日のタスクのうち見込み時間が未設定のものに、内容から妥当な見込み時間(estimateHours)を推定して updates で設定して。既に設定済みのものは変更しない。';
-    if (action === 'schedule' && !instruction) instruction = '今日の終日タスクについて、内容から必要時間を見積もり、適切な開始時刻(time)を決めて updates でタイムラインに配置して（allDay:false）。今日の既存の時間指定タスクや互いが重ならないように開始時刻をずらす。見込み時間(estimateHours)も設定して。';
-    if (action === 'prioritize' && !instruction) instruction = '現在の未完了タスクの優先順位を見直して、上位から並べ直し、今日やること最大3件も提示して。';
-    if (action === 'plan' && !instruction) { alert('計画したいゴール／プロジェクト名や条件をテキスト欄に入力してください'); return; }
-    if (!instruction) { alert('指示を入力してください'); return; }
+    if (!aiSettings.apiKey) { aiToggleSettings(true); return; }
+    const inp = document.getElementById('aiInput');
+    let text = (typeof presetText === 'string') ? presetText : (inp ? inp.value.trim() : '');
+    if (!text) return;
+    if (inp && typeof presetText !== 'string') { inp.value = ''; inp.style.height = 'auto'; }
+    aiMessages.push({ role: 'user', text });
+    persistAiMessages();
     aiBusy = true;
-    const btn = document.getElementById('aiSendBtn'); if (btn) { btn.disabled = true; btn.textContent = '考え中…'; }
-    const wrap = document.getElementById('aiResultWrap'); if (wrap) wrap.innerHTML = '<div style="text-align:center;color:#8e8e93;padding:24px;">🤖 考えています…</div>';
+    renderAiMessages(true);
+    aiScrollBottom();
     try {
-      const data = await aiApiCall(aiSystemPrompt(), [{ role: 'user', content: aiBuildContext(projectId) + '\n\n# 指示\n' + instruction }]);
-      const text = aiResponseText(data);
-      if (!text) { throw new Error('空の応答が返りました（無料枠の制限やモデル名をご確認ください）'); }
-      aiRenderResult(text, projectId);
-    } catch(e) {
-      if (wrap) wrap.innerHTML = '<div style="color:#c4392f;padding:16px;font-size:14px;line-height:1.6;">エラー: ' + _escapeHtml(e.message) + '<br><span style="color:#8e8e93;font-size:12px;">APIキー・モデル名・通信状況を確認してください。</span></div>';
+      const sys = aiSystemPrompt() + '\n\n' + aiBuildContext('');
+      const msgs = aiMessages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-16)
+        .map(m => ({ role: m.role, content: m.text }));
+      const data = await aiApiCall(sys, msgs);
+      const reply = aiResponseText(data) || '（応答が空でした。無料枠の制限やモデル名をご確認ください）';
+      const json = aiExtractJson(reply);
+      const tasks = (json && Array.isArray(json.tasks)) ? json.tasks : [];
+      const updates = (json && Array.isArray(json.updates)) ? json.updates : [];
+      aiMessages.push({ role: 'assistant', text: reply, tasks, updates, applied: false });
+    } catch (e) {
+      aiMessages.push({ role: 'assistant', text: '⚠️ エラー: ' + e.message, tasks: [], updates: [], applied: true });
     } finally {
-      aiBusy = false; if (btn) { btn.disabled = false; btn.textContent = '送信'; }
+      aiBusy = false;
+      persistAiMessages();
+      renderAiMessages();
+      aiScrollBottom();
     }
   }
-  function aiRenderResult(text, projectId) {
-    const wrap = document.getElementById('aiResultWrap'); if (!wrap) return;
-    const json = aiExtractJson(text);
-    const planText = text.replace(/```json[\s\S]*?```/i, '').replace(/```[\s\S]*?```/, '').trim();
-    let html = '<div class="ai-plan">' + _escapeHtml(planText) + '</div>';
-    aiProposedTasks = (json && Array.isArray(json.tasks)) ? json.tasks : [];
-    aiProposedUpdates = (json && Array.isArray(json.updates)) ? json.updates : [];
-
-    // 既存タスクへの変更
-    if (aiProposedUpdates.length) {
-      html += '<div style="margin-top:16px;font-size:13px;font-weight:700;color:#2d2b3a;">既存タスクの変更（適用するものにチェック）</div><div style="margin-top:4px;">';
-      aiProposedUpdates.forEach((u, i) => {
-        const t = (tasks||[]).find(x => x.id === u.id || (x._notionId && x._notionId === u.id));
-        const nm = t ? t.name : ('(不明なタスク: ' + (u.id||'') + ')');
-        const chips = [];
-        if (u.estimateHours != null && u.estimateHours !== '') chips.push('見込み ' + _escapeHtml(String(u.estimateHours)) + 'h');
-        if (u.time) chips.push('🕐 ' + _escapeHtml(String(u.time)) + (u.allDay===false?'(タイムライン)':''));
-        if (u.allDay === true) chips.push('終日');
-        if (u.date) chips.push('📅 ' + _escapeHtml(String(u.date)));
-        if (u.done === true) chips.push('✓ 完了');
-        if (u.shurui) chips.push('種類:' + _escapeHtml(String(u.shurui)));
-        const disabled = t ? '' : 'disabled';
-        html += `<label class="ai-task-row"><input type="checkbox" class="ai-upd-cb" data-ai-u="${i}" ${t?'checked':''} ${disabled}>`
-          + `<span style="flex:1;min-width:0;">`
-          + `<div style="font-size:14px;color:#1c1c1e;${t?'':'opacity:0.5;'}">${_escapeHtml(nm)}</div>`
-          + `<div style="font-size:11px;color:#6c5ce7;margin-top:2px;">${chips.join(' ・ ')}</div>`
-          + `</span></label>`;
-      });
-      html += '</div>';
-      html += `<button class="ai-primary-btn" style="margin-top:12px;" onclick="aiApplySelectedUpdates()">選択した変更を適用</button>`;
-    }
-
-    // 新規タスク
-    if (aiProposedTasks.length) {
-      html += '<div style="margin-top:18px;font-size:13px;font-weight:700;color:#2d2b3a;">新規タスク（追加するものにチェック）</div><div style="margin-top:4px;">';
-      aiProposedTasks.forEach((t, i) => {
-        const due = t.date ? (' ・' + _escapeHtml(String(t.date))) : '';
-        const hrs = (t.estimateHours != null && t.estimateHours !== '') ? (' ・' + _escapeHtml(String(t.estimateHours)) + 'h') : '';
-        const pr = (t.priority != null) ? `<span style="color:#6c5ce7;font-weight:800;">P${_escapeHtml(String(t.priority))}</span> ` : '';
-        html += `<label class="ai-task-row"><input type="checkbox" class="ai-task-cb" data-ai-i="${i}" checked>`
-          + `<span style="flex:1;min-width:0;">`
-          + `<div style="font-size:14px;color:#1c1c1e;">${pr}${_escapeHtml(t.name||'')}<span style="color:#8e8e93;font-size:12px;">${hrs}${due}</span></div>`
-          + (t.reason ? `<div style="font-size:11px;color:#8e8e93;margin-top:2px;line-height:1.5;">${_escapeHtml(t.reason)}</div>` : '')
-          + `</span></label>`;
-      });
-      html += '</div>';
-      html += `<button class="ai-primary-btn" style="margin-top:14px;" onclick="aiAddSelected('${_escapeHtml(projectId)}')">選択したタスクを追加</button>`;
-    }
-    wrap.innerHTML = html;
-  }
-  // YYYY-MM-DD + HH:MM + 所要分 → 時間指定の実行日オブジェクト
   function aiBuildTimedDate(dateStr, startHHMM, durationMin) {
     const pad = n => n.toString().padStart(2,'0');
     let [sh, sm] = String(startHHMM).split(':').map(Number);
@@ -8097,67 +8148,6 @@
     const endYmd = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
     return { start: `${startYmd}T${pad(sh)}:${pad(sm)}`, end: `${endYmd}T${pad(endH)}:${pad(endM)}` };
   }
-  function aiApplySelectedUpdates() {
-    const cbs = document.querySelectorAll('#aiResultWrap .ai-upd-cb');
-    const picked = [];
-    cbs.forEach(cb => { if (cb.checked && !cb.disabled) { const u = aiProposedUpdates[+cb.dataset.aiU]; if (u) picked.push(u); } });
-    if (!picked.length) { alert('適用する変更を選択してください'); return; }
-    let applied = 0;
-    const touched = [];
-    picked.forEach(u => {
-      const t = (tasks||[]).find(x => x.id === u.id || (x._notionId && x._notionId === u.id));
-      if (!t) return;
-      // 見込み時間
-      if (u.estimateHours != null && u.estimateHours !== '') {
-        const h = parseFloat(u.estimateHours); if (!isNaN(h)) t['(C)見込み/h'] = h;
-      }
-      // 種類
-      if (u.shurui && SHURUI_OPTIONS.some(o => o.value === u.shurui)) t['(B)種類'] = u.shurui;
-      // 実行期間
-      if (u.kikan && KIKAN_OPTIONS.some(o => o.value === u.kikan)) t['(B)実行期間'] = u.kikan;
-      // メモ
-      if (u.memo) t['(e)memo'] = (t['(e)memo'] ? (t['(e)memo'] + '\n') : '') + String(u.memo);
-      // 完了
-      if (u.done === true) t['(A)done'] = true;
-      if (u.done === false) t['(A)done'] = false;
-      // 日付・時刻
-      const curDate = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : ymd(new Date());
-      const dateStr = (u.date && /^\d{4}-\d{2}-\d{2}/.test(String(u.date))) ? String(u.date).substring(0,10) : curDate;
-      if (u.time && /^\d{1,2}:\d{2}/.test(String(u.time))) {
-        // タイムラインに配置
-        const durMin = Math.round(((u.estimateHours != null && u.estimateHours !== '') ? parseFloat(u.estimateHours) : (t['(C)見込み/h'] || 0.5)) * 60) || 30;
-        t['(A)実行日'] = aiBuildTimedDate(dateStr, u.time, durMin);
-        t._allDay = false;
-        t._type = 'time';
-      } else if (u.allDay === true || (u.date && u.allDay !== false)) {
-        t['(A)実行日'] = { start: dateStr, end: dateStr };
-        t._allDay = true;
-        t._type = 'time';
-      } else if (u.date) {
-        // 日付だけ変更（時刻は維持できないため終日扱い）
-        t['(A)実行日'] = { start: dateStr, end: dateStr };
-        t._type = 'time';
-      }
-      t._localLastEdited = new Date().toISOString();
-      touched.push(t);
-      applied++;
-    });
-    if (!applied) { alert('適用できる変更がありませんでした'); return; }
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-    renderTimeline(); renderLater();
-    if (currentScreen === 'project') renderProjectScreen();
-    // Notion同期
-    if (notionSettings.token) {
-      touched.forEach(t => {
-        try {
-          if (t._notionId) notionUpdateTask(t._notionId, t);
-          else if (notionSettings.dbId) pushNewTaskToNotion(t);
-        } catch(e) {}
-      });
-    }
-    alert(applied + '件の変更を適用しました');
-    switchScreen('todo');
-  }
   function kikanFromPriority(priority, hours) {
     const p = (typeof priority === 'number') ? priority : (parseInt(priority) || 9);
     const urgent = p <= 2;
@@ -8167,41 +8157,80 @@
     if (!urgent && short) return '3.🧊⚡ 低短 (<30m)';
     return '4.🧊⏳ 低長(>30m)';
   }
-  function aiAddSelected(projectId) {
-    const cbs = document.querySelectorAll('#aiResultWrap .ai-task-cb');
-    const picked = [];
-    cbs.forEach(cb => { if (cb.checked) { const t = aiProposedTasks[+cb.dataset.aiI]; if (t) picked.push(t); } });
-    if (!picked.length) { alert('追加するタスクを選択してください'); return; }
-    const proj = (notionProjects||[]).find(p => p.id === projectId || p.id.replace(/-/g,'') === String(projectId).replace(/-/g,''));
-    const created = [];
-    picked.forEach((t, k) => {
-      const hours = (typeof t.estimateHours === 'number') ? t.estimateHours : (parseFloat(t.estimateHours) || 0);
-      const dateStr = (t.date && /^\d{4}-\d{2}-\d{2}/.test(String(t.date))) ? String(t.date).substring(0,10) : null;
-      const task = {
-        id: (Date.now() + k).toString(),
-        _notionId: null, _type: 'later', name: (t.name || 'タスク').toString(),
-        '(A)done': false,
-        '(A)実行日': dateStr ? { start: dateStr } : null,
-        '(B)種類': null,
-        '(B)実行期間': kikanFromPriority(t.priority, hours),
-        '(C)見込み/h': hours,
-        '(e)memo': t.reason ? ('AI: ' + t.reason) : '',
-        '(e)URL': '',
-        _repeatConfig: null, _legacyTags: [],
-        _projectIds: proj ? [proj.id] : [],
-        _projectNames: proj ? [proj.name] : [],
-        _localLastEdited: new Date().toISOString(),
-      };
-      tasks.push(task); created.push(task);
+  function _aiCreateTask(t) {
+    const hours = (typeof t.estimateHours === 'number') ? t.estimateHours : (parseFloat(t.estimateHours) || 0);
+    const dateStr = (t.date && /^\d{4}-\d{2}-\d{2}/.test(String(t.date))) ? String(t.date).substring(0,10) : null;
+    const proj = (notionProjects||[]).find(p => p.name === t.project) || null;
+    const task = {
+      id: (Date.now() + Math.floor(Math.random()*1000)).toString(),
+      _notionId: null, _type: 'later', name: (t.name || 'タスク').toString(),
+      '(A)done': false,
+      '(A)実行日': dateStr ? { start: dateStr, end: dateStr } : null,
+      '(B)種類': (t.shurui && SHURUI_OPTIONS.some(o=>o.value===t.shurui)) ? t.shurui : null,
+      '(B)実行期間': kikanFromPriority(t.priority, hours),
+      '(C)見込み/h': hours,
+      '(e)memo': t.reason ? ('AI: ' + t.reason) : '',
+      '(e)URL': '',
+      _repeatConfig: null, _legacyTags: [],
+      _projectIds: proj ? [proj.id] : [],
+      _projectNames: proj ? [proj.name] : [],
+      _localLastEdited: new Date().toISOString(),
+    };
+    tasks.push(task);
+    if (notionSettings.token && notionSettings.dbId) {
+      try { if (proj) pushNewProjectTaskToNotion(task, proj.id); else pushNewTaskToNotion(task); } catch(e) {}
+    }
+    return task;
+  }
+  function _aiApplyUpdate(u) {
+    const t = (tasks||[]).find(x => x.id === u.id || (x._notionId && x._notionId === u.id));
+    if (!t) return false;
+    if (u.estimateHours != null && u.estimateHours !== '') { const h = parseFloat(u.estimateHours); if (!isNaN(h)) t['(C)見込み/h'] = h; }
+    if (u.shurui && SHURUI_OPTIONS.some(o => o.value === u.shurui)) t['(B)種類'] = u.shurui;
+    if (u.kikan && KIKAN_OPTIONS.some(o => o.value === u.kikan)) t['(B)実行期間'] = u.kikan;
+    if (u.memo) t['(e)memo'] = (t['(e)memo'] ? (t['(e)memo'] + '\n') : '') + String(u.memo);
+    if (u.done === true) t['(A)done'] = true;
+    if (u.done === false) t['(A)done'] = false;
+    const curDate = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : ymd(new Date());
+    const dateStr = (u.date && /^\d{4}-\d{2}-\d{2}/.test(String(u.date))) ? String(u.date).substring(0,10) : curDate;
+    if (u.time && /^\d{1,2}:\d{2}/.test(String(u.time))) {
+      const durMin = Math.round(((u.estimateHours != null && u.estimateHours !== '') ? parseFloat(u.estimateHours) : (t['(C)見込み/h'] || 0.5)) * 60) || 30;
+      t['(A)実行日'] = aiBuildTimedDate(dateStr, u.time, durMin); t._allDay = false; t._type = 'time';
+    } else if (u.allDay === true || (u.date && u.allDay !== false)) {
+      t['(A)実行日'] = { start: dateStr, end: dateStr }; t._allDay = true; t._type = 'time';
+    } else if (u.date) {
+      t['(A)実行日'] = { start: dateStr, end: dateStr }; t._type = 'time';
+    }
+    t._localLastEdited = new Date().toISOString();
+    if (notionSettings.token) {
+      try { if (t._notionId) notionUpdateTask(t._notionId, t); else if (notionSettings.dbId) pushNewTaskToNotion(t); } catch(e) {}
+    }
+    return true;
+  }
+  function aiApplyMessage(idx) {
+    const m = aiMessages[idx];
+    if (!m) return;
+    const card = document.querySelector('[data-ai-card="'+idx+'"]');
+    let nTask = 0, nUpd = 0;
+    (m.tasks||[]).forEach((t, i) => {
+      const cb = card && card.querySelector('[data-kind="task"][data-i="'+i+'"]');
+      if (!cb || cb.checked) { _aiCreateTask(t); nTask++; }
+    });
+    (m.updates||[]).forEach((u, i) => {
+      const cb = card && card.querySelector('[data-kind="upd"][data-i="'+i+'"]');
+      if (!cb || cb.checked) { if (_aiApplyUpdate(u)) nUpd++; }
     });
     localStorage.setItem('tasks', JSON.stringify(tasks));
-    renderLater();
+    renderTimeline(); renderLater();
     if (currentScreen === 'project') renderProjectScreen();
-    if (notionSettings.token && notionSettings.dbId) {
-      created.forEach(task => { if (proj) pushNewProjectTaskToNotion(task, proj.id); else pushNewTaskToNotion(task); });
-    }
-    alert(created.length + '件のタスクを追加しました' + (proj ? ('（プロジェクト: ' + proj.name + '）') : ''));
-    closeAiModal();
+    m.applied = true;
+    const parts = [];
+    if (nTask) parts.push('新規 ' + nTask + '件');
+    if (nUpd) parts.push('変更 ' + nUpd + '件');
+    aiMessages.push({ role: 'assistant', text: '✅ 反映しました（' + (parts.join('・') || '0件') + '）', tasks: [], updates: [], applied: true });
+    persistAiMessages();
+    renderAiMessages();
+    aiScrollBottom();
   }
 
   // プロジェクト画面からあとでやるリストへ絞り込みジャンプ
