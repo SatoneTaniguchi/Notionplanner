@@ -2717,6 +2717,14 @@
   <div id="projectList"></div>
 </div>
 
+<!-- ===== AI 画面 ===== -->
+<div class="routine-screen" id="aiScreen">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:2px 2px 12px;">
+    <div style="font-size:18px;font-weight:800;color:#2d2b3a;">🤖 AI アシスタント</div>
+  </div>
+  <div id="aiBody"></div>
+</div>
+
 <!-- 🪙 コイン獲得トースト -->
 <div id="coinToast" style="display:none;position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:4000;background:#1c1c1e;color:#fff;border-radius:24px;padding:10px 18px;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
   <span style="font-size:18px;">🪙</span> +1 コイン！
@@ -2758,17 +2766,6 @@
 <!-- FAB -->
 <button class="fab" onclick="openModal()">+</button>
 
-<!-- ===== AI プロジェクトマネージャー ===== -->
-<div class="ai-overlay" id="aiOverlay" onclick="if(event.target===this)closeAiModal()">
-  <div class="ai-sheet">
-    <div class="ai-sheet-head">
-      <div style="font-size:17px;font-weight:800;color:#1c1c1e;">🤖 AI プロジェクトマネージャー</div>
-      <button onclick="closeAiModal()" style="background:none;border:none;font-size:22px;color:#8e8e93;cursor:pointer;line-height:1;">×</button>
-    </div>
-    <div class="ai-sheet-body" id="aiBody"></div>
-  </div>
-</div>
-
 <!-- ===== ボトムナビ ===== -->
 <nav class="bottom-nav" id="bottomNav">
   <button class="bottom-nav-item active" id="navTodo" onclick="switchScreen('todo')">
@@ -2802,6 +2799,14 @@
       </svg>
     </span>
     <span class="nav-label">グラフ</span>
+  </button>
+  <button class="bottom-nav-item" id="navAi" onclick="switchScreen('ai')">
+    <span class="nav-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/>
+      </svg>
+    </span>
+    <span class="nav-label">AI</span>
   </button>
 </nav>
 
@@ -7699,6 +7704,7 @@
     const routineScreen = document.getElementById('routineScreen');
     const graphScreen = document.getElementById('graphScreen');
     const projectScreen = document.getElementById('projectScreen');
+    const aiScreen = document.getElementById('aiScreen');
     const fab = document.querySelector('.fab');
     // いったん全画面を隠す
     todoScreen.style.display = 'none';
@@ -7706,6 +7712,7 @@
     routineScreen.classList.remove('active');
     if (graphScreen) graphScreen.classList.remove('active');
     if (projectScreen) projectScreen.classList.remove('active');
+    if (aiScreen) aiScreen.classList.remove('active');
     if (screen === 'todo') {
       todoScreen.style.display = 'flex';
       todoHeader.style.display = '';
@@ -7720,12 +7727,16 @@
     } else if (screen === 'project') {
       if (projectScreen) projectScreen.classList.add('active');
       renderProjectScreen();
+    } else if (screen === 'ai') {
+      if (aiScreen) aiScreen.classList.add('active');
+      renderAiBody();
     }
-    if (fab) fab.style.display = (screen === 'graph' || screen === 'project') ? 'none' : '';
+    if (fab) fab.style.display = (screen === 'graph' || screen === 'project' || screen === 'ai') ? 'none' : '';
     document.getElementById('navTodo').classList.toggle('active', screen === 'todo');
     document.getElementById('navRoutine').classList.toggle('active', screen === 'routine');
     const ng = document.getElementById('navGraph'); if (ng) ng.classList.toggle('active', screen === 'graph');
     const np = document.getElementById('navProject'); if (np) np.classList.toggle('active', screen === 'project');
+    const na = document.getElementById('navAi'); if (na) na.classList.toggle('active', screen === 'ai');
   }
 
   // ===== プロジェクト画面 =====
@@ -7809,6 +7820,7 @@
   if (!aiSettings.model || /^claude/i.test(aiSettings.model)) aiSettings.model = 'gemini-2.5-flash';
   let aiBusy = false;
   let aiProposedTasks = [];
+  let aiProposedUpdates = [];
 
   function saveAiSettings() {
     const g = id => document.getElementById(id);
@@ -7819,12 +7831,11 @@
     localStorage.setItem('aiSettings', JSON.stringify(aiSettings));
   }
   function openAiModal() {
-    document.getElementById('aiOverlay').classList.add('active');
-    renderAiBody();
+    switchScreen('ai');
   }
   function closeAiModal() {
     try { saveAiSettings(); } catch(e) {}
-    document.getElementById('aiOverlay').classList.remove('active');
+    switchScreen('todo');
   }
   function renderAiBody() {
     const body = document.getElementById('aiBody'); if (!body) return;
@@ -7848,10 +7859,12 @@
       <select id="aiProject" class="ai-field" style="margin-bottom:12px;"><option value="">（プロジェクトなし）</option>${projOpts}</select>
       <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;">
         <button class="ai-chip" onclick="aiRun('today')">🎯 今日やること</button>
+        <button class="ai-chip" onclick="aiRun('estimate')">⏱ 今日の見込み時間を入力</button>
+        <button class="ai-chip" onclick="aiRun('schedule')">📅 終日をタイムライン化</button>
         <button class="ai-chip" onclick="aiRun('plan')">📋 ゴールを計画</button>
         <button class="ai-chip" onclick="aiRun('prioritize')">⚖️ 優先順位を見直す</button>
       </div>
-      <textarea id="aiInput" class="ai-field" rows="3" placeholder="例: 成果報告発表会を6/30完成目標で計画して ／ 今週忙しいから組み直して ／ API実装が終わった"></textarea>
+      <textarea id="aiInput" class="ai-field" rows="3" placeholder="例: 今日のタスクに見込み時間を入れて ／ 終日タスクを必要時間を見積もってタイムラインに置いて ／ 成果報告発表会を6/30完成目標で計画して"></textarea>
       <button class="ai-primary-btn" style="margin-top:12px;" id="aiSendBtn" onclick="aiRun('')">送信</button>
       <div id="aiResultWrap"></div>
     `;
@@ -7894,12 +7907,21 @@
 # 使用した仮定`;
     const fmt = '\n\n━━━ システム連携の追加ルール（厳守） ━━━\n'
       + '・必ず日本語で回答する。装飾は最小限（#見出しと箇条書きの・のみ）。\n'
-      + '・新しく作成・提案すべきタスクがある場合は、回答の一番最後に必ず次の形式のJSONコードブロックを1つだけ出力する。新規提案が無ければ tasks は空配列にする。\n'
+      + '・あなたは新規タスクの作成だけでなく、既存タスクの変更（見込み時間の設定、終日タスクをタイムラインへ配置、日付・優先度の変更、完了化など）も指示できる。\n'
+      + '・実行すべき操作がある場合は、回答の一番最後に必ず次の形式のJSONコードブロックを1つだけ出力する。操作が無い項目は空配列にする。\n'
       + '```json\n'
-      + '{"tasks":[{"name":"具体的なタスク名","estimateHours":1.5,"date":"YYYY-MM-DD または null","priority":1,"reason":"なぜこの優先度か簡潔に"}]}\n'
+      + '{"tasks":[{"name":"新規タスク名","estimateHours":1.5,"date":"YYYY-MM-DD または null","priority":1,"reason":"理由"}],'
+      + '"updates":[{"id":"既存タスクのid（[id:...]のidを正確に）","estimateHours":1.0,"date":"YYYY-MM-DD","time":"HH:MM","allDay":false,"done":false,"shurui":"勉強","memo":"補足"}]}\n'
       + '```\n'
-      + '・tasks は優先度の高い順に並べる。priority は1が最優先。date は着手/実施を推奨する日（不明なら null）。estimateHours は見込み作業時間(数値)。\n'
-      + '・既存タスクと重複する提案はしない。提供された未完了タスク一覧を踏まえること。';
+      + '・tasks は新規作成。priority は1が最優先。estimateHours は見込み作業時間(数値・時間)。\n'
+      + '・updates は既存タスクの変更。変更したいフィールドだけ入れる（不要なキーは省く）。\n'
+      + '  - 見込み時間を入れる: estimateHours を設定。\n'
+      + '  - 終日タスクをタイムラインに配置/時間を割り当てる: time を "HH:MM"（開始時刻）で設定し、必要なら estimateHours（所要時間）も設定する。allDay は false にする。既存予定や今日のタスク同士が重ならないよう開始時刻をずらす。\n'
+      + '  - 終日のままにしたい場合は allDay:true、date を設定。\n'
+      + '  - 完了にする: done:true。\n'
+      + '  - shurui は次のいずれか: 雑務 / 勉強 / 仕事 / 課題 / Wish_list / 習慣 / 掃除 / 美容。\n'
+      + '・id は必ず提供された [id:...] の値をそのまま使う。存在しないidは作らない。\n'
+      + '・既存タスクと重複する新規提案はしない。';
     return pm + fmt;
   }
   function aiBuildContext(projectId) {
@@ -7920,15 +7942,28 @@
       s += '\n';
     }
     const inc = (tasks||[]).filter(t => !t['(A)done'] && t._type !== 'repeat' && !t._habitTemplateId).slice(0, 80);
-    s += '# 未完了タスク（最大80件）\n';
-    if (!inc.length) s += '（なし）\n';
-    inc.forEach(t => {
-      const d = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : '日付なし';
+    const todayStr = ymd(today);
+    const lineFor = t => {
+      const d0 = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start) : '';
+      const dateOnly = d0 ? d0.substring(0,10) : '日付なし';
+      const timed = d0.length > 10;
+      const allday = !!t['(A)実行日'] && d0.length > 0 && d0.length <= 10;
+      const st = timed ? (' ' + d0.substring(11,16)) : (allday ? ' 終日' : '');
       const pn = (t._projectNames && t._projectNames.length) ? (' /PJ:' + t._projectNames.join(',')) : '';
       const k = t['(B)種類'] ? (' /' + t['(B)種類']) : '';
-      const h = t['(C)見込み/h'] ? (' /' + t['(C)見込み/h'] + 'h') : '';
-      s += '- ' + t.name + ' (' + d + ')' + k + h + pn + '\n';
+      const h = (t['(C)見込み/h']!=null && t['(C)見込み/h']!=='') ? (' /見込み' + t['(C)見込み/h'] + 'h') : ' /見込み未設定';
+      return '- [id:' + t.id + '] ' + t.name + ' (' + dateOnly + st + ')' + k + h + pn;
+    };
+    const todays = inc.filter(t => {
+      const d0 = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : '';
+      return d0 === todayStr;
     });
+    s += '# 今日のタスク（' + todayStr + '）\n';
+    if (!todays.length) s += '（なし）\n';
+    todays.forEach(t => { s += lineFor(t) + '\n'; });
+    s += '\n# 未完了タスク全体（最大80件・上記の今日分も含む）\n';
+    if (!inc.length) s += '（なし）\n';
+    inc.forEach(t => { s += lineFor(t) + '\n'; });
     return s;
   }
   async function aiApiCall(system, messages) {
@@ -7973,11 +8008,13 @@
   async function aiRun(action) {
     if (aiBusy) return;
     saveAiSettings();
-    if (!aiSettings.apiKey) { alert('先にAnthropic APIキーを入力してください（⚙︎の中）'); return; }
+    if (!aiSettings.apiKey) { alert('先にGoogle AI StudioのAPIキーを入力してください（⚙︎の中）'); return; }
     const instrEl = document.getElementById('aiInput');
     let instruction = (instrEl ? instrEl.value : '').trim();
     const projectId = (document.getElementById('aiProject') || {}).value || '';
     if (action === 'today' && !instruction) instruction = '今日やることだけを、最優先から最大3件、理由つきで教えて。新規タスクの提案は不要なら出さなくてよい。';
+    if (action === 'estimate' && !instruction) instruction = '今日のタスクのうち見込み時間が未設定のものに、内容から妥当な見込み時間(estimateHours)を推定して updates で設定して。既に設定済みのものは変更しない。';
+    if (action === 'schedule' && !instruction) instruction = '今日の終日タスクについて、内容から必要時間を見積もり、適切な開始時刻(time)を決めて updates でタイムラインに配置して（allDay:false）。今日の既存の時間指定タスクや互いが重ならないように開始時刻をずらす。見込み時間(estimateHours)も設定して。';
     if (action === 'prioritize' && !instruction) instruction = '現在の未完了タスクの優先順位を見直して、上位から並べ直し、今日やること最大3件も提示して。';
     if (action === 'plan' && !instruction) { alert('計画したいゴール／プロジェクト名や条件をテキスト欄に入力してください'); return; }
     if (!instruction) { alert('指示を入力してください'); return; }
@@ -8001,8 +8038,35 @@
     const planText = text.replace(/```json[\s\S]*?```/i, '').replace(/```[\s\S]*?```/, '').trim();
     let html = '<div class="ai-plan">' + _escapeHtml(planText) + '</div>';
     aiProposedTasks = (json && Array.isArray(json.tasks)) ? json.tasks : [];
+    aiProposedUpdates = (json && Array.isArray(json.updates)) ? json.updates : [];
+
+    // 既存タスクへの変更
+    if (aiProposedUpdates.length) {
+      html += '<div style="margin-top:16px;font-size:13px;font-weight:700;color:#2d2b3a;">既存タスクの変更（適用するものにチェック）</div><div style="margin-top:4px;">';
+      aiProposedUpdates.forEach((u, i) => {
+        const t = (tasks||[]).find(x => x.id === u.id || (x._notionId && x._notionId === u.id));
+        const nm = t ? t.name : ('(不明なタスク: ' + (u.id||'') + ')');
+        const chips = [];
+        if (u.estimateHours != null && u.estimateHours !== '') chips.push('見込み ' + _escapeHtml(String(u.estimateHours)) + 'h');
+        if (u.time) chips.push('🕐 ' + _escapeHtml(String(u.time)) + (u.allDay===false?'(タイムライン)':''));
+        if (u.allDay === true) chips.push('終日');
+        if (u.date) chips.push('📅 ' + _escapeHtml(String(u.date)));
+        if (u.done === true) chips.push('✓ 完了');
+        if (u.shurui) chips.push('種類:' + _escapeHtml(String(u.shurui)));
+        const disabled = t ? '' : 'disabled';
+        html += `<label class="ai-task-row"><input type="checkbox" class="ai-upd-cb" data-ai-u="${i}" ${t?'checked':''} ${disabled}>`
+          + `<span style="flex:1;min-width:0;">`
+          + `<div style="font-size:14px;color:#1c1c1e;${t?'':'opacity:0.5;'}">${_escapeHtml(nm)}</div>`
+          + `<div style="font-size:11px;color:#6c5ce7;margin-top:2px;">${chips.join(' ・ ')}</div>`
+          + `</span></label>`;
+      });
+      html += '</div>';
+      html += `<button class="ai-primary-btn" style="margin-top:12px;" onclick="aiApplySelectedUpdates()">選択した変更を適用</button>`;
+    }
+
+    // 新規タスク
     if (aiProposedTasks.length) {
-      html += '<div style="margin-top:16px;font-size:13px;font-weight:700;color:#2d2b3a;">提案タスク（追加するものにチェック）</div><div style="margin-top:4px;">';
+      html += '<div style="margin-top:18px;font-size:13px;font-weight:700;color:#2d2b3a;">新規タスク（追加するものにチェック）</div><div style="margin-top:4px;">';
       aiProposedTasks.forEach((t, i) => {
         const due = t.date ? (' ・' + _escapeHtml(String(t.date))) : '';
         const hrs = (t.estimateHours != null && t.estimateHours !== '') ? (' ・' + _escapeHtml(String(t.estimateHours)) + 'h') : '';
@@ -8017,6 +8081,82 @@
       html += `<button class="ai-primary-btn" style="margin-top:14px;" onclick="aiAddSelected('${_escapeHtml(projectId)}')">選択したタスクを追加</button>`;
     }
     wrap.innerHTML = html;
+  }
+  // YYYY-MM-DD + HH:MM + 所要分 → 時間指定の実行日オブジェクト
+  function aiBuildTimedDate(dateStr, startHHMM, durationMin) {
+    const pad = n => n.toString().padStart(2,'0');
+    let [sh, sm] = String(startHHMM).split(':').map(Number);
+    if (isNaN(sh)) sh = 9; if (isNaN(sm)) sm = 0;
+    const base = new Date(dateStr + 'T00:00:00');
+    if (sh >= 24) { sh -= 24; base.setDate(base.getDate()+1); }
+    const startYmd = `${base.getFullYear()}-${pad(base.getMonth()+1)}-${pad(base.getDate())}`;
+    const endTotal = sh*60 + sm + (durationMin||0);
+    let endH = Math.floor(endTotal/60), endM = endTotal%60;
+    const endDate = new Date(base);
+    if (endH >= 24) { endDate.setDate(endDate.getDate()+1); endH -= 24; }
+    const endYmd = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
+    return { start: `${startYmd}T${pad(sh)}:${pad(sm)}`, end: `${endYmd}T${pad(endH)}:${pad(endM)}` };
+  }
+  function aiApplySelectedUpdates() {
+    const cbs = document.querySelectorAll('#aiResultWrap .ai-upd-cb');
+    const picked = [];
+    cbs.forEach(cb => { if (cb.checked && !cb.disabled) { const u = aiProposedUpdates[+cb.dataset.aiU]; if (u) picked.push(u); } });
+    if (!picked.length) { alert('適用する変更を選択してください'); return; }
+    let applied = 0;
+    const touched = [];
+    picked.forEach(u => {
+      const t = (tasks||[]).find(x => x.id === u.id || (x._notionId && x._notionId === u.id));
+      if (!t) return;
+      // 見込み時間
+      if (u.estimateHours != null && u.estimateHours !== '') {
+        const h = parseFloat(u.estimateHours); if (!isNaN(h)) t['(C)見込み/h'] = h;
+      }
+      // 種類
+      if (u.shurui && SHURUI_OPTIONS.some(o => o.value === u.shurui)) t['(B)種類'] = u.shurui;
+      // 実行期間
+      if (u.kikan && KIKAN_OPTIONS.some(o => o.value === u.kikan)) t['(B)実行期間'] = u.kikan;
+      // メモ
+      if (u.memo) t['(e)memo'] = (t['(e)memo'] ? (t['(e)memo'] + '\n') : '') + String(u.memo);
+      // 完了
+      if (u.done === true) t['(A)done'] = true;
+      if (u.done === false) t['(A)done'] = false;
+      // 日付・時刻
+      const curDate = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : ymd(new Date());
+      const dateStr = (u.date && /^\d{4}-\d{2}-\d{2}/.test(String(u.date))) ? String(u.date).substring(0,10) : curDate;
+      if (u.time && /^\d{1,2}:\d{2}/.test(String(u.time))) {
+        // タイムラインに配置
+        const durMin = Math.round(((u.estimateHours != null && u.estimateHours !== '') ? parseFloat(u.estimateHours) : (t['(C)見込み/h'] || 0.5)) * 60) || 30;
+        t['(A)実行日'] = aiBuildTimedDate(dateStr, u.time, durMin);
+        t._allDay = false;
+        t._type = 'time';
+      } else if (u.allDay === true || (u.date && u.allDay !== false)) {
+        t['(A)実行日'] = { start: dateStr, end: dateStr };
+        t._allDay = true;
+        t._type = 'time';
+      } else if (u.date) {
+        // 日付だけ変更（時刻は維持できないため終日扱い）
+        t['(A)実行日'] = { start: dateStr, end: dateStr };
+        t._type = 'time';
+      }
+      t._localLastEdited = new Date().toISOString();
+      touched.push(t);
+      applied++;
+    });
+    if (!applied) { alert('適用できる変更がありませんでした'); return; }
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    renderTimeline(); renderLater();
+    if (currentScreen === 'project') renderProjectScreen();
+    // Notion同期
+    if (notionSettings.token) {
+      touched.forEach(t => {
+        try {
+          if (t._notionId) notionUpdateTask(t._notionId, t);
+          else if (notionSettings.dbId) pushNewTaskToNotion(t);
+        } catch(e) {}
+      });
+    }
+    alert(applied + '件の変更を適用しました');
+    switchScreen('todo');
   }
   function kikanFromPriority(priority, hours) {
     const p = (typeof priority === 'number') ? priority : (parseInt(priority) || 9);
