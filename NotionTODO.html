@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-10p';
+  const APP_VERSION = '2026-06-10q';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -5170,7 +5170,7 @@
     { // 🪙 コイン＆完了ログ
       const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || task.id) : task.id;
       const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
-      if (task['(A)done']) awardCompletion(_k, task.name, _ds); else revokeCompletion(_k, _ds);
+      if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
     }
     renderTimeline();
     renderLater();
@@ -6295,23 +6295,48 @@
   }
   function saveRewardStore(s) { localStorage.setItem('rewardStore', JSON.stringify(s)); }
 
+  // タスクごとの獲得コイン数を算出（実行期間タグ・見込み時間・優先度で配分）
+  function taskCoins(task) {
+    if (!task) return 10;
+    const kikan = String(task['(B)実行期間'] || '');
+    const est = parseFloat(task['(C)見込み/h']);
+    const hasEst = !isNaN(est) && est > 0;
+    const isYuu = kikan.indexOf('🔥') >= 0 || kikan.indexOf('優') >= 0; // 優先度高
+    const isShort = /短/.test(kikan) || /^\s*1\./.test(kikan) || /^\s*3\./.test(kikan) || /<\s*30m/.test(kikan);
+    const isLong  = /長/.test(kikan) || /^\s*2\./.test(kikan) || /^\s*4\./.test(kikan) || />\s*30m/.test(kikan);
+    let coins;
+    if (hasEst) {
+      coins = 26 * est;          // 見込み時間が長いほど多い（約26コイン/時間）
+      if (isYuu) coins += 3;     // 優先度が高いものは少し加算
+    } else if (isShort) {
+      coins = isYuu ? 14 : 10;   // 優短 / 低短（30分以内＝低め）
+    } else if (isLong) {
+      coins = isYuu ? 38 : 32;   // 優長 / 低長（30分超＝高め、優が少し上）
+    } else {
+      coins = 12;                // タグも見込み時間も無い
+    }
+    return Math.max(5, Math.min(150, Math.round(coins)));
+  }
   // 完了の記録。key+dateStr で一意（同じタスク・同じ日は二重加算しない）。
-  function awardCompletion(key, name, dateStr) {
+  function awardCompletion(key, name, dateStr, coins) {
     if (!key) return;
     const s = getRewardStore();
     if (s.completions.some(c => c.key === key && c.dateStr === dateStr)) return;
-    s.completions.push({ key, name: name || '', dateStr, ts: new Date().toISOString() });
-    s.coins = (s.coins || 0) + 1;
+    const amt = Math.max(1, Math.round(coins != null ? coins : 10));
+    s.completions.push({ key, name: name || '', dateStr, ts: new Date().toISOString(), coins: amt });
+    s.coins = (s.coins || 0) + amt;
     saveRewardStore(s);
-    showCoinToast();
+    showCoinToast(amt);
   }
   function revokeCompletion(key, dateStr) {
     if (!key) return;
     const s = getRewardStore();
     const idx = s.completions.findIndex(c => c.key === key && c.dateStr === dateStr);
     if (idx < 0) return;
+    const rec = s.completions[idx];
+    const amt = Math.max(1, Math.round(rec && rec.coins != null ? rec.coins : 1));
     s.completions.splice(idx, 1);
-    s.coins = Math.max(0, (s.coins || 0) - 1);
+    s.coins = Math.max(0, (s.coins || 0) - amt);
     saveRewardStore(s);
     updateCoinDisplays();
   }
@@ -6338,9 +6363,9 @@
     clearTimeout(window._coinToastTimer);
     window._coinToastTimer = setTimeout(() => { t.style.display = 'none'; t.classList.remove('show'); }, 1500);
   }
-  function showCoinToast() {
+  function showCoinToast(amt) {
     updateCoinDisplays();
-    showToast('<span style="font-size:18px;">🪙</span> +1 コイン！');
+    showToast('<span style="font-size:18px;">🪙</span> +' + (amt != null ? amt : 1) + ' コイン！');
   }
   function showRewardToast(msg) {
     showToast('<span style="font-size:18px;">🎁</span> ' + msg);
@@ -7359,7 +7384,7 @@
     saveHabitHistory(h);
     { // 🪙 ルーチン達成でもコイン
       const _nm = (template && template.name) || (inst && inst.name) || '';
-      if (newState) awardCompletion(templateId, _nm, dateStr); else revokeCompletion(templateId, dateStr);
+      if (newState) awardCompletion(templateId, _nm, dateStr, 8); else revokeCompletion(templateId, dateStr);
     }
 
     if (inst) {
@@ -8764,7 +8789,7 @@
     { // 🪙 コイン＆完了ログ
       const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || id) : id;
       const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
-      if (task['(A)done']) awardCompletion(_k, task.name, _ds); else revokeCompletion(_k, _ds);
+      if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
     }
     if (task['(B)種類'] === '習慣') {
       const h = getHabitHistory();
