@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-10x';
+  const APP_VERSION = '2026-06-10y';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -8344,10 +8344,10 @@
         });
         updates = out;
       }
-      // 再編成: 明確な「組み直し/順番通り/期限内」依頼なら、対象プロジェクトの全タスクを章順に再配置
-      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク)/;
+      // 再編成: 「組み直し/順番通り/期限内」等、または期限変更を伴う場合は対象プロジェクトを章順に再配置
+      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|空白|空欄|日付.*入れ|日付.*設定)/;
       const isReschedule = reschedKw.test(text);
-      if (isPlanning) updates = aiAutoSpreadUpdates(updates, projects, aiRefMap, text, isReschedule);
+      updates = aiAutoSpreadUpdates(updates, projects, aiRefMap, text, isReschedule);
       // tasks: 同名の新規重複を除去
       {
         const seen = new Set();
@@ -8512,14 +8512,20 @@
     };
     const resolved = (updates||[]).map(u => ({ u, t: _aiResolveTask(u, refMap) })).filter(x => x.t);
 
-    // 明確な再計画依頼 → 対象プロジェクトの全未完了タスクを章順に再配置（モデルの返答件数に依存しない）
-    if (isReschedule) {
+    // 完全再配置の発動条件: 明示依頼 OR （期限変更＋既存タスクの更新があるとき）
+    const doFull = isReschedule || ((projects||[]).some(p => p && p.deadline) && resolved.length >= 1);
+    if (doFull) {
       const pick = _aiPickProject(projects, resolved, userText);
       if (pick && pick.proj) {
         const pidN = norm(pick.proj.id);
+        const pname = pick.proj.name;
+        // 所属判定: _projectIds / _projectNames / notionProjectTaskMap のいずれか（取りこぼし防止）
+        const mapHit = id => { const m = notionProjectTaskMap && notionProjectTaskMap[norm(id)]; return m && norm(m.projectId) === pidN; };
         let members = (tasks||[]).filter(t => !t['(A)done'] && t._type !== 'repeat' && !t._habitTemplateId
-          && (t._projectIds||[]).some(id => norm(id) === pidN));
-        if (members.length >= 2) {
+          && ((t._projectIds||[]).some(id => norm(id) === pidN)
+            || (t._projectNames||[]).some(nm => nm === pname)
+            || mapHit(t.id) || mapHit(t._notionId)));
+        if (members.length >= 1) {
           let arr = members.map((t, i) => ({ t, o: i }));
           arr.sort(cmp);
           const start = new Date(); start.setHours(0,0,0,0);
@@ -8541,19 +8547,20 @@
       }
     }
     // フォールバック: モデルが返した更新（解決できたもの3件以上）を章順に均等配置
-    if (resolved.length < 3) return updates;
+    // フォールバック: 解決できた更新を対象に章順スプレッド（再計画なら件数が少なくても実施）
+    if (!resolved.length) return updates;
+    if (!isReschedule && resolved.length < 3) return updates;
     const cnt = {};
     resolved.forEach(x => (x.t._projectIds||[]).forEach(id => { cnt[norm(id)] = (cnt[norm(id)]||0)+1; }));
     const topProj = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
-    if (!topProj) return updates;
-    let inProj = resolved.filter(x => (x.t._projectIds||[]).some(id => norm(id)===topProj));
-    if (inProj.length < 3) return updates;
+    let inProj = topProj ? resolved.filter(x => (x.t._projectIds||[]).some(id => norm(id)===topProj)) : resolved.slice();
+    if (!inProj.length) inProj = resolved.slice();
     inProj = inProj.map((x,i)=>({ ...x, o:i }));
     inProj.sort(cmp);
     let deadline = null;
-    const pj = (projects||[]).find(p => { const pr = _aiFindProject(p.name); return pr && norm(pr.id)===topProj; });
+    const pj = (projects||[]).find(p => p && p.deadline);
     if (pj && pj.deadline) deadline = pj.deadline;
-    if (!deadline) { const pr = (notionProjects||[]).find(x => norm(x.id)===topProj); deadline = pr && (pr.deadline || pr.date) || null; }
+    if (!deadline && topProj) { const pr = (notionProjects||[]).find(x => norm(x.id)===topProj); deadline = pr && (pr.deadline || pr.date) || null; }
     const start = new Date(); start.setHours(0,0,0,0);
     let end = deadline ? new Date(deadline + 'T00:00:00') : null;
     if (!end || end <= start) { end = new Date(start); end.setDate(end.getDate() + inProj.length); }
@@ -8562,7 +8569,7 @@
     inProj.forEach((x, i) => {
       const off = (n <= 1) ? 0 : Math.round(i * span / (n - 1));
       const d = new Date(start); d.setDate(d.getDate() + off);
-      x.u.date = fmt(d);
+      x.u.date = fmt(d); // 既存日付も含めて章順で再割り当て
     });
     return updates;
   }
