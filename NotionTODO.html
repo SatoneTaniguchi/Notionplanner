@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-10u';
+  const APP_VERSION = '2026-06-10w';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -4406,10 +4406,11 @@
       ...tasks.filter(t => {
         if (!t['(A)done']) return false;
         if (t._type === 'repeat') return false;
+        if (t._projectOnly) return false; // プロジェクト表示専用は完了一覧に出さない
         const j = t['(A)実行日'];
         if (j && j.start) return new Date(j.start).toDateString() === currentDate.toDateString();
         if (t._localLastEdited) return new Date(t._localLastEdited).toDateString() === now.toDateString();
-        return true;
+        return false; // 実行日も完了記録も無いもの（過去のインポート完了タスク等）は出さない
       }),
       ...todayRoutineDone
     ];
@@ -7929,7 +7930,11 @@
       + '<input id="aiKey" type="password" class="ai-field" value="' + _escapeHtml(aiSettings.apiKey||'') + '" placeholder="AIza..." oninput="saveAiSettings()">'
       + '<div style="font-size:11px;color:#b0adc0;margin-top:5px;line-height:1.5;">キーはこの端末にのみ保存され、Googleへ直接送信されます。<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#6c5ce7;">無料でキーを取得</a></div>'
       + '<div style="display:flex;gap:8px;margin-top:10px;">'
-      + '<div style="flex:2;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">モデル</div><input id="aiModel" class="ai-field" value="' + _escapeHtml(aiSettings.model) + '" oninput="saveAiSettings()"></div>'
+      + '<div style="flex:2;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">モデル</div>'
+      + '<select id="aiModel" class="ai-field" onchange="saveAiSettings()">'
+      + ['gemini-2.5-flash','gemini-2.0-flash','gemini-2.5-flash-lite'].map(m => '<option value="' + m + '"' + (aiSettings.model === m ? ' selected' : '') + '>' + m + '</option>').join('')
+      + (['gemini-2.5-flash','gemini-2.0-flash','gemini-2.5-flash-lite'].includes(aiSettings.model) ? '' : '<option value="' + _escapeHtml(aiSettings.model) + '" selected>' + _escapeHtml(aiSettings.model) + '</option>')
+      + '</select></div>'
       + '<div style="flex:1;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">平日h/日</div><input id="aiWdH" type="number" step="0.5" class="ai-field" value="' + aiSettings.weekdayHours + '" oninput="saveAiSettings()"></div>'
       + '<div style="flex:1;"><div style="font-size:11px;color:#8e8e93;margin-bottom:4px;">休日h/日</div><input id="aiWeH" type="number" step="0.5" class="ai-field" value="' + aiSettings.weekendHours + '" oninput="saveAiSettings()"></div>'
       + '</div>'
@@ -8231,10 +8236,31 @@
       err.status = res.status;
       err.isRate = isRate;
       err.isDaily = isDaily;
+      err.isOverload = (res.status === 503) || /high demand|overloaded|temporarily unavailable|UNAVAILABLE/i.test(msg);
       err.retryAfter = retryAfter || (isRate ? 30 : 0);
       throw err;
     }
     return res.json();
+  }
+  // 過負荷(503)時は少し待って再試行し、ダメなら別モデルへ自動フォールバック
+  async function aiCallWithFallback(system, messages, model) {
+    const chain = [model || 'gemini-2.5-flash'];
+    ['gemini-2.0-flash', 'gemini-2.5-flash-lite'].forEach(m => { if (!chain.includes(m)) chain.push(m); });
+    let lastErr;
+    for (let ci = 0; ci < chain.length; ci++) {
+      const attempts = (ci === 0) ? 2 : 1; // 1台目は2回、フォールバックは各1回
+      for (let a = 0; a < attempts; a++) {
+        try {
+          return await aiApiCall(system, messages, chain[ci]);
+        } catch (e) {
+          lastErr = e;
+          if (e && e.isRate) throw e;        // レート制限は待つべきなので即中断
+          if (!(e && e.isOverload)) throw e; // 過負荷以外の本当のエラーは即中断
+          await new Promise(r => setTimeout(r, 1200)); // 少し待って再試行
+        }
+      }
+    }
+    throw lastErr;
   }
   // Geminiレスポンス → テキスト抽出
   function aiResponseText(data) {
@@ -8299,7 +8325,7 @@
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .slice(-6)
         .map(m => ({ role: m.role, content: (m.role === 'assistant') ? (aiCleanText(m.text) || m.text) : m.text }));
-      const data = await aiApiCall(sys, msgs, model);
+      const data = await aiCallWithFallback(sys, msgs, model);
       const reply = aiResponseText(data) || '';
       const json = aiExtractJson(reply) || {};
       let tasks = Array.isArray(json.tasks) ? json.tasks : [];
@@ -8343,6 +8369,9 @@
           ? '⚠️ 無料枠の「1日の上限」に達したようです。これは時間で待っても回復せず、太平洋時間の0時（日本時間の概ね17時頃）にリセットされます。今すぐ使うには、設定(⚙︎)でモデルを gemini-2.5-flash-lite や gemini-2.0-flash に変えると別枠で使える場合があります。'
           : ('⚠️ 送信が混み合っています（無料枠の毎分制限）。約' + wait + '秒待ってから自動で送れるようになります。連打すると制限が伸びるので、表示が戻るまでお待ちください。');
         aiMessages.push({ role: 'assistant', text: note, tasks: [], updates: [], projects: [], applied: true });
+      } else if (e && e.isOverload) {
+        aiCooldownUntil = Date.now() + 8000;
+        aiMessages.push({ role: 'assistant', text: '⚠️ Geminiが一時的に混み合っています（過負荷）。別モデルも自動で試しましたが繋がりませんでした。数十秒〜数分おいて再送してください。続くようなら設定(⚙︎)でモデルを gemini-2.0-flash にすると安定する場合があります。', tasks: [], updates: [], projects: [], applied: true });
       } else {
         aiMessages.push({ role: 'assistant', text: '⚠️ エラー: ' + (e && e.message ? e.message : e), tasks: [], updates: [], projects: [], applied: true });
       }
