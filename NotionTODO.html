@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-10q';
+  const APP_VERSION = '2026-06-10s';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -8069,6 +8069,8 @@
       + '・projects は既存変更(status/deadline)。新規は create:true。status は「ステータス候補」一覧の値に正確に合わせる。\n'
       + '・「今日◯◯するタスク作って」は tasks に {name:"◯◯", date:今日} を1件（dateだけなら終日。時刻指定時のみ time）。\n'
       + '・終日タスクをタイムラインに置く＝該当タスクの updates に time を入れ allDay:false。\n'
+      + '・【重要】同じタスク(ref)を updates に2回以上入れない。1タスク=1エントリ。\n'
+      + '・【重要】再計画では、対象タスク全てに必ず具体的な date を入れる（date を空やnullにしない）。「第N章」のように番号がある場合は番号の昇順に、連続した現実的な日付を割り当てる。\n'
       + '\n━━━ 例（messageは短く） ━━━\n'
       + '「成果報告発表会を完了にして」→ {"message":"成果報告発表会を完了にします。","tasks":[],"updates":[],"projects":[{"name":"成果報告発表会","status":"完了"}]}\n'
       + '「#5を明日にして」→ {"message":"対象を明日に移します。","tasks":[],"updates":[{"ref":"5","date":"(明日の日付)"}],"projects":[]}\n'
@@ -8300,9 +8302,33 @@
       const data = await aiApiCall(sys, msgs, model);
       const reply = aiResponseText(data) || '';
       const json = aiExtractJson(reply) || {};
-      const tasks = Array.isArray(json.tasks) ? json.tasks : [];
-      const updates = Array.isArray(json.updates) ? json.updates : [];
+      let tasks = Array.isArray(json.tasks) ? json.tasks : [];
+      let updates = Array.isArray(json.updates) ? json.updates : [];
       const projects = Array.isArray(json.projects) ? json.projects : [];
+      // updates: 同じ対象の重複はマージ（後勝ち）
+      {
+        const seen = new Map();
+        const out = [];
+        updates.forEach(u => {
+          const t = _aiResolveTask(u, aiRefMap);
+          const key = t ? t.id : ('n:' + String(u.name || u.ref || '').replace(/\s/g,''));
+          if (!t && !u.date && !u.time && u.done == null && u.allDay == null && (u.estimateHours == null || u.estimateHours === '') && !u.shurui && !u.memo) return; // 対象不明＆中身なしは捨てる
+          if (seen.has(key)) { const i = seen.get(key); out[i] = Object.assign({}, out[i], u); }
+          else { seen.set(key, out.length); out.push(Object.assign({}, u)); }
+        });
+        updates = out;
+      }
+      // 再編成: プロジェクトの章を番号順に並べ、期限までに日付を自動割り当て（日付未入力のものも含めて埋める）
+      if (isPlanning) updates = aiAutoSpreadUpdates(updates, projects, aiRefMap);
+      // tasks: 同名の新規重複を除去
+      {
+        const seen = new Set();
+        tasks = tasks.filter(t => {
+          const k = String(t && t.name || '').replace(/\s/g,'');
+          if (!k || seen.has(k)) return false;
+          seen.add(k); return true;
+        });
+      }
       const message = (json.message && String(json.message).trim()) || aiCleanText(reply) || '（応答が空でした。少し待って再送してください）';
       aiMessages.push({ role: 'assistant', text: message, tasks, updates, projects, refMap: aiRefMap, applied: false });
       // 成功時も最低間隔を確保（無料枠の毎分制限対策・約7秒）
@@ -8416,6 +8442,42 @@
     const cands = (tasks||[]).filter(x => norm(x.name) === rn);
     if (cands.length) return cands.find(x => !x['(A)done']) || cands[0];
     return null;
+  }
+  // プロジェクトの章タスクを番号順に並べ、期限までに日付を均等割り当て（日付未入力のものも含めて再編成）
+  function aiAutoSpreadUpdates(updates, projects, refMap) {
+    const norm = id => String(id||'').replace(/-/g,'');
+    const resolved = (updates||[]).map(u => ({ u, t: _aiResolveTask(u, refMap) })).filter(x => x.t);
+    if (resolved.length < 3) return updates;
+    // 最も多く属するプロジェクトを再編成対象にする
+    const cnt = {};
+    resolved.forEach(x => (x.t._projectIds||[]).forEach(id => { cnt[norm(id)] = (cnt[norm(id)]||0)+1; }));
+    const topProj = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+    if (!topProj) return updates;
+    const inProj = resolved.filter(x => (x.t._projectIds||[]).some(id => norm(id)===topProj));
+    if (inProj.length < 3) return updates;
+    // 章番号で並べる（番号なしは末尾、元の順序を保持）
+    const chap = name => { const m = String(name||'').match(/(\d+)/); return m ? parseInt(m[1],10) : 99999; };
+    inProj.forEach((x,i) => { x._o = i; });
+    inProj.sort((a,b) => (chap(a.t.name) - chap(b.t.name)) || (a._o - b._o));
+    // 期間（開始=今日, 終了=プロジェクト期限）
+    const pad = v => String(v).padStart(2,'0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    let deadline = null;
+    const pj = (projects||[]).find(p => { const pr = _aiFindProject(p.name); return pr && norm(pr.id)===topProj; });
+    if (pj && pj.deadline) deadline = pj.deadline;
+    if (!deadline) { const pr = (notionProjects||[]).find(x => norm(x.id)===topProj); deadline = pr && (pr.deadline || pr.date) || null; }
+    const start = new Date(); start.setHours(0,0,0,0);
+    let end = deadline ? new Date(deadline + 'T00:00:00') : null;
+    if (!end || end <= start) { end = new Date(start); end.setDate(end.getDate() + inProj.length); }
+    const span = Math.max(1, Math.round((end - start)/86400000));
+    const n = inProj.length;
+    inProj.forEach((x, i) => {
+      const off = (n <= 1) ? 0 : Math.round(i * span / (n - 1)); // 均等配分（最後の章が期限日）
+      const d = new Date(start); d.setDate(d.getDate() + off);
+      x.u.date = fmt(d);
+      if (x.u.time) {} // 時刻が指定済みなら保持
+    });
+    return updates;
   }
   function _aiResolveTask(u, refMap) {
     // 1) 参照番号(ref/#N) → refMapで実id
