@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-10y';
+  const APP_VERSION = '2026-06-11a';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7878,6 +7878,7 @@
   let aiCooldownTimer = null; // カウントダウン更新用タイマー
   let aiReqCount = JSON.parse(localStorage.getItem('aiReqCount') || 'null') || { date: '', count: 0 };
   let aiRefMap = {}; // 文脈で使う短い参照番号 → 実タスクid
+  let aiSpreadDebug = ''; // 再編成処理の診断用
   function aiBumpReqCount() {
     const d = ymd(new Date());
     if (aiReqCount.date !== d) aiReqCount = { date: d, count: 0 };
@@ -8075,7 +8076,7 @@
       + '・「今日◯◯するタスク作って」は tasks に {name:"◯◯", date:今日} を1件（dateだけなら終日。時刻指定時のみ time）。\n'
       + '・終日タスクをタイムラインに置く＝該当タスクの updates に time を入れ allDay:false。\n'
       + '・【重要】同じタスク(ref)を updates に2回以上入れない。1タスク=1エントリ。\n'
-      + '・【重要】再計画では、対象タスク全てに必ず具体的な date を入れる（date を空やnullにしない）。「第N章」のように番号がある場合は番号の昇順に、連続した現実的な日付を割り当てる。\n'
+      + '・日付(date)は、ユーザーが具体的な日付や「いつ」を指定した時だけ入れる。指定が無ければ date は省略（勝手に日付を割り当てない）。\n'
       + '\n━━━ 例（messageは短く） ━━━\n'
       + '「成果報告発表会を完了にして」→ {"message":"成果報告発表会を完了にします。","tasks":[],"updates":[],"projects":[{"name":"成果報告発表会","status":"完了"}]}\n'
       + '「#5を明日にして」→ {"message":"対象を明日に移します。","tasks":[],"updates":[{"ref":"5","date":"(明日の日付)"}],"projects":[]}\n'
@@ -8344,10 +8345,18 @@
         });
         updates = out;
       }
-      // 再編成: 「組み直し/順番通り/期限内」等、または期限変更を伴う場合は対象プロジェクトを章順に再配置
-      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|空白|空欄|日付.*入れ|日付.*設定)/;
+      // 再編成: 「組み直し/順番通り/期限内/全タスク」等なら、対象プロジェクトの全タスクを章順に日付割り当て
+      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|組んで|組み立て)/;
       const isReschedule = reschedKw.test(text);
       updates = aiAutoSpreadUpdates(updates, projects, aiRefMap, text, isReschedule);
+      // 中身の無い（変更項目が空の）更新はカードに出さない（日付割り当て後に判定）
+      updates = updates.filter(u => {
+        const t = _aiResolveTask(u, aiRefMap);
+        const hasChange = (u.date && String(u.date).trim()) || (u.time && String(u.time).trim())
+          || u.done != null || u.allDay != null || (u.estimateHours != null && u.estimateHours !== '')
+          || u.shurui || u.memo;
+        return t && hasChange; // 対象が特定でき、かつ実際に変える項目があるものだけ
+      });
       // tasks: 同名の新規重複を除去
       {
         const seen = new Set();
@@ -8358,7 +8367,8 @@
         });
       }
       const message = (json.message && String(json.message).trim()) || aiCleanText(reply) || '（応答が空でした。少し待って再送してください）';
-      aiMessages.push({ role: 'assistant', text: message, tasks, updates, projects, refMap: aiRefMap, applied: false });
+      const messageWithDebug = isReschedule && aiSpreadDebug ? (message + '\n\n〔診断: ' + aiSpreadDebug + '〕') : message;
+      aiMessages.push({ role: 'assistant', text: messageWithDebug, tasks, updates, projects, refMap: aiRefMap, applied: false });
       // 成功時も最低間隔を確保（無料枠の毎分制限対策・約7秒）
       aiCooldownUntil = Date.now() + 7000;
     } catch (e) {
@@ -8511,11 +8521,13 @@
       return dateKey(a.t).localeCompare(dateKey(b.t)) || (a.o - b.o);
     };
     const resolved = (updates||[]).map(u => ({ u, t: _aiResolveTask(u, refMap) })).filter(x => x.t);
+    aiSpreadDebug = 'resched=' + isReschedule + ' updates=' + (updates||[]).length + ' resolved=' + resolved.length;
 
     // 完全再配置の発動条件: 明示依頼 OR （期限変更＋既存タスクの更新があるとき）
     const doFull = isReschedule || ((projects||[]).some(p => p && p.deadline) && resolved.length >= 1);
     if (doFull) {
       const pick = _aiPickProject(projects, resolved, userText);
+      aiSpreadDebug += ' pick=' + (pick && pick.proj ? pick.proj.name : 'なし') + ' deadline=' + (pick && pick.deadline || 'なし');
       if (pick && pick.proj) {
         const pidN = norm(pick.proj.id);
         const pname = pick.proj.name;
@@ -8525,6 +8537,7 @@
           && ((t._projectIds||[]).some(id => norm(id) === pidN)
             || (t._projectNames||[]).some(nm => nm === pname)
             || mapHit(t.id) || mapHit(t._notionId)));
+        aiSpreadDebug += ' members=' + members.length;
         if (members.length >= 1) {
           let arr = members.map((t, i) => ({ t, o: i }));
           arr.sort(cmp);
@@ -8542,6 +8555,7 @@
             return o;
           });
           // 再計画では対象プロジェクトのタスクだけを返す（モデルが混ぜた無関係な更新は捨てる）
+          aiSpreadDebug += ' → full(' + full.length + '件)';
           return full;
         }
       }
