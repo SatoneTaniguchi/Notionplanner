@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11i';
+  const APP_VERSION = '2026-06-11j';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -8020,7 +8020,7 @@
                 + '<span style="flex:1;min-width:0;' + (t?'':'opacity:0.5;') + '">'
                 + '<div style="font-size:13px;color:#1c1c1e;">' + _escapeHtml(nm) + (t?'':' <span style="color:#d04a3a;font-size:10px;">未解決（対象不明・スキップ）</span>') + (extra.length?' <span style="color:#6c5ce7;font-size:11px;">'+_escapeHtml(extra.join(' ・ '))+'</span>':'') + '</div>'
                 + (t ? ('<div style="display:flex;gap:6px;margin-top:4px;align-items:flex-end;flex-wrap:wrap;">'
-                    + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">日付' + (curDate ? ' <b style="color:#6c5ce7;">' + _escapeHtml(curDate.replace(/-/g,'/')) + '</b>' : '') + '</span><input type="date" data-edit="upd-date-' + i + '" ' + ei + ' value="' + _escapeHtml(curDate) + '"></div>'
+                    + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">日付</span><input type="date" data-edit="upd-date-' + i + '" ' + ei + ' value="' + _escapeHtml(curDate) + '"></div>'
                     + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">時刻</span><input type="time" data-edit="upd-time-' + i + '" ' + ei + ' value="' + _escapeHtml(curTime) + '"></div>'
                     + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">見込み</span><input type="number" step="0.5" placeholder="h" data-edit="upd-est-' + i + '" ' + ei + ' style="width:52px;font-size:12px;font-family:inherit;border:1px solid #d8d2f5;border-radius:8px;padding:4px 6px;" value="' + (u.estimateHours!=null?u.estimateHours:'') + '"></div>'
                     + '</div>') : '')
@@ -8400,9 +8400,7 @@
         });
       }
       const message = (json.message && String(json.message).trim()) || aiCleanText(reply) || '（応答が空でした。少し待って再送してください）';
-      aiSpreadDebug += ' | 最終' + updates.length + '件 日付有' + updates.filter(u => u.date && String(u.date).trim()).length;
-      aiSpreadDebug += ' 生値=[' + updates.slice(0,3).map(u => (u.date||'空') + '/' + (_aiResolveTask(u, aiRefMap) ? '解決' : '未')).join(', ') + ']';
-      const messageWithDebug = isReschedule && aiSpreadDebug ? (message + '\n\n〔診断: ' + aiSpreadDebug + '〕') : message;
+      const messageWithDebug = message;
       aiMessages.push({ role: 'assistant', text: messageWithDebug, tasks, updates, projects, refMap: aiRefMap, applied: false });
       // 成功時も最低間隔を確保（無料枠の毎分制限対策・約7秒）
       aiCooldownUntil = Date.now() + 7000;
@@ -8564,16 +8562,21 @@
     const norm = id => String(id||'').replace(/-/g,'');
     const pad = v => String(v).padStart(2,'0');
     const fmt = d => (d && !isNaN(d.getTime())) ? `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` : '';
-    // 「第N章」と明示されたものだけ章番号扱い（過去問2回分・3週目復習・600点レベル等の数字は章にしない）
+    // 「第N章」と明示されたものだけ章番号扱い（過去問2回分・600点レベル等の数字は章にしない）
     const chapNum = name => { const m = String(name||'').match(/第?\s*(\d+)\s*章/); return m ? parseInt(m[1],10) : null; };
+    const weekNum = name => { const m = String(name||'').match(/(\d+)\s*週目/); return m ? parseInt(m[1],10) : null; };
     const dateKey = t => (t && t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : '9999-99-99';
-    // 並び順: 章タスク（章番号順）→ 非章タスク（既存の日付順→元の順）
+    // 並び順キー: [フェーズ, 番号]  フェーズ0=第N章(番号順) → 1=N週目(週順) → 2=その他
+    const seqKey = name => {
+      const c = chapNum(name); if (c != null) return [0, c];
+      const w = weekNum(name); if (w != null) return [1, w];
+      return [2, 0];
+    };
     const cmp = (a, b) => {
-      const ca = chapNum(a.t.name), cb = chapNum(b.t.name);
-      if (ca != null && cb != null) return (ca - cb) || (a.o - b.o);
-      if (ca != null) return -1;
-      if (cb != null) return 1;
-      return dateKey(a.t).localeCompare(dateKey(b.t)) || (a.o - b.o);
+      const ka = seqKey(a.t.name), kb = seqKey(b.t.name);
+      if (ka[0] !== kb[0]) return ka[0] - kb[0];                 // フェーズ順
+      if (ka[0] < 2) return (ka[1] - kb[1]) || (a.o - b.o);      // 章・週は番号順
+      return dateKey(a.t).localeCompare(dateKey(b.t)) || (a.o - b.o); // その他は既存日付順
     };
     const resolved = (updates||[]).map(u => ({ u, t: _aiResolveTask(u, refMap) })).filter(x => x.t);
     aiSpreadDebug = 'resched=' + isReschedule + ' updates=' + (updates||[]).length + ' resolved=' + resolved.length;
