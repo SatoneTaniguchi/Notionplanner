@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11a';
+  const APP_VERSION = '2026-06-11d';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7995,11 +7995,11 @@
                 + '<span style="flex:1;min-width:0;">'
                 + '<input data-edit="task-name-' + i + '" ' + ei + ' style="width:100%;box-sizing:border-box;font-size:13px;font-family:inherit;border:1px solid #e3e0f0;border-radius:8px;padding:5px 7px;" value="' + _escapeHtml(t.name||'') + '">'
                 + (dup ? '<div style="font-size:10px;color:#d08700;margin-top:2px;">⚠ 同名タスクが既にあります（重複の可能性）</div>' : '')
-                + '<div style="display:flex;gap:4px;margin-top:4px;align-items:center;">'
-                + '<input type="date" data-edit="task-date-' + i + '" ' + ei + ' value="' + _escapeHtml(t.date||'') + '">'
-                + '<input type="time" data-edit="task-time-' + i + '" ' + ei + ' value="' + _escapeHtml(t.time||'') + '">'
-                + '<input type="number" step="0.5" placeholder="h" data-edit="task-est-' + i + '" ' + ei + ' style="width:52px;font-size:12px;font-family:inherit;border:1px solid #d8d2f5;border-radius:8px;padding:4px 6px;" value="' + (t.estimateHours!=null?t.estimateHours:'') + '">'
-                + '<span style="font-size:10px;color:#8e8e93;">' + pj + '</span>'
+                + '<div style="display:flex;gap:6px;margin-top:4px;align-items:flex-end;">'
+                + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">日付</span><input type="date" data-edit="task-date-' + i + '" ' + ei + ' value="' + _escapeHtml(t.date||'') + '"></div>'
+                + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">時刻</span><input type="time" data-edit="task-time-' + i + '" ' + ei + ' value="' + _escapeHtml(t.time||'') + '"></div>'
+                + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">見込み</span><input type="number" step="0.5" placeholder="h" data-edit="task-est-' + i + '" ' + ei + ' style="width:52px;font-size:12px;font-family:inherit;border:1px solid #d8d2f5;border-radius:8px;padding:4px 6px;" value="' + (t.estimateHours!=null?t.estimateHours:'') + '"></div>'
+                + '<span style="font-size:10px;color:#8e8e93;padding-bottom:5px;">' + pj + '</span>'
                 + '</div></span></div>';
             });
           }
@@ -8017,10 +8017,10 @@
               html += '<div class="ai-act-item"><input type="checkbox" class="ai-act-cb" data-kind="upd" data-i="' + i + '" ' + (t?'checked':'disabled') + '>'
                 + '<span style="flex:1;min-width:0;' + (t?'':'opacity:0.5;') + '">'
                 + '<div style="font-size:13px;color:#1c1c1e;">' + _escapeHtml(nm) + (t?'':' <span style="color:#d04a3a;font-size:10px;">未解決（対象不明・スキップ）</span>') + (extra.length?' <span style="color:#6c5ce7;font-size:11px;">'+_escapeHtml(extra.join(' ・ '))+'</span>':'') + '</div>'
-                + (t ? ('<div style="display:flex;gap:4px;margin-top:4px;align-items:center;">'
-                    + '<input type="date" data-edit="upd-date-' + i + '" ' + ei + ' value="' + _escapeHtml(curDate) + '">'
-                    + '<input type="time" data-edit="upd-time-' + i + '" ' + ei + ' value="' + _escapeHtml(curTime) + '">'
-                    + '<input type="number" step="0.5" placeholder="h" data-edit="upd-est-' + i + '" ' + ei + ' style="width:52px;font-size:12px;font-family:inherit;border:1px solid #d8d2f5;border-radius:8px;padding:4px 6px;" value="' + (u.estimateHours!=null?u.estimateHours:'') + '">'
+                + (t ? ('<div style="display:flex;gap:6px;margin-top:4px;align-items:flex-end;">'
+                    + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">日付</span><input type="date" data-edit="upd-date-' + i + '" ' + ei + ' value="' + _escapeHtml(curDate) + '"></div>'
+                    + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">時刻</span><input type="time" data-edit="upd-time-' + i + '" ' + ei + ' value="' + _escapeHtml(curTime) + '"></div>'
+                    + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">見込み</span><input type="number" step="0.5" placeholder="h" data-edit="upd-est-' + i + '" ' + ei + ' style="width:52px;font-size:12px;font-family:inherit;border:1px solid #d8d2f5;border-radius:8px;padding:4px 6px;" value="' + (u.estimateHours!=null?u.estimateHours:'') + '"></div>'
                     + '</div>') : '')
                 + '</span></div>';
             });
@@ -8233,6 +8233,8 @@
           if (mm) retryAfter = parseFloat(mm[1]);
         }
       } catch(e) {}
+      // 短い待ち時間（30分未満）が提示されている場合は毎分の一時制限。1日上限と誤判定しない
+      if (retryAfter > 0 && retryAfter < 1800) isDaily = false;
       const err = new Error(msg);
       err.status = res.status;
       err.isRate = isRate;
@@ -8244,20 +8246,35 @@
     return res.json();
   }
   // 過負荷(503)時は少し待って再試行し、ダメなら別モデルへ自動フォールバック
+  let aiDailyBlocked = JSON.parse(localStorage.getItem('aiDailyBlocked') || '{}'); // model -> 上限に当たった日付
+  function aiModelBlockedToday(m) { return aiDailyBlocked[m] === ymd(new Date()); }
   async function aiCallWithFallback(system, messages, model) {
-    const chain = [model || 'gemini-2.5-flash'];
+    let chain = [model || 'gemini-2.5-flash'];
     ['gemini-2.0-flash', 'gemini-2.5-flash-lite'].forEach(m => { if (!chain.includes(m)) chain.push(m); });
+    // 本日すでに1日上限に当たったモデルはスキップ（全部ブロックなら一応元のを残す）
+    const usable = chain.filter(m => !aiModelBlockedToday(m));
+    if (usable.length) chain = usable;
     let lastErr;
     for (let ci = 0; ci < chain.length; ci++) {
-      const attempts = (ci === 0) ? 2 : 1; // 1台目は2回、フォールバックは各1回
-      for (let a = 0; a < attempts; a++) {
+      const attempts = (ci === 0) ? 2 : 1;
+      let nextModel = false;
+      for (let a = 0; a < attempts && !nextModel; a++) {
         try {
           return await aiApiCall(system, messages, chain[ci]);
         } catch (e) {
           lastErr = e;
-          if (e && e.isRate) throw e;        // レート制限は待つべきなので即中断
-          if (!(e && e.isOverload)) throw e; // 過負荷以外の本当のエラーは即中断
-          await new Promise(r => setTimeout(r, 1200)); // 少し待って再試行
+          if (e && e.isDaily) {
+            // このモデルは本日の1日上限に到達 → 記録して次のモデルへ
+            aiDailyBlocked[chain[ci]] = ymd(new Date());
+            localStorage.setItem('aiDailyBlocked', JSON.stringify(aiDailyBlocked));
+            nextModel = true;
+          } else if (e && e.isRate) {
+            throw e; // 毎分制限は待つべき → 中断
+          } else if (e && e.isOverload) {
+            await new Promise(r => setTimeout(r, 1200)); // 過負荷 → 少し待って再試行
+          } else {
+            throw e; // それ以外の本当のエラー → 中断
+          }
         }
       }
     }
@@ -8367,7 +8384,7 @@
         });
       }
       const message = (json.message && String(json.message).trim()) || aiCleanText(reply) || '（応答が空でした。少し待って再送してください）';
-      const messageWithDebug = isReschedule && aiSpreadDebug ? (message + '\n\n〔診断: ' + aiSpreadDebug + '〕') : message;
+      const messageWithDebug = message;
       aiMessages.push({ role: 'assistant', text: messageWithDebug, tasks, updates, projects, refMap: aiRefMap, applied: false });
       // 成功時も最低間隔を確保（無料枠の毎分制限対策・約7秒）
       aiCooldownUntil = Date.now() + 7000;
@@ -8376,7 +8393,7 @@
         const wait = Math.max(5, Math.ceil(e.retryAfter || 30));
         aiCooldownUntil = Date.now() + wait * 1000;
         const note = e.isDaily
-          ? '⚠️ 無料枠の「1日の上限」に達したようです。これは時間で待っても回復せず、太平洋時間の0時（日本時間の概ね17時頃）にリセットされます。今すぐ使うには、設定(⚙︎)でモデルを gemini-2.5-flash-lite や gemini-2.0-flash に変えると別枠で使える場合があります。'
+          ? '⚠️ 無料枠の「1日の上限」に達しました（gemini-2.5-flash・2.0-flash・flash-lite を自動で順に試しましたが、いずれも本日分を使い切っています）。これは時間で待っても回復せず、太平洋時間0時（日本の約17時）にリセットされます。明日また使えます。'
           : ('⚠️ 送信が混み合っています（無料枠の毎分制限）。約' + wait + '秒待ってから自動で送れるようになります。連打すると制限が伸びるので、表示が戻るまでお待ちください。');
         aiMessages.push({ role: 'assistant', text: note, tasks: [], updates: [], projects: [], applied: true });
       } else if (e && e.isOverload) {
