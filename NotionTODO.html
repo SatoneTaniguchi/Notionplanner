@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11e';
+  const APP_VERSION = '2026-06-11f';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -8365,10 +8365,19 @@
         updates = out;
       }
       // 再編成: 「組み直し/順番通り/期限内/全タスク」等なら、対象プロジェクトの全タスクを章順に日付割り当て
-      // 会話中の対象プロジェクトを記憶（メッセージにプロジェクト名が出たら更新）
+      // 会話中の対象プロジェクトを記憶（メッセージにプロジェクト名が部分一致で出たら更新）
       {
-        const mp = (notionProjects||[]).find(p => p.name && text.indexOf(p.name) >= 0);
-        if (mp) aiActiveProjectId = mp.id;
+        const txt2 = String(text||'').replace(/\s/g,'');
+        let best = null, bestScore = 0;
+        (notionProjects||[]).forEach(p => {
+          if (!p.name) return;
+          const nm = String(p.name).replace(/\s/g,'');
+          let score = 0;
+          if (nm.length >= 2 && txt2.indexOf(nm) >= 0) score = nm.length + 100;
+          else for (let len = Math.min(nm.length, 12); len >= 3; len--) { if (txt2.indexOf(nm.slice(0,len)) >= 0) { score = len; break; } }
+          if (score > bestScore) { bestScore = score; best = p; }
+        });
+        if (best) aiActiveProjectId = best.id;
       }
       const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|並べ替え|並び替え|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|組んで|組み立て|日付順|日付.*入|日付.*出|入力して|直して)/;
       const isReschedule = reschedKw.test(text);
@@ -8391,7 +8400,8 @@
         });
       }
       const message = (json.message && String(json.message).trim()) || aiCleanText(reply) || '（応答が空でした。少し待って再送してください）';
-      const messageWithDebug = message;
+      aiSpreadDebug += ' | 最終' + updates.length + '件 日付有' + updates.filter(u => u.date && String(u.date).trim()).length;
+      const messageWithDebug = isReschedule && aiSpreadDebug ? (message + '\n\n〔診断: ' + aiSpreadDebug + '〕') : message;
       aiMessages.push({ role: 'assistant', text: messageWithDebug, tasks, updates, projects, refMap: aiRefMap, applied: false });
       // 成功時も最低間隔を確保（無料枠の毎分制限対策・約7秒）
       aiCooldownUntil = Date.now() + 7000;
@@ -8510,8 +8520,22 @@
   }
   function _aiPickProject(projects, resolved, userText) {
     const norm = id => String(id||'').replace(/-/g,'');
-    // 1) ユーザーが文中で挙げたプロジェクト名を最優先（最も意図に近い）
-    const byText = (notionProjects||[]).find(p => p.name && String(userText||'').indexOf(p.name) >= 0);
+    const txt = String(userText||'').replace(/\s/g,'');
+    // 1) ユーザーが文中で挙げたプロジェクト名を最優先（部分一致・最長一致で頑健に）
+    let byText = null, byTextScore = 0;
+    (notionProjects||[]).forEach(p => {
+      if (!p.name) return;
+      const nm = String(p.name).replace(/\s/g,'');
+      let score = 0;
+      if (nm.length >= 2 && txt.indexOf(nm) >= 0) score = nm.length + 100; // プロジェクト名がまるごと本文に
+      else {
+        // プロジェクト名の先頭から最長何文字が本文に含まれるか（例: 本文「基本情報」⊂ 名称「基本情報技術者」）
+        for (let len = Math.min(nm.length, 12); len >= 3; len--) {
+          if (txt.indexOf(nm.slice(0, len)) >= 0) { score = len; break; }
+        }
+      }
+      if (score > byTextScore) { byTextScore = score; byText = p; }
+    });
     if (byText) {
       const pj = (projects||[]).find(p => { const pr = _aiFindProject(p.name); return pr && pr.id === byText.id; });
       return { proj: byText, deadline: (pj && pj.deadline) || byText.deadline || byText.date || null };
