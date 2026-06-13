@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11d';
+  const APP_VERSION = '2026-06-11e';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7878,6 +7878,7 @@
   let aiCooldownTimer = null; // カウントダウン更新用タイマー
   let aiReqCount = JSON.parse(localStorage.getItem('aiReqCount') || 'null') || { date: '', count: 0 };
   let aiRefMap = {}; // 文脈で使う短い参照番号 → 実タスクid
+  let aiActiveProjectId = ''; // 会話中に対象にしているプロジェクト（フォロー指示の補完用）
   let aiSpreadDebug = ''; // 再編成処理の診断用
   function aiBumpReqCount() {
     const d = ymd(new Date());
@@ -7943,6 +7944,7 @@
   }
   function aiNewChat() {
     aiMessages = [];
+    aiActiveProjectId = '';
     persistAiMessages();
     renderAiMessages();
   }
@@ -8363,7 +8365,12 @@
         updates = out;
       }
       // 再編成: 「組み直し/順番通り/期限内/全タスク」等なら、対象プロジェクトの全タスクを章順に日付割り当て
-      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|組んで|組み立て)/;
+      // 会話中の対象プロジェクトを記憶（メッセージにプロジェクト名が出たら更新）
+      {
+        const mp = (notionProjects||[]).find(p => p.name && text.indexOf(p.name) >= 0);
+        if (mp) aiActiveProjectId = mp.id;
+      }
+      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|並べ替え|並び替え|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|組んで|組み立て|日付順|日付.*入|日付.*出|入力して|直して)/;
       const isReschedule = reschedKw.test(text);
       updates = aiAutoSpreadUpdates(updates, projects, aiRefMap, text, isReschedule);
       // 中身の無い（変更項目が空の）更新はカードに出さない（日付割り当て後に判定）
@@ -8519,6 +8526,11 @@
     (resolved||[]).forEach(x => (x.t._projectIds||[]).forEach(id => { cnt[norm(id)] = (cnt[norm(id)]||0)+1; }));
     const top = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
     if (top) { const pr = (notionProjects||[]).find(x => norm(x.id)===top); if (pr) return { proj: pr, deadline: pr.deadline||pr.date||null }; }
+    // 4) 会話中の対象プロジェクト（フォロー指示でプロジェクト名が省略された場合）
+    if (aiActiveProjectId) {
+      const pr = (notionProjects||[]).find(x => norm(x.id) === norm(aiActiveProjectId));
+      if (pr) return { proj: pr, deadline: pr.deadline || pr.date || null };
+    }
     return null;
   }
   // プロジェクトの章タスクを番号順に並べ、期限までに日付を均等割り当て（日付未入力も含め再編成）
@@ -8546,6 +8558,7 @@
       const pick = _aiPickProject(projects, resolved, userText);
       aiSpreadDebug += ' pick=' + (pick && pick.proj ? pick.proj.name : 'なし') + ' deadline=' + (pick && pick.deadline || 'なし');
       if (pick && pick.proj) {
+        aiActiveProjectId = pick.proj.id; // 以後のフォロー指示はこのプロジェクトを対象にする
         const pidN = norm(pick.proj.id);
         const pname = pick.proj.name;
         // 所属判定: _projectIds / _projectNames / notionProjectTaskMap のいずれか（取りこぼし防止）
