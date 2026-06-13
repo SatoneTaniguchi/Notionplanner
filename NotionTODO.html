@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11k';
+  const APP_VERSION = '2026-06-11l';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7707,21 +7707,26 @@
       return;
     }
 
-    let html = '';
-    habits.forEach(task => {
+    // 種類ごとのビジュアル設定
+    const kindMeta = {
+      '美容': { icon: '💄', color: '#e84393', bg: 'linear-gradient(90deg,#fde7f1,#fdf2f8)' },
+      '掃除': { icon: '🧹', color: '#0a9396', bg: 'linear-gradient(90deg,#e2f5f4,#f0faf9)' },
+      '習慣': { icon: '🔁', color: '#6c5ce7', bg: 'linear-gradient(90deg,#ecebfd,#f5f4ff)' },
+    };
+    const kindOrder = ['美容', '掃除', '習慣'];
+    const kindOf = t => t['(B)種類'] || '習慣';
+
+    // 1枚のルーチンカードのHTMLを生成
+    const cardHTML = (task) => {
       const isTodayOcc = habitOccursOn(task, new Date());
       const doneToday = isHabitDoneOn(task.id, todayStr);
       const streak = calcHabitStreak(task);
       const rate = calcRoutineRate(task);
-
-      // 編集対象ID: 疑似テンプレートは代表の実タスク（今日 or 最初のメンバー）
       let editId = task.id;
       if (task._pseudo) {
         const todayMember = task._pseudoMembers.find(m => ymd(new Date(m['(A)実行日'].start)) === todayStr);
         editId = (todayMember || task._pseudoMembers[0]).id;
       }
-
-      // 当日達成ボタン
       let btnHTML;
       if (!isTodayOcc) {
         btnHTML = `<button class="routine-done-btn notday" disabled>今日は対象日ではありません</button>`;
@@ -7730,8 +7735,7 @@
       } else {
         btnHTML = `<button class="routine-done-btn todo" onclick="onCloudTap(event,'${task.id}','${todayStr}')">今日のぶんを達成する</button>`;
       }
-
-      html += `<div class="routine-card">`
+      return `<div class="routine-card">`
         + `<div class="routine-card-top" onclick="editTask('${editId}')" style="cursor:pointer;">`
         +   `<div class="routine-avatar">${avatarSVG(doneToday)}</div>`
         +   `<div class="routine-card-name">${task.name || '(無題)'}</div>`
@@ -7745,7 +7749,31 @@
         + btnHTML
         + `<button class="routine-end-btn" onclick="endRoutineFromToday('${task.id}')">🏁 今日以降を終了する</button>`
         + `</div>`;
-    });
+    };
+
+    let html = '';
+    if (routineKindMode === 'all') {
+      // 種類別にグループ表示
+      const groups = {};
+      habits.forEach(t => { const k = kindOf(t); (groups[k] = groups[k] || []).push(t); });
+      const keys = [...kindOrder.filter(k => groups[k]), ...Object.keys(groups).filter(k => !kindOrder.includes(k))];
+      keys.forEach(k => {
+        const meta = kindMeta[k] || { icon: '📌', color: '#8e8e93', bg: '#f2f2f7' };
+        const items = groups[k];
+        const todays = items.filter(t => habitOccursOn(t, new Date()));
+        const doneN = todays.filter(t => isHabitDoneOn(t.id, todayStr)).length;
+        const prog = todays.length ? `<span style="margin-left:auto;font-size:12px;font-weight:700;color:${meta.color};">今日 ${doneN}/${todays.length}</span>` : `<span style="margin-left:auto;font-size:12px;color:#b0adc0;">対象日なし</span>`;
+        html += `<div style="display:flex;align-items:center;gap:8px;background:${meta.bg};border-left:4px solid ${meta.color};border-radius:12px;padding:9px 13px;margin:14px 0 9px;">`
+          + `<span style="font-size:16px;">${meta.icon}</span>`
+          + `<span style="font-size:14px;font-weight:800;color:${meta.color};letter-spacing:.02em;">${_escapeHtml(k)}</span>`
+          + `<span style="font-size:11px;color:#9b98aa;">${items.length}件</span>`
+          + prog
+          + `</div>`;
+        items.forEach(t => { html += cardHTML(t); });
+      });
+    } else {
+      habits.forEach(t => { html += cardHTML(t); });
+    }
     container.innerHTML = html;
   }
 
@@ -8872,18 +8900,25 @@
       <button class="proj-sort-btn${projectSortMode==='date_desc'?' active':''}" data-proj-sort="date_desc">日付 新しい順</button>
     </div>`;
 
-    // 並べ替え
-    let list = [...notionProjects];
-    if (projectSortMode === 'date_desc') {
-      list.sort((a,b) => {
+    // 並べ替え（進行中を最優先 → 未着手 → その他 → 完了。同ランク内は選択中の並び順）
+    const statusRank = (st) => {
+      const s = String(st||'');
+      if (s.indexOf('進行') >= 0) return 0;   // 進行中
+      if (s.indexOf('未着') >= 0) return 1;   // 未着手
+      if (s.indexOf('完了') >= 0) return 3;   // 完了は最後
+      return 2;
+    };
+    const withinSort = (a,b) => {
+      if (projectSortMode === 'date_desc') {
         const da = a.date || '', db = b.date || '';
         if (!da && !db) return a.name.localeCompare(b.name,'ja');
         if (!da) return 1; if (!db) return -1;
-        return db.localeCompare(da); // 新しい順
-      });
-    } else {
-      list.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
-    }
+        return db.localeCompare(da);
+      }
+      return a.name.localeCompare(b.name,'ja');
+    };
+    let list = [...notionProjects];
+    list.sort((a,b) => (statusRank(a.status) - statusRank(b.status)) || withinSort(a,b));
     // 絞り込み
     if (projectStatusFilter != null) list = list.filter(p => p.status === projectStatusFilter);
 
