@@ -1,7 +1,7 @@
 // NotionTODO Service Worker
 // HTML(ナビゲーション)はネットワーク優先で常に最新を取得し、
 // 古い版が動き続ける問題を防ぐ。アセットはキャッシュ優先＋裏で更新。
-const CACHE = 'notiontodo-2026-06-11g';
+const CACHE = 'notiontodo-2026-06-11i';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11g';
+  const APP_VERSION = '2026-06-11i';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -8539,22 +8539,23 @@
     });
     if (byText) {
       const pj = (projects||[]).find(p => { const pr = _aiFindProject(p.name); return pr && pr.id === byText.id; });
-      return { proj: byText, deadline: (pj && pj.deadline) || byText.deadline || byText.date || null };
+      // (A)期間=date（きれいな日付）を最優先。(A)期限=deadlineは数式の装飾文字列なので最後
+      return { proj: byText, deadline: (pj && pj.deadline) || byText.date || byText.deadline || null };
     }
     // 2) モデルが返したprojects[]
     for (const p of (projects||[])) {
       const pr = _aiFindProject(p.name);
-      if (pr) return { proj: pr, deadline: p.deadline || pr.deadline || pr.date || null };
+      if (pr) return { proj: pr, deadline: p.deadline || pr.date || pr.deadline || null };
     }
     // 3) 解決できた更新の最多プロジェクト
     const cnt = {};
     (resolved||[]).forEach(x => (x.t._projectIds||[]).forEach(id => { cnt[norm(id)] = (cnt[norm(id)]||0)+1; }));
     const top = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
-    if (top) { const pr = (notionProjects||[]).find(x => norm(x.id)===top); if (pr) return { proj: pr, deadline: pr.deadline||pr.date||null }; }
+    if (top) { const pr = (notionProjects||[]).find(x => norm(x.id)===top); if (pr) return { proj: pr, deadline: pr.date||pr.deadline||null }; }
     // 4) 会話中の対象プロジェクト（フォロー指示でプロジェクト名が省略された場合）
     if (aiActiveProjectId) {
       const pr = (notionProjects||[]).find(x => norm(x.id) === norm(aiActiveProjectId));
-      if (pr) return { proj: pr, deadline: pr.deadline || pr.date || null };
+      if (pr) return { proj: pr, deadline: pr.date || pr.deadline || null };
     }
     return null;
   }
@@ -8562,7 +8563,7 @@
   function aiAutoSpreadUpdates(updates, projects, refMap, userText, isReschedule) {
     const norm = id => String(id||'').replace(/-/g,'');
     const pad = v => String(v).padStart(2,'0');
-    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const fmt = d => (d && !isNaN(d.getTime())) ? `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` : '';
     // 「第N章」と明示されたものだけ章番号扱い（過去問2回分・3週目復習・600点レベル等の数字は章にしない）
     const chapNum = name => { const m = String(name||'').match(/第?\s*(\d+)\s*章/); return m ? parseInt(m[1],10) : null; };
     const dateKey = t => (t && t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : '9999-99-99';
@@ -8597,9 +8598,10 @@
           let arr = members.map((t, i) => ({ t, o: i }));
           arr.sort(cmp);
           const start = new Date(); start.setHours(0,0,0,0);
-          let end = pick.deadline ? new Date(pick.deadline + 'T00:00:00') : null;
-          if (!end || end <= start) { end = new Date(start); end.setDate(end.getDate() + arr.length); }
-          const span = Math.max(1, Math.round((end - start)/86400000));
+          const dlm = String(pick.deadline||'').match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+          let end = dlm ? new Date(parseInt(dlm[1],10), parseInt(dlm[2],10)-1, parseInt(dlm[3],10)) : null;
+          if (!end || isNaN(end.getTime()) || end <= start) { end = new Date(start); end.setDate(end.getDate() + arr.length); }
+          const span = Math.max(1, Math.round((end - start)/86400000) || arr.length);
           const n = arr.length;
           const full = arr.map((x, i) => {
             const off = (n <= 1) ? 0 : Math.round(i * span / (n - 1));
@@ -8629,11 +8631,12 @@
     let deadline = null;
     const pj = (projects||[]).find(p => p && p.deadline);
     if (pj && pj.deadline) deadline = pj.deadline;
-    if (!deadline && topProj) { const pr = (notionProjects||[]).find(x => norm(x.id)===topProj); deadline = pr && (pr.deadline || pr.date) || null; }
+    if (!deadline && topProj) { const pr = (notionProjects||[]).find(x => norm(x.id)===topProj); deadline = pr && (pr.date || pr.deadline) || null; }
     const start = new Date(); start.setHours(0,0,0,0);
-    let end = deadline ? new Date(deadline + 'T00:00:00') : null;
-    if (!end || end <= start) { end = new Date(start); end.setDate(end.getDate() + inProj.length); }
-    const span = Math.max(1, Math.round((end - start)/86400000));
+    const dlm = String(deadline||'').match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    let end = dlm ? new Date(parseInt(dlm[1],10), parseInt(dlm[2],10)-1, parseInt(dlm[3],10)) : null;
+    if (!end || isNaN(end.getTime()) || end <= start) { end = new Date(start); end.setDate(end.getDate() + inProj.length); }
+    const span = Math.max(1, Math.round((end - start)/86400000) || inProj.length);
     const n = inProj.length;
     inProj.forEach((x, i) => {
       const off = (n <= 1) ? 0 : Math.round(i * span / (n - 1));
