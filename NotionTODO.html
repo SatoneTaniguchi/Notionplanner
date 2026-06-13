@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11j';
+  const APP_VERSION = '2026-06-11k';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7878,7 +7878,8 @@
   let aiCooldownTimer = null; // カウントダウン更新用タイマー
   let aiReqCount = JSON.parse(localStorage.getItem('aiReqCount') || 'null') || { date: '', count: 0 };
   let aiRefMap = {}; // 文脈で使う短い参照番号 → 実タスクid
-  let aiActiveProjectId = ''; // 会話中に対象にしているプロジェクト（フォロー指示の補完用）
+  let aiActiveProjectId = localStorage.getItem('aiActiveProjectId') || ''; // 会話中に対象にしているプロジェクト（再読込でも保持）
+  function setAiActiveProject(id) { aiActiveProjectId = id || ''; try { localStorage.setItem('aiActiveProjectId', aiActiveProjectId); } catch(e){} }
   let aiSpreadDebug = ''; // 再編成処理の診断用
   function aiBumpReqCount() {
     const d = ymd(new Date());
@@ -7944,7 +7945,7 @@
   }
   function aiNewChat() {
     aiMessages = [];
-    aiActiveProjectId = '';
+    setAiActiveProject('');
     persistAiMessages();
     renderAiMessages();
   }
@@ -8377,9 +8378,9 @@
           else for (let len = Math.min(nm.length, 12); len >= 3; len--) { if (txt2.indexOf(nm.slice(0,len)) >= 0) { score = len; break; } }
           if (score > bestScore) { bestScore = score; best = p; }
         });
-        if (best) aiActiveProjectId = best.id;
+        if (best) setAiActiveProject(best.id);
       }
-      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|並べ替え|並び替え|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|組んで|組み立て|日付順|日付.*入|日付.*出|入力して|直して)/;
+      const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|並べ替え|並び替え|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|組んで|組み立て|日付順|日付.*入|日付.*出|入力して|直して|修正|前に|後に|順序)/;
       const isReschedule = reschedKw.test(text);
       updates = aiAutoSpreadUpdates(updates, projects, aiRefMap, text, isReschedule);
       // 中身の無い（変更項目が空の）更新はカードに出さない（日付割り当て後に判定）
@@ -8587,7 +8588,7 @@
       const pick = _aiPickProject(projects, resolved, userText);
       aiSpreadDebug += ' pick=' + (pick && pick.proj ? pick.proj.name : 'なし') + ' deadline=' + (pick && pick.deadline || 'なし');
       if (pick && pick.proj) {
-        aiActiveProjectId = pick.proj.id; // 以後のフォロー指示はこのプロジェクトを対象にする
+        setAiActiveProject(pick.proj.id); // 以後のフォロー指示はこのプロジェクトを対象にする
         const pidN = norm(pick.proj.id);
         const pname = pick.proj.name;
         // 所属判定: _projectIds / _projectNames / notionProjectTaskMap のいずれか（取りこぼし防止）
