@@ -2161,6 +2161,19 @@
     display: flex; gap: 6px; background: #efedfa; border-radius: 13px;
     padding: 3px; margin-bottom: 8px;
   }
+  /* 集約コントロールバー */
+  .r-ctrlbar {
+    display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .r-ctrlbar-inner { display: contents; }
+  .r-mini-select {
+    font-family: inherit; font-size: 12.5px; font-weight: 600; color: #6c5ce7;
+    background: #efedfa; border: none; border-radius: 16px;
+    padding: 7px 26px 7px 12px; cursor: pointer; -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236c5ce7' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
   .routine-view-toggle button {
     flex: 1; border: none; background: transparent; color: #8b88a0;
     font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
@@ -2705,31 +2718,29 @@
     <button class="active" data-view="tracker" onclick="setRoutineView('tracker', this)">📊 トラッカー</button>
     <button data-view="manage" onclick="setRoutineView('manage', this)">📝 一覧・管理</button>
   </div>
-  <!-- アクティブ / 終了済み -->
-  <div class="routine-status-tabs" id="routineStatusTabs">
-    <button class="active" data-status="active" onclick="setRoutineStatus('active', this)">アクティブ</button>
-    <button data-status="ended" onclick="setRoutineStatus('ended', this)">終了済み</button>
-  </div>
-  <!-- 種類＋表示を1行に（コンパクト化） -->
-  <div class="routine-filter-row" id="routineFilterRow" style="flex-wrap:wrap;">
-    <span class="routine-filter-label">種類：</span>
-    <select id="routineKindSelect" class="routine-kind-select" onchange="setRoutineKind(this.value)">
-      <option value="all">すべて</option>
-      <option value="習慣">習慣</option>
-      <option value="掃除">掃除</option>
-      <option value="美容">美容</option>
+  <!-- コントロールバー（種類・表示・期間・状態を1行に集約） -->
+  <div class="r-ctrlbar" id="routineCtrlBar">
+    <select id="routineKindSelect" class="r-mini-select" onchange="setRoutineKind(this.value)" title="種類">
+      <option value="all">🗂 すべて</option>
+      <option value="習慣">🔁 習慣</option>
+      <option value="掃除">🧹 掃除</option>
+      <option value="美容">💄 美容</option>
     </select>
-    <span class="routine-filter-label" style="margin-left:6px;">表示：</span>
-    <div class="routine-filter-toggle" id="routineFilterToggle">
-      <button class="active" onclick="setRoutineFilter('target', this)">対象日</button>
-      <button onclick="setRoutineFilter('all', this)">すべて</button>
-    </div>
-  </div>
-  <!-- 期間切り替え -->
-  <div class="routine-seg" id="routineSeg">
-    <button class="active" data-range="30" onclick="setRoutineRange('30', this)">直近30マス</button>
-    <button data-range="week" onclick="setRoutineRange('week', this)">今週</button>
-    <button data-range="month" onclick="setRoutineRange('month', this)">今月</button>
+    <span id="routineTrackerCtrls" class="r-ctrlbar-inner">
+      <div class="routine-filter-toggle" id="routineFilterToggle">
+        <button class="active" onclick="setRoutineFilter('target', this)">対象日</button>
+        <button onclick="setRoutineFilter('all', this)">すべて</button>
+      </div>
+      <select id="routineRangeSelect" class="r-mini-select" onchange="setRoutineRangeSel(this.value)" title="期間">
+        <option value="30">直近30マス</option>
+        <option value="week">今週</option>
+        <option value="month">今月</option>
+      </select>
+      <select id="routineStatusSelect" class="r-mini-select" onchange="setRoutineStatusSel(this.value)" title="状態">
+        <option value="active">アクティブ</option>
+        <option value="ended">終了済み</option>
+      </select>
+    </span>
   </div>
   <div id="routineList"></div>
 </div>
@@ -3360,7 +3371,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11o';
+  const APP_VERSION = '2026-06-11p';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7583,13 +7594,12 @@
 
   function _routineApplyControlsVisibility() {
     const manage = routineViewMode === 'manage';
-    // 管理ビューでは期間・対象日などトラッカー用コントロールを隠す
-    const seg = document.getElementById('routineSeg');
-    if (seg) seg.style.display = manage ? 'none' : '';
-    const filterRow = document.getElementById('routineFilterRow');
-    if (filterRow) filterRow.style.display = (manage || routineStatusMode === 'ended') ? 'none' : '';
-    const statusTabs = document.getElementById('routineStatusTabs');
-    if (statusTabs) statusTabs.style.display = manage ? 'none' : '';
+    // 管理ビューではトラッカー用コントロール（表示・期間・状態）を隠し、種類だけ残す
+    const tc = document.getElementById('routineTrackerCtrls');
+    if (tc) tc.style.display = manage ? 'none' : '';
+    // 終了済み表示中は「対象日/すべて」トグルは無関係なので隠す
+    const ft = document.getElementById('routineFilterToggle');
+    if (ft) ft.style.display = (manage || routineStatusMode === 'ended') ? 'none' : '';
   }
 
   function setRoutineView(mode, btn) {
@@ -7600,15 +7610,18 @@
     renderRoutineScreen();
   }
 
-  function setRoutineStatus(mode, btn) {
-    routineStatusMode = mode;
-    document.querySelectorAll('#routineStatusTabs button').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    // 終了済みタブでは「対象日/すべて」フィルターは無関係なので隠す
-    const filterRow = document.getElementById('routineFilterRow');
-    if (filterRow) filterRow.style.display = (mode === 'ended') ? 'none' : '';
+  function setRoutineStatusSel(v) {
+    routineStatusMode = v;
+    _routineApplyControlsVisibility();
     renderRoutineScreen();
   }
+  function setRoutineRangeSel(v) {
+    currentRoutineRange = v;
+    renderRoutineScreen();
+  }
+
+  // 旧APIの互換（他から呼ばれても安全に動く）
+  function setRoutineStatus(mode, btn) { setRoutineStatusSel(mode); }
 
   function setRoutineFilter(mode, btn) {
     routineFilterMode = mode;
