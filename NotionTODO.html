@@ -3320,7 +3320,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11l';
+  const APP_VERSION = '2026-06-11m';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7716,8 +7716,8 @@
     const kindOrder = ['美容', '掃除', '習慣'];
     const kindOf = t => t['(B)種類'] || '習慣';
 
-    // 1枚のルーチンカードのHTMLを生成
-    const cardHTML = (task) => {
+    // 1枚のルーチンカードのHTMLを生成（accentは種類カラー）
+    const cardHTML = (task, accent) => {
       const isTodayOcc = habitOccursOn(task, new Date());
       const doneToday = isHabitDoneOn(task.id, todayStr);
       const streak = calcHabitStreak(task);
@@ -7735,10 +7735,13 @@
       } else {
         btnHTML = `<button class="routine-done-btn todo" onclick="onCloudTap(event,'${task.id}','${todayStr}')">今日のぶんを達成する</button>`;
       }
-      return `<div class="routine-card">`
+      const accentStyle = accent ? ` style="border-top:3px solid ${accent};"` : '';
+      const ring = isTodayOcc ? (doneToday ? `<span style="margin-left:auto;font-size:11px;font-weight:800;color:#2c8a4a;">✓ 完了</span>` : `<span style="margin-left:auto;font-size:11px;font-weight:800;color:${accent||'#6c5ce7'};">今日</span>`) : '';
+      return `<div class="routine-card"${accentStyle}>`
         + `<div class="routine-card-top" onclick="editTask('${editId}')" style="cursor:pointer;">`
         +   `<div class="routine-avatar">${avatarSVG(doneToday)}</div>`
         +   `<div class="routine-card-name">${task.name || '(無題)'}</div>`
+        +   ring
         +   `<div class="routine-card-chev">›</div>`
         + `</div>`
         + `<div class="routine-badges">`
@@ -7751,8 +7754,20 @@
         + `</div>`;
     };
 
+    // 上部サマリー: 今日の達成状況（全種類合計）
+    const occToday = habits.filter(t => habitOccursOn(t, new Date()));
+    const doneTodayN = occToday.filter(t => isHabitDoneOn(t.id, todayStr)).length;
+    const pct = occToday.length ? Math.round(doneTodayN / occToday.length * 100) : 0;
+    const summary = `<div style="grid-column:1/-1;background:linear-gradient(135deg,#6c5ce7,#a78bfa);border-radius:18px;padding:15px 17px;color:#fff;box-shadow:0 6px 18px rgba(108,92,231,.28);">`
+      + `<div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:13px;font-weight:600;opacity:.92;">今日のルーチン</span>`
+      + `<span style="margin-left:auto;font-size:22px;font-weight:800;letter-spacing:.02em;">${doneTodayN}<span style="font-size:14px;font-weight:600;opacity:.85;">/${occToday.length}</span></span></div>`
+      + `<div style="margin-top:9px;height:8px;background:rgba(255,255,255,.28);border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#fff;border-radius:99px;transition:width .4s;"></div></div>`
+      + `<div style="margin-top:6px;font-size:11px;opacity:.9;">${occToday.length === 0 ? '今日が対象日のルーチンはありません' : (doneTodayN === occToday.length ? '🎉 今日のぶんは全部達成！' : 'あと ' + (occToday.length - doneTodayN) + ' 件')}</div>`
+      + `</div>`;
+
     let html = '';
     if (routineKindMode === 'all') {
+      html += summary;
       // 種類別にグループ表示
       const groups = {};
       habits.forEach(t => { const k = kindOf(t); (groups[k] = groups[k] || []).push(t); });
@@ -7762,17 +7777,18 @@
         const items = groups[k];
         const todays = items.filter(t => habitOccursOn(t, new Date()));
         const doneN = todays.filter(t => isHabitDoneOn(t.id, todayStr)).length;
-        const prog = todays.length ? `<span style="margin-left:auto;font-size:12px;font-weight:700;color:${meta.color};">今日 ${doneN}/${todays.length}</span>` : `<span style="margin-left:auto;font-size:12px;color:#b0adc0;">対象日なし</span>`;
-        html += `<div style="display:flex;align-items:center;gap:8px;background:${meta.bg};border-left:4px solid ${meta.color};border-radius:12px;padding:9px 13px;margin:14px 0 9px;">`
+        const prog = todays.length ? `<span style="margin-left:auto;font-size:12px;font-weight:700;color:${meta.color};">今日 ${doneN}/${todays.length}</span>` : `<span style="margin-left:auto;font-size:11px;color:#b0adc0;">対象日なし</span>`;
+        html += `<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;background:${meta.bg};border-left:4px solid ${meta.color};border-radius:12px;padding:9px 13px;margin:4px 0 2px;">`
           + `<span style="font-size:16px;">${meta.icon}</span>`
           + `<span style="font-size:14px;font-weight:800;color:${meta.color};letter-spacing:.02em;">${_escapeHtml(k)}</span>`
           + `<span style="font-size:11px;color:#9b98aa;">${items.length}件</span>`
           + prog
           + `</div>`;
-        items.forEach(t => { html += cardHTML(t); });
+        items.forEach(t => { html += cardHTML(t, meta.color); });
       });
     } else {
-      habits.forEach(t => { html += cardHTML(t); });
+      const meta = kindMeta[routineKindMode] || null;
+      habits.forEach(t => { html += cardHTML(t, meta ? meta.color : null); });
     }
     container.innerHTML = html;
   }
