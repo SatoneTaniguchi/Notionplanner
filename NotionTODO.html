@@ -2156,6 +2156,44 @@
     overflow: hidden;
     min-width: 0;
   }
+  /* 表示切替（トラッカー / 一覧・管理） */
+  .routine-view-toggle {
+    display: flex; gap: 6px; background: #efedfa; border-radius: 14px;
+    padding: 4px; margin-bottom: 12px;
+  }
+  .routine-view-toggle button {
+    flex: 1; border: none; background: transparent; color: #8b88a0;
+    font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+    padding: 9px 0; border-radius: 11px; transition: all .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .routine-view-toggle button.active {
+    background: #fff; color: #6c5ce7; box-shadow: 0 2px 8px rgba(108,92,231,.18);
+  }
+  /* 管理リスト（種類別の簡易一覧） */
+  #routineList.manage { display: block; }
+  .rman-group { margin: 6px 0 16px; }
+  .rman-add {
+    border: none; border-radius: 12px; padding: 6px 13px; font-size: 13px;
+    font-weight: 700; font-family: inherit; cursor: pointer; color: #fff;
+    -webkit-tap-highlight-color: transparent; margin-left: auto;
+  }
+  .rman-row {
+    display: flex; align-items: center; gap: 11px; background: #fff;
+    border-radius: 14px; padding: 13px 14px; margin-bottom: 8px;
+    box-shadow: 0 1px 6px rgba(80,70,140,0.05); cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: transform .1s;
+  }
+  .rman-row:active { transform: scale(0.99); }
+  .rman-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .rman-main { flex: 1; min-width: 0; }
+  .rman-name {
+    font-size: 15px; font-weight: 700; color: #2d2b3a;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rman-sub { font-size: 11.5px; color: #a09dae; margin-top: 2px; }
+  .rman-chev { color: #cbc8da; font-size: 19px; flex-shrink: 0; }
+  .rman-edit { font-size: 12px; color: #6c5ce7; font-weight: 700; flex-shrink: 0; }
   .routine-card-top {
     display: flex; align-items: center; gap: 12px;
   }
@@ -2662,6 +2700,11 @@
 
 <!-- ===== ルーチン画面 ===== -->
 <div class="routine-screen" id="routineScreen">
+  <!-- 表示切替: トラッカー / 一覧・管理 -->
+  <div class="routine-view-toggle" id="routineViewToggle">
+    <button class="active" data-view="tracker" onclick="setRoutineView('tracker', this)">📊 トラッカー</button>
+    <button data-view="manage" onclick="setRoutineView('manage', this)">📝 一覧・管理</button>
+  </div>
   <!-- アクティブ / 終了済み -->
   <div class="routine-status-tabs" id="routineStatusTabs">
     <button class="active" data-status="active" onclick="setRoutineStatus('active', this)">アクティブ</button>
@@ -3320,7 +3363,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11m';
+  const APP_VERSION = '2026-06-11n';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7539,6 +7582,26 @@
   let routineFilterMode = 'target'; // 'target': 対象日のみ | 'all': すべて
   let routineKindMode = 'all'; // '習慣' | '掃除' | 'all'（種類プルダウン）
   let routineStatusMode = 'active'; // 'active' | 'ended'
+  let routineViewMode = 'tracker'; // 'tracker' | 'manage'
+
+  function _routineApplyControlsVisibility() {
+    const manage = routineViewMode === 'manage';
+    // 管理ビューでは期間・対象日などトラッカー用コントロールを隠す
+    const seg = document.getElementById('routineSeg');
+    if (seg) seg.style.display = manage ? 'none' : '';
+    const filterRow = document.getElementById('routineFilterRow');
+    if (filterRow) filterRow.style.display = (manage || routineStatusMode === 'ended') ? 'none' : '';
+    const statusTabs = document.getElementById('routineStatusTabs');
+    if (statusTabs) statusTabs.style.display = manage ? 'none' : '';
+  }
+
+  function setRoutineView(mode, btn) {
+    routineViewMode = mode;
+    document.querySelectorAll('#routineViewToggle button').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    _routineApplyControlsVisibility();
+    renderRoutineScreen();
+  }
 
   function setRoutineStatus(mode, btn) {
     routineStatusMode = mode;
@@ -7560,6 +7623,39 @@
   function setRoutineKind(v) {
     routineKindMode = v;
     renderRoutineScreen();
+  }
+
+  // ルーチンの頻度を短い日本語に
+  function routineFreqText(task) {
+    const rc = task && task._repeatConfig;
+    const wd = ['日','月','火','水','木','金','土'];
+    if (rc) {
+      if (Array.isArray(rc.daysOfWeek) && rc.daysOfWeek.length) {
+        return '毎週 ' + rc.daysOfWeek.slice().sort().map(d => wd[d]).join('・');
+      }
+      switch (rc.type) {
+        case 'daily': return '毎日';
+        case 'weekly': return '毎週';
+        case 'monthly': return '毎月';
+        case 'yearly': return '毎年';
+      }
+    }
+    const ov = (typeof getHabitFreqOverride === 'function') ? getHabitFreqOverride(task.id) : null;
+    if (ov === 'daily') return '毎日';
+    if (typeof ov === 'number') return ov === 7 ? '毎週' : ov === 14 ? '隔週' : ('約' + ov + '日ごと');
+    return '繰り返し';
+  }
+
+  // 種類を初期選択した状態で新規ルーチン作成モーダルを開く
+  function routineAddOfKind(kind) {
+    try {
+      openModal();                       // 新規タスク
+      currentShurui = kind || '習慣';     // 種類を初期選択
+      // 繰り返しタブへ切り替え（ルーチン用）
+      const tabs = document.querySelectorAll('.modal-tab');
+      if (tabs && tabs[2]) { tabs.forEach(t => t.classList.remove('active')); tabs[2].classList.add('active'); switchTab('repeat', tabs[2]); }
+      ['later','time','repeat'].forEach(s => { try { updateSelectorDisplay(s); } catch(e){} });
+    } catch (e) { try { openModal(); } catch(_){} }
   }
 
   function setRoutineRange(range, btn) {
@@ -7654,6 +7750,8 @@
   function renderRoutineScreen() {
     const container = document.getElementById('routineList');
     if (!container) return;
+    container.className = ''; // 既定はグリッド（管理ビューで 'manage' に上書き）
+    _routineApplyControlsVisibility();
     const todayStr = ymd(new Date());
     const routineKinds = routineKindMode === 'all' ? ['習慣', '掃除', '美容'] : [routineKindMode];
     const allHabits = getHabitTasks(true, routineKinds); // 終了済みも含めて取得
@@ -7692,6 +7790,58 @@
 
     // ── アクティブタブ ──
     const activeHabits = allHabits.filter(h => !h._endedAt);
+
+    // ===== 一覧・管理ビュー（種類別の簡易一覧。タップで編集、＋で追加） =====
+    if (routineViewMode === 'manage') {
+      container.className = 'manage';
+      const kindMetaM = {
+        '美容': { icon: '💄', color: '#e84393', bg: 'linear-gradient(90deg,#fde7f1,#fdf2f8)' },
+        '掃除': { icon: '🧹', color: '#0a9396', bg: 'linear-gradient(90deg,#e2f5f4,#f0faf9)' },
+        '習慣': { icon: '🔁', color: '#6c5ce7', bg: 'linear-gradient(90deg,#ecebfd,#f5f4ff)' },
+      };
+      const orderM = ['美容', '掃除', '習慣'];
+      const kindOfM = t => t['(B)種類'] || '習慣';
+      const groupsM = {};
+      activeHabits.forEach(t => { const k = kindOfM(t); (groupsM[k] = groupsM[k] || []).push(t); });
+      // 選択中の種類で絞り込み（「すべて」なら全種類）
+      const showKinds = routineKindMode === 'all'
+        ? [...orderM.filter(k => groupsM[k]), ...Object.keys(groupsM).filter(k => !orderM.includes(k))]
+        : [routineKindMode];
+      let html = '';
+      showKinds.forEach(k => {
+        const meta = kindMetaM[k] || { icon: '📌', color: '#8e8e93', bg: '#f2f2f7' };
+        const items = (groupsM[k] || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+        html += `<div class="rman-group">`
+          + `<div style="display:flex;align-items:center;gap:8px;background:${meta.bg};border-left:4px solid ${meta.color};border-radius:12px;padding:9px 13px;margin-bottom:10px;">`
+          +   `<span style="font-size:16px;">${meta.icon}</span>`
+          +   `<span style="font-size:14px;font-weight:800;color:${meta.color};">${_escapeHtml(k)}</span>`
+          +   `<span style="font-size:11px;color:#9b98aa;">${items.length}件</span>`
+          +   `<button class="rman-add" style="background:${meta.color};" onclick="routineAddOfKind('${k}')">＋ 追加</button>`
+          + `</div>`;
+        if (!items.length) {
+          html += `<div style="font-size:12px;color:#b8b5c6;padding:4px 6px 6px;">まだありません。「＋ 追加」から作成できます。</div>`;
+        }
+        items.forEach(t => {
+          let editId = t.id;
+          if (t._pseudo && t._pseudoMembers && t._pseudoMembers.length) editId = t._pseudoMembers[0].id;
+          const streak = calcHabitStreak(t);
+          html += `<div class="rman-row" onclick="editTask('${editId}')">`
+            +   `<span class="rman-dot" style="background:${meta.color};"></span>`
+            +   `<div class="rman-main"><div class="rman-name">${_escapeHtml(t.name || '(無題)')}</div>`
+            +     `<div class="rman-sub">${_escapeHtml(routineFreqText(t))} ・ 🔥${streak}日</div></div>`
+            +   `<span class="rman-edit">編集</span>`
+            +   `<span class="rman-chev">›</span>`
+            + `</div>`;
+        });
+        html += `</div>`;
+      });
+      if (!showKinds.length || !activeHabits.length) {
+        html = `<div class="routine-empty"><span class="re-emoji">📝</span>ルーチンがまだありません。<br>各種類の「＋ 追加」から作成できます。</div>` + html;
+      }
+      container.innerHTML = html;
+      return;
+    }
+    container.className = '';
 
     // フィルター: 対象日モードでは今日が対象日の習慣のみ表示
     const habits = routineFilterMode === 'target'
