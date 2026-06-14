@@ -3371,7 +3371,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11p';
+  const APP_VERSION = '2026-06-11r';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -11180,17 +11180,36 @@
         gcalScheduleRefresh(remaining);
         gcalOnSignedIn();
       } else {
-        // 期限切れ or 1分未満 → 無音でサイレント再取得
-        gcalSilentRefresh();
+        // 期限切れ → 自動ではポップアップを出さない。最初のタップで静かに更新を試みる。
+        gcalAccessToken = saved; // 直前のトークンは残しておき、更新成功まで表示は維持
+        gcalTokenExpiry = expiry;
+        gcalOnSignedIn();
+        gcalArmGestureRefresh();
       }
     }
   }
 
-  // 期限の5分前に自動更新をスケジュール
+  // 最初のユーザー操作（タップ）に乗せてトークン更新する。
+  // ユーザー操作中の requestAccessToken はiOSでもポップアップ確認が出ない。
+  let gcalGestureArmed = false;
+  function gcalArmGestureRefresh() {
+    if (gcalGestureArmed || !gcalTokenClient) return;
+    gcalGestureArmed = true;
+    const handler = () => {
+      document.removeEventListener('pointerdown', handler, true);
+      document.removeEventListener('touchstart', handler, true);
+      gcalGestureArmed = false;
+      try { gcalTokenClient.requestAccessToken({ prompt: 'none' }); } catch (e) {}
+    };
+    document.addEventListener('pointerdown', handler, true);
+    document.addEventListener('touchstart', handler, true);
+  }
+
+  // 期限が近づいたら「次のタップで更新」を仕込む（自動ポップアップは出さない）
   function gcalScheduleRefresh(expiresInMs) {
     if (gcalRefreshTimer) clearTimeout(gcalRefreshTimer);
-    const refreshIn = Math.max(expiresInMs - 5 * 60 * 1000, 10000); // 5分前 or 最低10秒後
-    gcalRefreshTimer = setTimeout(() => gcalSilentRefresh(), refreshIn);
+    const refreshIn = Math.max(expiresInMs - 5 * 60 * 1000, 5000);
+    gcalRefreshTimer = setTimeout(() => gcalArmGestureRefresh(), refreshIn);
   }
 
   // ユーザーに見せずにサイレントでトークン再取得
@@ -11366,17 +11385,8 @@
   }
 
   function gcalHandleExpired() {
-    gcalAccessToken = null;
-    localStorage.removeItem('gcalToken');
-    localStorage.removeItem('gcalTokenExpiry');
-    // alertなしでサイレント再取得を試みる
-    if (gcalTokenClient) {
-      gcalTokenClient.requestAccessToken({ prompt: 'none' });
-    } else {
-      // TokenClientが未初期化の場合のみUIを戻す
-      document.getElementById('gcalAuthArea').style.display = 'block';
-      document.getElementById('gcalSignedArea').style.display = 'none';
-    }
+    // 自動ではポップアップを出さず、次のユーザー操作で静かに更新を試みる
+    gcalArmGestureRefresh();
   }
 
   // パネルを開く
