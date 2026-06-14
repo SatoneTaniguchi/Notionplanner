@@ -2076,10 +2076,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
   }
   .routine-filter-label {
-    font-size: 13px;
+    font-size: 12px;
     color: #9a97ad;
     white-space: nowrap;
     flex-shrink: 0;
@@ -2087,16 +2087,16 @@
   .routine-filter-toggle {
     display: flex;
     background: #e7e5f2;
-    border-radius: 20px;
-    padding: 3px;
+    border-radius: 18px;
+    padding: 2px;
     gap: 0;
   }
   .routine-filter-toggle button {
     background: none;
     border: none;
-    border-radius: 16px;
-    padding: 7px 18px;
-    font-size: 13px;
+    border-radius: 15px;
+    padding: 5px 14px;
+    font-size: 12px;
     font-weight: 600;
     color: #8a86a0;
     cursor: pointer;
@@ -2113,17 +2113,17 @@
   .routine-seg {
     display: flex;
     background: #e7e5f2;
-    border-radius: 20px;
-    padding: 4px;
-    margin-bottom: 18px;
+    border-radius: 18px;
+    padding: 3px;
+    margin-bottom: 10px;
   }
   .routine-seg button {
     flex: 1;
     background: none;
     border: none;
-    border-radius: 16px;
-    padding: 9px 0;
-    font-size: 14px;
+    border-radius: 15px;
+    padding: 6px 0;
+    font-size: 13px;
     font-weight: 600;
     color: #8a86a0;
     cursor: pointer;
@@ -2158,13 +2158,13 @@
   }
   /* 表示切替（トラッカー / 一覧・管理） */
   .routine-view-toggle {
-    display: flex; gap: 6px; background: #efedfa; border-radius: 14px;
-    padding: 4px; margin-bottom: 12px;
+    display: flex; gap: 6px; background: #efedfa; border-radius: 13px;
+    padding: 3px; margin-bottom: 8px;
   }
   .routine-view-toggle button {
     flex: 1; border: none; background: transparent; color: #8b88a0;
-    font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
-    padding: 9px 0; border-radius: 11px; transition: all .15s;
+    font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+    padding: 7px 0; border-radius: 10px; transition: all .15s;
     -webkit-tap-highlight-color: transparent;
   }
   .routine-view-toggle button.active {
@@ -2335,10 +2335,10 @@
 
   /* アクティブ / 終了済み タブ */
   .routine-status-tabs {
-    display: flex; gap: 8px; margin: 0 0 14px;
+    display: flex; gap: 8px; margin: 0 0 8px;
   }
   .routine-status-tabs button {
-    flex: 1; border: none; border-radius: 12px; padding: 9px 0;
+    flex: 1; border: none; border-radius: 12px; padding: 7px 0;
     font-size: 13px; font-weight: 700; font-family: inherit;
     background: #efeefb; color: #9a97ad; cursor: pointer;
     -webkit-tap-highlight-color: transparent; transition: all 0.12s;
@@ -2710,8 +2710,8 @@
     <button class="active" data-status="active" onclick="setRoutineStatus('active', this)">アクティブ</button>
     <button data-status="ended" onclick="setRoutineStatus('ended', this)">終了済み</button>
   </div>
-  <!-- 種類プルダウン：習慣 / 掃除 / すべて -->
-  <div class="routine-filter-row">
+  <!-- 種類＋表示を1行に（コンパクト化） -->
+  <div class="routine-filter-row" id="routineFilterRow" style="flex-wrap:wrap;">
     <span class="routine-filter-label">種類：</span>
     <select id="routineKindSelect" class="routine-kind-select" onchange="setRoutineKind(this.value)">
       <option value="all">すべて</option>
@@ -2719,10 +2719,7 @@
       <option value="掃除">掃除</option>
       <option value="美容">美容</option>
     </select>
-  </div>
-  <!-- フィルター：対象日 / すべて -->
-  <div class="routine-filter-row" id="routineFilterRow">
-    <span class="routine-filter-label">表示：</span>
+    <span class="routine-filter-label" style="margin-left:6px;">表示：</span>
     <div class="routine-filter-toggle" id="routineFilterToggle">
       <button class="active" onclick="setRoutineFilter('target', this)">対象日</button>
       <button onclick="setRoutineFilter('all', this)">すべて</button>
@@ -3363,7 +3360,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-11n';
+  const APP_VERSION = '2026-06-11o';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7991,9 +7988,10 @@
 
   // ===== プロジェクト画面 =====
   let projectOpenState = {}; // プロジェクトID → 展開中か
-  let projectStatusFilter = null; // null=すべて, それ以外=ステータス名
+  let projectStatusFilter = '進行中'; // 既定は「進行中」。該当が無ければ初回renderで自動的に「すべて」に
+  let _projFilterInit = false;
   let projectSortMode = 'date_desc';   // 'name' | 'date_desc'（既定は日付の新しい順）
-  function setProjectStatusFilter(v) { projectStatusFilter = v; renderProjectScreen(); }
+  function setProjectStatusFilter(v) { projectStatusFilter = v; _projFilterInit = true; renderProjectScreen(); }
   function setProjectSort(mode) { projectSortMode = mode; renderProjectScreen(); }
   function toggleProjectCard(key) {
     projectOpenState[key] = !projectOpenState[key];
@@ -9047,6 +9045,14 @@
         ${p.date ? `<button data-proj-date-clear="${_escapeHtml(p.id)}" style="margin-left:8px;background:none;border:none;color:#c4392f;font-size:12px;cursor:pointer;font-family:inherit;">クリア</button>` : ''}</div>`;
       return statusBtns + dateEdit;
     };
+
+    // 初回のみ: 既定「進行中」だが該当が無ければ「すべて」に切り替え
+    if (!_projFilterInit) {
+      _projFilterInit = true;
+      if (projectStatusFilter && !notionProjects.some(p => p.status === projectStatusFilter)) {
+        projectStatusFilter = null;
+      }
+    }
 
     // 絞り込み・並べ替えコントロール
     let controls = '';
