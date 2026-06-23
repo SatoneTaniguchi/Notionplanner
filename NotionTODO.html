@@ -6835,11 +6835,15 @@
     // (2) 疑似テンプレート: テンプレートにもインスタンスにも属さない繰り返しタスクを名前でグループ化。
     // ※ これは「習慣」専用。掃除など他の種類は、明示的な繰り返し（_type==='repeat'）だけをルーチン扱いにし、
     //    単発タスクをルーチンに混ぜないようにする。
+    // 本物の繰り返しテンプレートと同名のものは擬似ルーチン化しない（カード重複・「まだ対象日がありません」防止）
+    const templateNames = new Set(templates.map(t => (t.name || '(無題)').trim()));
     const standalone = tasks.filter(t =>
       t['(B)種類'] === '習慣' &&
       kinds.includes('習慣') &&
       t._type !== 'repeat' &&
+      t._type !== 'repeat_ended' &&
       !t._habitTemplateId &&
+      !templateNames.has((t.name || '(無題)').trim()) &&
       (t['(A)実行日'] && t['(A)実行日'].start)
     );
     const byName = {};
@@ -8284,7 +8288,7 @@
       + '・「今日◯◯するタスク作って」は tasks に {name:"◯◯", date:今日} を1件（dateだけなら終日。時刻指定時のみ time）。\n'
       + '・終日タスクをタイムラインに置く＝該当タスクの updates に time を入れ allDay:false。\n'
       + '・【重要】同じタスク(ref)を updates に2回以上入れない。1タスク=1エントリ。\n'
-      + '・日付(date)は、ユーザーが具体的な日付や「いつ」を指定した時だけ入れる。指定が無ければ date は省略（勝手に日付を割り当てない）。\n'
+      + '・日付(date)は、ユーザーが具体的な日付や「いつ」を指定した時だけ入れる（「今日」「明日」「本日」「◯曜」も日付指定とみなし、その日の日付を必ず date に入れる）。それも無ければ date は省略（勝手に日付を割り当てない）。\n'
       + '\n━━━ 例（messageは短く） ━━━\n'
       + '「成果報告発表会を完了にして」→ {"message":"成果報告発表会を完了にします。","tasks":[],"updates":[],"projects":[{"name":"成果報告発表会","status":"完了"}]}\n'
       + '「#5を明日にして」→ {"message":"対象を明日に移します。","tasks":[],"updates":[{"ref":"5","date":"(明日の日付)"}],"projects":[]}\n'
@@ -8926,6 +8930,17 @@
       return el ? el.value.trim() : '';
     };
     let nTask = 0, nUpd = 0, nProj = 0;
+    // 直前のユーザー発言に「今日/明日」があれば、その日付を新規タスクの既定にする（あとで送り防止）
+    let _aiIntentDate = null;
+    for (let j = idx - 1; j >= 0; j--) {
+      const _mm = aiMessages[j];
+      if (_mm && _mm.role === 'user') {
+        const ut = String(_mm.text || '');
+        if (/今日|きょう|本日/.test(ut)) { _aiIntentDate = ymd(new Date()); }
+        else if (/明日|あした|あす/.test(ut)) { const _d = new Date(); _d.setDate(_d.getDate() + 1); _aiIntentDate = ymd(_d); }
+        break;
+      }
+    }
     (m.tasks||[]).forEach((t, i) => {
       const cb = card && card.querySelector('[data-kind="task"][data-i="'+i+'"]');
       if (cb && !cb.checked) return;
@@ -8935,6 +8950,7 @@
       const ed = readEdit('task','date',i); if (ed) merged.date = ed; else if (ed === '' && card) merged.date = (card.querySelector('[data-edit="task-date-'+i+'"]') ? '' : merged.date);
       const et = readEdit('task','time',i); if (et) merged.time = et;
       const eh = readEdit('task','est',i); if (eh) merged.estimateHours = parseFloat(eh);
+      if ((merged.date == null || merged.date === '') && _aiIntentDate) merged.date = _aiIntentDate;
       _aiCreateTask(merged); nTask++;
     });
     (m.updates||[]).forEach((u, i) => {
@@ -11180,11 +11196,8 @@
         gcalScheduleRefresh(remaining);
         gcalOnSignedIn();
       } else {
-        // 期限切れ → 自動ではポップアップを出さない。最初のタップで静かに更新を試みる。
-        gcalAccessToken = saved; // 直前のトークンは残しておき、更新成功まで表示は維持
-        gcalTokenExpiry = expiry;
-        gcalOnSignedIn();
-        gcalArmGestureRefresh();
+        // 期限切れ → 自動ではポップアップを出さない。再接続ボタンを表示。
+        gcalShowReconnect();
       }
     }
   }
@@ -11192,24 +11205,22 @@
   // 最初のユーザー操作（タップ）に乗せてトークン更新する。
   // ユーザー操作中の requestAccessToken はiOSでもポップアップ確認が出ない。
   let gcalGestureArmed = false;
-  function gcalArmGestureRefresh() {
-    if (gcalGestureArmed || !gcalTokenClient) return;
-    gcalGestureArmed = true;
-    const handler = () => {
-      document.removeEventListener('pointerdown', handler, true);
-      document.removeEventListener('touchstart', handler, true);
-      gcalGestureArmed = false;
-      try { gcalTokenClient.requestAccessToken({ prompt: 'none' }); } catch (e) {}
-    };
-    document.addEventListener('pointerdown', handler, true);
-    document.addEventListener('touchstart', handler, true);
+  // iOS Safari ではアプリ全体のタップに乗せたトークン再取得がポップアップ頻発の原因になるため廃止。
+  // 期限切れ時は GCal パネル内の「Googleと連携」ボタンから明示的に再接続してもらう（ポップアップは連携ボタン押下時の1回だけ）。
+  function gcalShowReconnect() {
+    gcalAccessToken = null;
+    try { localStorage.removeItem('gcalToken'); localStorage.removeItem('gcalTokenExpiry'); } catch (e) {}
+    const authArea = document.getElementById('gcalAuthArea');
+    const signedArea = document.getElementById('gcalSignedArea');
+    if (authArea) authArea.style.display = 'block';
+    if (signedArea) signedArea.style.display = 'none';
   }
+  function gcalArmGestureRefresh() { gcalShowReconnect(); }
 
   // 期限が近づいたら「次のタップで更新」を仕込む（自動ポップアップは出さない）
   function gcalScheduleRefresh(expiresInMs) {
     if (gcalRefreshTimer) clearTimeout(gcalRefreshTimer);
-    const refreshIn = Math.max(expiresInMs - 5 * 60 * 1000, 5000);
-    gcalRefreshTimer = setTimeout(() => gcalArmGestureRefresh(), refreshIn);
+    // 自動トークン更新は行わない（ポップアップ抑止）。期限切れ後の最初のAPIで再接続UIを表示する。
   }
 
   // ユーザーに見せずにサイレントでトークン再取得
@@ -11385,8 +11396,8 @@
   }
 
   function gcalHandleExpired() {
-    // 自動ではポップアップを出さず、次のユーザー操作で静かに更新を試みる
-    gcalArmGestureRefresh();
+    // トークン失効: 自動ではポップアップを出さず、再接続ボタンを表示
+    gcalShowReconnect();
   }
 
   // パネルを開く
@@ -11818,7 +11829,7 @@
 </script>
 <!-- ===================== minee timer (merged) ===================== -->
 <style>
-#mzLaunch{position:fixed;right:16px;bottom:84px;z-index:9000;width:56px;height:56px;border-radius:50%;
+#mzLaunch{position:fixed;left:16px;bottom:84px;z-index:9000;width:52px;height:52px;border-radius:50%;
   border:none;background:#fff;box-shadow:0 8px 22px -8px rgba(40,50,55,.5),0 0 0 1px rgba(0,0,0,.05);
   cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
 #mzLaunch svg{display:block}
