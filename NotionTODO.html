@@ -8609,6 +8609,13 @@
           seen.add(k); return true;
         });
       }
+      // 「今日/明日」と言われたのに date 未指定の新規タスクへ、その日付を既定で入れる（カード表示＆反映の両方に反映）
+      {
+        let _intentDate = null;
+        if (/今日|きょう|本日/.test(text)) _intentDate = ymd(new Date());
+        else if (/明日|あした|あす/.test(text)) { const _d = new Date(); _d.setDate(_d.getDate() + 1); _intentDate = ymd(_d); }
+        if (_intentDate) tasks.forEach(t => { if (t && (t.date == null || String(t.date).trim() === '')) t.date = _intentDate; });
+      }
       const message = (json.message && String(json.message).trim()) || aiCleanText(reply) || '（応答が空でした。少し待って再送してください）';
       const messageWithDebug = message;
       aiMessages.push({ role: 'assistant', text: messageWithDebug, tasks, updates, projects, refMap: aiRefMap, applied: false });
