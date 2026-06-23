@@ -11816,5 +11816,372 @@
 
   init();
 </script>
+<!-- ===================== minee timer (merged) ===================== -->
+<style>
+#mzLaunch{position:fixed;right:16px;bottom:84px;z-index:9000;width:56px;height:56px;border-radius:50%;
+  border:none;background:#fff;box-shadow:0 8px 22px -8px rgba(40,50,55,.5),0 0 0 1px rgba(0,0,0,.05);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
+#mzLaunch svg{display:block}
+#mzOverlay{position:fixed;inset:0;z-index:9500;display:none;background:
+  radial-gradient(140% 110% at 50% 4%, #F3F2EF 0%, #E8E7E2 60%, #DEDDD7 100%);
+  font-family:'Manrope',-apple-system,BlinkMacSystemFont,sans-serif;color:#2A3334;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#mzOverlay.open{display:block}
+.mz-wrap{max-width:430px;margin:0 auto;padding:14px 20px 60px;display:flex;flex-direction:column;align-items:center}
+.mz-head{width:100%;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.mz-logo{font-weight:600;font-size:18px}
+.mz-close{border:none;background:transparent;font-size:22px;color:#9AA3A3;cursor:pointer;padding:6px 8px;line-height:1}
+.mz-taskbar{width:100%;margin-top:8px;background:#FCFCFB;border:1px solid #E6E7E5;border-radius:14px;padding:10px 12px;box-shadow:0 6px 18px -16px rgba(33,44,44,.6)}
+.mz-row{display:flex;align-items:center;gap:8px}
+.mz-seg{display:flex;background:#EFEEEA;border-radius:9px;padding:2px}
+.mz-seg button{border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:#8DA0A1;padding:6px 12px;border-radius:7px;cursor:pointer}
+.mz-seg button.on{background:#fff;color:#2A3334;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.mz-select{flex:1;min-width:0;border:1px solid #E6E7E5;border-radius:10px;background:#fff;font-family:inherit;font-size:13.5px;color:#2A3334;padding:9px 10px;outline:none}
+.mz-tasksub{font-size:11px;color:#9AA3A3;margin-top:6px;font-weight:500;min-height:14px}
+.mz-status{font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;display:inline-block}
+.mz-status.ok{color:#3A7D54;background:#E3F1E8}.mz-status.saving{color:#7A6A2E;background:#F2ECDA}.mz-status.error{color:#9A3B36;background:#F4DEDC}
+.mz-phase{font-size:11px;font-weight:700;letter-spacing:.34em;text-transform:uppercase;color:#9AA3A3;height:14px;margin:18px 0 0}
+.mz-stage{position:relative;width:min(74vw,288px);aspect-ratio:1/1;margin-top:14px;display:flex;align-items:center;justify-content:center}
+.mz-glow{position:absolute;z-index:0;width:72%;height:42%;left:14%;bottom:-2%;border-radius:50%;filter:blur(36px);opacity:.34}
+.mz-device{position:relative;z-index:1;width:100%;height:100%;border-radius:50%;
+  background:radial-gradient(118% 118% at 50% 36%, #FCFCFB 0%, #F1F1EE 78%, #E9E9E5 100%);
+  box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 24px 42px -22px rgba(38,46,48,.45),0 6px 14px -10px rgba(38,46,48,.3);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .25s ease}
+.mz-device:active{transform:scale(.99)}
+.mz-device.idle{animation:mzBreathe 4.4s ease-in-out infinite}
+@keyframes mzBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.012)}}
+.mz-led{position:absolute;top:6.5%;left:50%;transform:translateX(-50%);z-index:2;width:9px;height:5px;border-radius:3px}
+.mz-facebox{position:relative;width:77%;aspect-ratio:1/1}
+.mz-svg{width:100%;height:100%;display:block}
+.mz-info{margin-top:20px;height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.mz-primary{font-size:21px;font-weight:400;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.mz-primary.hint{font-size:14.5px;color:#9AA3A3;font-weight:500}
+.mz-secondary{font-size:12px;color:#9AA3A3;font-weight:500;letter-spacing:.06em}
+.mz-pips{display:flex;gap:8px;margin-top:14px;height:8px}
+.mz-pip{width:7px;height:7px;border-radius:50%;background:#E6E7E5;transition:.3s}
+.mz-actions{display:flex;gap:10px;margin-top:22px;align-items:center}
+.mz-btn{border:1px solid #E6E7E5;background:#fff;color:#2A3334;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:9px 16px;border-radius:999px}
+.mz-btn.ghost{border:none;background:transparent;color:#9AA3A3}
+.mz-swatches{display:flex;gap:13px;margin-top:24px}
+.mz-sw{width:20px;height:20px;border-radius:50%;cursor:pointer;border:none;padding:0;box-shadow:0 2px 5px -2px rgba(0,0,0,.32);position:relative}
+.mz-sw.on::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1.5px solid #2A3334}
+.mz-panel{width:100%;background:#FCFCFB;border:1px solid #E6E7E5;border-radius:18px;margin-top:18px;overflow:hidden}
+.mz-prow{display:flex;align-items:center;justify-content:space-between;padding:13px 14px}
+.mz-prow+.mz-prow{border-top:1px solid #E6E7E5}
+.mz-prow b{font-size:14px;font-weight:600}
+.mz-prow span{display:block;font-size:11px;color:#9AA3A3;margin-top:1px}
+.mz-step{display:flex;align-items:center;gap:12px}
+.mz-sb{width:32px;height:32px;border-radius:50%;border:1px solid #E6E7E5;background:#fff;font-size:18px;color:#2A3334;cursor:pointer;font-family:inherit;line-height:1;display:flex;align-items:center;justify-content:center}
+.mz-sb:disabled{opacity:.35}
+.mz-val{min-width:58px;text-align:center;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.mz-val small{font-size:10px;color:#9AA3A3;margin-left:2px;font-weight:500}
+.mz-toggle{width:42px;height:24px;border-radius:999px;background:#E6E7E5;position:relative;cursor:pointer;border:none;flex:none}
+.mz-toggle.on{background:var(--mzc,#6E8FC0)}
+.mz-toggle::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.mz-toggle.on::after{transform:translateX(18px)}
+.mz-foot{font-size:11px;color:#9AA3A3;margin-top:22px;text-align:center;line-height:1.7}
+.mz-spin{width:13px;height:13px;border:2px solid rgba(0,0,0,.15);border-top-color:#2A3334;border-radius:50%;display:inline-block;animation:mzSpin .7s linear infinite;vertical-align:-2px}
+@keyframes mzSpin{to{transform:rotate(360deg)}}
+</style>
+
+<button id="mzLaunch" aria-label="mineeタイマー">
+  <svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="12" fill="none" stroke="#E6E7E5" stroke-width="4"/><path id="mzLaunchArc" d="" fill="#6E8FC0"/><circle cx="15" cy="15" r="5" fill="#FBFBF9"/></svg>
+</button>
+
+<div id="mzOverlay">
+  <div class="mz-wrap">
+    <div class="mz-head">
+      <div class="mz-logo">minee<span id="mzDotLogo" style="color:#6E8FC0">.</span></div>
+      <button class="mz-close" id="mzClose">×</button>
+    </div>
+
+    <div class="mz-taskbar">
+      <div class="mz-row">
+        <div class="mz-seg">
+          <button id="mzSegToday" class="on">今日</button>
+          <button id="mzSegTmr">明日</button>
+        </div>
+        <select id="mzSelect" class="mz-select"><option value="">タスクを選択</option></select>
+      </div>
+      <div class="mz-tasksub"><span id="mzTaskSub"></span> <span id="mzStatus"></span></div>
+    </div>
+
+    <div class="mz-phase" id="mzPhase">·</div>
+
+    <div class="mz-stage">
+      <div class="mz-glow" id="mzGlow"></div>
+      <div class="mz-device idle" id="mzDevice" role="button" tabindex="0" aria-label="スタート">
+        <div class="mz-led" id="mzLed"></div>
+        <div class="mz-facebox">
+          <svg class="mz-svg" viewBox="0 0 240 240">
+            <defs><filter id="mzHub" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.5" stdDeviation="2.6" flood-color="#000" flood-opacity="0.14"/></filter></defs>
+            <circle cx="120" cy="120" r="116" fill="#EBE9E3"/>
+            <circle cx="120" cy="120" r="116" fill="none" stroke="rgba(0,0,0,.05)" stroke-width="2"/>
+            <g id="mzRingG"><circle id="mzRing" cx="120" cy="120" r="78" fill="none" stroke="#6E8FC0" stroke-width="52" stroke-linecap="butt"/></g>
+            <circle cx="120" cy="120" r="44" fill="#FBFBF9" filter="url(#mzHub)"/>
+            <g transform="rotate(28 120 120)"><circle cx="120" cy="120" r="10" fill="none" stroke="#BFC0BA" stroke-width="4.6" stroke-linecap="round" stroke-dasharray="45 63"/></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="mz-info">
+      <div class="mz-primary hint" id="mzPrimary">タップでスタート</div>
+      <div class="mz-secondary" id="mzSecondary"></div>
+    </div>
+
+    <div class="mz-pips" id="mzPips"></div>
+
+    <div class="mz-actions">
+      <button class="mz-btn ghost" id="mzReset">リセット</button>
+      <button class="mz-btn" id="mzRecNow" style="display:none">今の集中を記録</button>
+    </div>
+
+    <div class="mz-swatches" id="mzSwatches"></div>
+
+    <div class="mz-panel">
+      <div class="mz-prow"><div><b>集中時間</b><span>1セットの長さ</span></div>
+        <div class="mz-step"><button class="mz-sb" data-f="focus" data-d="-5">−</button><div class="mz-val" id="mzFocusV">25<small>分</small></div><button class="mz-sb" data-f="focus" data-d="5">+</button></div></div>
+      <div class="mz-prow"><div><b>休憩時間</b><span>集中のあとの休み</span></div>
+        <div class="mz-step"><button class="mz-sb" data-f="brk" data-d="-1">−</button><div class="mz-val" id="mzBrkV">5<small>分</small></div><button class="mz-sb" data-f="brk" data-d="1">+</button></div></div>
+      <div class="mz-prow"><div><b>繰り返し</b><span>集中＋休憩のセット数</span></div>
+        <div class="mz-step"><button class="mz-sb" data-f="reps" data-d="-1">−</button><div class="mz-val" id="mzRepsV">4<small>回</small></div><button class="mz-sb" data-f="reps" data-d="1">+</button></div></div>
+      <div class="mz-prow"><div><b>開始/終了日時も記録</b><span>オフなら実績時間だけ更新</span></div>
+        <button class="mz-toggle" id="mzStamp" aria-label="開始終了日時"></button></div>
+    </div>
+
+    <div class="mz-foot">集中が終わるたびに、選択中タスクの<br>(C)手入力実績時間_out に時間を加算します</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var MZ_PROXY='https://little-sea-b29e.fituni19taniguchi.workers.dev';
+  var COLORS=[
+    {key:'marine',disk:'#6E8FC0'},{key:'sea',disk:'#6FA98A'},{key:'lilac',disk:'#9C90C8'},
+    {key:'cherry',disk:'#D9554F'},{key:'cocoa',disk:'#B58A63'},{key:'midnight',disk:'#3E5A86'}
+  ];
+  function $(id){return document.getElementById(id);}
+  function r2(x){return Math.round(x*100)/100;}
+  function pad(n){return String(n).padStart(2,'0');}
+  function ymdLocal(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+  function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+  function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+  function mzSettings(){try{return JSON.parse(localStorage.getItem('notionSettings')||'{}');}catch(e){return {};}}
+  async function mzApi(path,method,body){
+    var s=mzSettings(); if(!s.token) throw new Error('Notion未設定（アプリの⚙でトークン設定）');
+    var opts={method:method,headers:{'Authorization':'Bearer '+s.token,'Notion-Version':'2022-06-28','Content-Type':'application/json'}};
+    if(body) opts.body=JSON.stringify(body);
+    var res=await fetch(MZ_PROXY+'/v1'+path,opts);
+    var data=await res.json();
+    if(!res.ok) throw new Error(data.message||JSON.stringify(data));
+    return data;
+  }
+
+  // ---- state ----
+  var st={focus:25,brk:5,reps:4};
+  var saved=load('mineeTimer:settings',null); if(saved) st=saved;
+  var theme=COLORS[0]; var tk=load('mineeTimer:theme',null); if(tk){var f=COLORS.find(function(c){return c.key===tk;}); if(f) theme=f;}
+  var stamp=!!load('mineeTimer:stamp',false);
+  var phase='idle',running=false,currentRep=1,sessionPomos=0,secondsLeft=st.focus*60;
+  var endAt=0,totalSec=st.focus*60,raf=0,accounted=0,startStamped=false,sessionStart=0,dayMode='today';
+  var task=null; // {pageId,name,estimate}
+
+  // ---- task lists from localStorage.tasks ----
+  function taskYmd(t){
+    var d=t['(A)実行日']; if(!d||!d.start) return null;
+    var s=d.start, datePart=s.substring(0,10);
+    if(s.length>10){var h=parseInt(s.substring(11,13),10); if(h>=24){var dt=new Date(datePart+'T00:00:00'); dt.setDate(dt.getDate()+1); datePart=ymdLocal(dt);}}
+    return datePart;
+  }
+  function hLabel(h){ if(!h) return ''; var m=Math.round(h*60); if(m<60) return m+'分'; if(m%60===0) return (m/60)+'h'; return Math.floor(m/60)+'h'+(m%60); }
+  function listFor(mode){
+    var all=load('tasks',[])||[];
+    var today=ymdLocal(new Date());
+    var tmr=new Date(); tmr.setDate(tmr.getDate()+1); var tmrS=ymdLocal(tmr);
+    var want=mode==='today'?today:tmrS;
+    return all.filter(function(t){ return t && !t['(A)done'] && (t._notionId||t.id) && taskYmd(t)===want; });
+  }
+  function rebuildSelect(){
+    var sel=$('mzSelect'); var items=listFor(dayMode);
+    var cur=task?task.pageId:'';
+    var html='<option value="">タスクを選択（'+(dayMode==='today'?'今日':'明日')+'）</option>';
+    items.forEach(function(t){
+      var pid=(t._notionId||t.id); var est=t['(C)見込み/h'];
+      var lbl=t.name||'(無題)'; if(est) lbl+=' ・見込み '+hLabel(est);
+      html+='<option value="'+pid+'">'+lbl.replace(/</g,'&lt;')+'</option>';
+    });
+    sel.innerHTML=html;
+    if(cur) sel.value=cur;
+    if(!items.length){ $('mzTaskSub').textContent='この日に未完了タスクがありません（アプリで同期してね）'; }
+    else if(!task){ $('mzTaskSub').textContent=items.length+'件'; }
+  }
+  function onPick(){
+    var sel=$('mzSelect'); var pid=sel.value;
+    if(!pid){ task=null; $('mzTaskSub').textContent=''; updateRecBtn(); return; }
+    var opt=sel.options[sel.selectedIndex];
+    task={pageId:pid,name:opt.textContent,estimate:null};
+    $('mzTaskSub').textContent='選択中: '+opt.textContent;
+    setStatus('','');
+    updateRecBtn();
+  }
+
+  // ---- visuals ----
+  function applyTheme(){
+    var c=theme.disk;
+    document.documentElement.style.setProperty('--mzc',c);
+    $('mzRing').setAttribute('stroke',c);
+    $('mzGlow').style.background=c;
+    $('mzLed').style.background=c; $('mzLed').style.boxShadow='0 0 6px '+c;
+    $('mzDotLogo').style.color=c;
+    $('mzLaunchArc').setAttribute('fill',c);
+    $('mzStamp').style.setProperty('--mzc',c);
+    var sw=$('mzSwatches'); 
+    [].forEach.call(sw.children,function(b){ b.className='mz-sw'+(b.dataset.k===theme.key?' on':''); });
+  }
+  function fmt(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+pad(s%60); }
+  var Rmid=78, Cir=2*Math.PI*Rmid;
+  function paint(){
+    var frac = phase==='done'?0:(phase==='idle'?1:Math.max(0,Math.min(1,secondsLeft/(totalSec||1))));
+    var gap=(1-frac)*360;
+    $('mzRingG').setAttribute('transform','rotate('+(-90+gap)+' 120 120)');
+    $('mzRing').setAttribute('stroke-dasharray',(frac*Cir)+' '+Cir);
+    // launcher mini arc mirrors
+    var la=$('mzLaunchArc'); var lf=frac; var lcx=15,lcy=15,lr=12;
+    if(lf>=0.999){ la.setAttribute('d',''); $('#mzLaunchRing'); }
+    var phaseLabel = phase==='focus'?'集中':phase==='break'?'休憩':phase==='done'?'完了':'';
+    var ph=$('mzPhase'); ph.textContent=phaseLabel||'·'; ph.style.color= phase==='idle'?'transparent':theme.disk;
+    var primary,secondary,hint=false;
+    if(phase==='idle'){primary='タップでスタート';hint=true;secondary=st.focus+'分 × '+st.reps+'回';}
+    else if(phase==='done'){primary='完了';hint=true;secondary=sessionPomos+' ポモ';}
+    else if(!running){primary='タップで再開';hint=true;secondary=fmt(secondsLeft);}
+    else {primary=fmt(secondsLeft);secondary=currentRep+' / '+st.reps;}
+    var p=$('mzPrimary'); p.textContent=primary; p.className='mz-primary'+(hint?' hint':'');
+    $('mzSecondary').textContent=secondary;
+    var dev=$('mzDevice'); if(phase==='idle'){dev.classList.add('idle');}else{dev.classList.remove('idle');}
+    // pips
+    var pips=$('mzPips'); if(pips.children.length!==st.reps){ pips.innerHTML=''; for(var i=0;i<st.reps;i++){var d=document.createElement('div');d.className='mz-pip';pips.appendChild(d);} }
+    [].forEach.call(pips.children,function(d,i){
+      var done=i<sessionPomos, cur=(i===sessionPomos&&(phase==='focus'||phase==='break'));
+      d.style.background=(done||cur)?theme.disk:'#E6E7E5';
+      d.style.opacity=(cur&&!done)?0.5:1; d.style.transform=cur?'scale(1.3)':'none';
+    });
+  }
+  function renderSteppers(){
+    $('mzFocusV').innerHTML=(st.focus>=60?(st.focus%60===0?(st.focus/60)+'<small>時間</small>':Math.floor(st.focus/60)+'h'+(st.focus%60)):st.focus+'<small>分</small>');
+    $('mzBrkV').innerHTML=st.brk+'<small>分</small>';
+    $('mzRepsV').innerHTML=st.reps+'<small>回</small>';
+  }
+  function setStatus(state,msg){
+    var el=$('mzStatus'); if(!state){el.className='';el.innerHTML='';return;}
+    el.className='mz-status '+state;
+    el.innerHTML=(state==='saving')?'<span class="mz-spin"></span>':msg;
+  }
+  function updateRecBtn(){ $('mzRecNow').style.display=(task&&(phase==='focus'||phase==='break'))?'inline-block':'none'; }
+
+  // ---- chime ----
+  function chime(kind){
+    try{var C=window.AudioContext||window.webkitAudioContext;var ctx=new C();
+      var notes=kind==='focus'?[660,880]:kind==='done'?[523,659,784]:[520,392];
+      notes.forEach(function(f,i){var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=f;var t=ctx.currentTime+i*0.16;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.15,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.5);o.start(t);o.stop(t+0.52);});
+    }catch(e){}
+  }
+
+  // ---- Notion write ----
+  async function writeFocus(addSeconds){
+    if(!task||addSeconds<=0) return;
+    var addH=r2(addSeconds/3600);
+    setStatus('saving','');
+    try{
+      var pid=task.pageId.replace(/-/g,'');
+      var page=await mzApi('/pages/'+pid,'GET');
+      var cur=(page.properties&&page.properties['(C)手入力実績時間_out']&&page.properties['(C)手入力実績時間_out'].number)||0;
+      var next=r2(cur+addH);
+      var props={'(C)手入力実績時間_out':{number:next}};
+      if(stamp){
+        var s=mzSettings(); var sp=(s.props&&s.props.start)||'(c)開始日時'; var ep=(s.props&&s.props.end)||'(c)終了日時';
+        var nowIso=new Date().toISOString();
+        if(!startStamped){ props[sp]={date:{start:new Date(sessionStart||Date.now()).toISOString()}}; }
+        props[ep]={date:{start:nowIso}};
+      }
+      await mzApi('/pages/'+pid,'PATCH',{properties:props});
+      startStamped=true;
+      setStatus('ok','記録 '+next+'h');
+    }catch(e){ setStatus('error','記録失敗'); }
+  }
+
+  // ---- timer loop ----
+  function begin(ph,secs){ totalSec=secs; endAt=Date.now()+secs*1000; secondsLeft=secs; phase=ph; }
+  function onEnd(){
+    if(phase==='focus'){
+      chime('focus'); sessionPomos++; 
+      var unrec=st.focus*60-accounted; accounted=0; writeFocus(unrec);
+      begin('break',st.brk*60);
+    } else if(phase==='break'){
+      if(currentRep<st.reps){ chime('break'); currentRep++; begin('focus',st.focus*60); }
+      else { chime('done'); secondsLeft=0; phase='done'; running=false; }
+    }
+    updateRecBtn(); paint();
+  }
+  function tick(){
+    if(!running) return;
+    var rem=(endAt-Date.now())/1000;
+    if(rem<=0){ onEnd(); if(running){ raf=requestAnimationFrame(tick);} return; }
+    secondsLeft=rem; paint(); raf=requestAnimationFrame(tick);
+  }
+  function startTimer(){
+    if(phase==='idle'||phase==='done'){
+      currentRep=1; sessionPomos=0; accounted=0; startStamped=false; sessionStart=Date.now();
+      begin('focus',st.focus*60); running=true; updateRecBtn();
+    } else { endAt=Date.now()+secondsLeft*1000; running=true; }
+    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint();
+  }
+  function pauseTimer(){ running=false; cancelAnimationFrame(raf); paint(); }
+  function toggle(){ running?pauseTimer():startTimer(); }
+  function reset(){ running=false; cancelAnimationFrame(raf); phase='idle'; currentRep=1; sessionPomos=0; accounted=0; secondsLeft=st.focus*60; totalSec=st.focus*60; updateRecBtn(); paint(); }
+  function recordNow(){
+    if(phase!=='focus') return;
+    var elapsed=totalSec-secondsLeft; var add=elapsed-accounted;
+    if(add>1){ accounted+=add; writeFocus(add); }
+  }
+
+  // ---- wire up ----
+  function buildSwatches(){
+    var sw=$('mzSwatches'); sw.innerHTML='';
+    COLORS.forEach(function(c){ var b=document.createElement('button'); b.className='mz-sw'+(c.key===theme.key?' on':''); b.style.background=c.disk; b.dataset.k=c.key; b.onclick=function(){ theme=c; save('mineeTimer:theme',c.key); applyTheme(); paint(); }; sw.appendChild(b); });
+  }
+  function setField(f,d){
+    if(f==='focus'){ st.focus=Math.min(1440,Math.max(1, st.focus+(st.focus>=60? (d>0?10:-10):d) )); }
+    else if(f==='brk'){ st.brk=Math.min(120,Math.max(1,st.brk+d)); }
+    else if(f==='reps'){ st.reps=Math.min(9,Math.max(1,st.reps+d)); }
+    save('mineeTimer:settings',st);
+    if(phase==='idle'){ secondsLeft=st.focus*60; totalSec=st.focus*60; }
+    renderSteppers(); paint();
+  }
+
+  function open(){ $('mzOverlay').classList.add('open'); rebuildSelect(); applyTheme(); renderSteppers(); paint(); }
+  function close(){ $('mzOverlay').classList.remove('open'); }
+
+  function init(){
+    buildSwatches(); applyTheme(); renderSteppers(); paint();
+    $('mzLaunch').onclick=open;
+    $('mzClose').onclick=close;
+    $('mzDevice').onclick=toggle;
+    $('mzDevice').onkeydown=function(e){ if(e.key===' '||e.key==='Enter'){e.preventDefault();toggle();} };
+    $('mzReset').onclick=reset;
+    $('mzRecNow').onclick=recordNow;
+    $('mzSelect').onchange=onPick;
+    $('mzSegToday').onclick=function(){ dayMode='today'; this.classList.add('on'); $('mzSegTmr').classList.remove('on'); rebuildSelect(); };
+    $('mzSegTmr').onclick=function(){ dayMode='tmr'; this.classList.add('on'); $('mzSegToday').classList.remove('on'); rebuildSelect(); };
+    $('mzStamp').className='mz-toggle'+(stamp?' on':''); $('mzStamp').style.setProperty('--mzc',theme.disk);
+    $('mzStamp').onclick=function(){ stamp=!stamp; save('mineeTimer:stamp',stamp); this.className='mz-toggle'+(stamp?' on':''); };
+    [].forEach.call(document.querySelectorAll('.mz-sb'),function(b){ b.onclick=function(){ setField(b.dataset.f, parseInt(b.dataset.d,10)); }; });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+<!-- =================== end minee timer =================== -->
+
 </body>
 </html>
