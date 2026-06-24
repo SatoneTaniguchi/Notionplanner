@@ -1,43 +1,53 @@
-// NotionTODO Service Worker
-// HTML(ナビゲーション)はネットワーク優先で常に最新を取得し、
-// 古い版が動き続ける問題を防ぐ。アセットはキャッシュ優先＋裏で更新。
-const CACHE = 'notiontodo-2026-06-11r';
+/* NotionTODO Service Worker
+   方針:
+   - HTML（ページ遷移）は「ネットワーク優先」。オンライン中は常に最新を取得するので、
+     ホーム画面PWAでも全機能（TODO/ルーチン/プロジェクト/グラフ/AI）が最新版で表示される。
+     オフライン時のみ直近キャッシュにフォールバック。
+   - 同一オリジンの静的ファイルは stale-while-revalidate（表示は速く、裏で更新）。
+   - 他オリジン（Notionプロキシ workers.dev、Google認証/カレンダーなど）は一切インターセプトしない。
+   - 起動時に古いキャッシュを破棄し、即座に制御を奪って最新へ更新する。
+*/
+const CACHE = 'notiontodo-2026-06-24-1';
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', (event) => {
+  // 新しいSWを待たせず即アクティブ化
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil((async () => {
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    // 古いバージョンのキャッシュを全削除（旧シェルの残留を防ぐ）
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });
 
-self.addEventListener('message', (e) => {
-  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+// ページ側から SKIP_WAITING を受けたら即時切替
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
-self.addEventListener('fetch', (e) => {
-  const req = e.request;
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
   if (req.method !== 'GET') return;
 
   let url;
-  try { url = new URL(req.url); } catch (_) { return; }
-  // 別オリジン（Notion/Google等のAPI）は素通し
+  try { url = new URL(req.url); } catch (e) { return; }
+
+  // 他オリジン（API/認証/プロキシ等）はそのまま通す＝触らない
   if (url.origin !== self.location.origin) return;
 
   const accept = req.headers.get('accept') || '';
-  const isHTML = req.mode === 'navigate' || accept.includes('text/html');
+  const isNavigation = req.mode === 'navigate' || accept.includes('text/html');
 
-  if (isHTML) {
-    // ネットワーク優先：常に最新のHTMLを取得。失敗時のみキャッシュ。
-    e.respondWith((async () => {
+  if (isNavigation) {
+    // HTMLはネットワーク優先（最新の全機能版を常に取得）
+    event.respondWith((async () => {
       try {
-        const fresh = await fetch(req, { cache: 'no-store' });
-        const c = await caches.open(CACHE);
-        c.put(req, fresh.clone());
+        const fresh = await fetch(req);
+        const cache = await caches.open(CACHE);
+        cache.put(req, fresh.clone());
         return fresh;
       } catch (err) {
         const cached = await caches.match(req);
@@ -47,12 +57,12 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // その他アセット：キャッシュ優先（あれば即返し、裏で更新）
-  e.respondWith((async () => {
+  // 同一オリジンの静的アセット: stale-while-revalidate
+  event.respondWith((async () => {
     const cached = await caches.match(req);
     const network = fetch(req).then((res) => {
-      if (res && res.status === 200) {
-        caches.open(CACHE).then(c => c.put(req, res.clone()));
+      if (res && res.status === 200 && res.type === 'basic') {
+        caches.open(CACHE).then((c) => c.put(req, res.clone()));
       }
       return res;
     }).catch(() => cached);
