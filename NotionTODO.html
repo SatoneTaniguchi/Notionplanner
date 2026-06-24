@@ -11843,39 +11843,51 @@
   border:none;background:#fff;box-shadow:0 8px 22px -8px rgba(40,50,55,.5),0 0 0 1px rgba(0,0,0,.05);
   cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
 #tdyLaunch svg{display:block}
-#tdyOverlay{position:fixed;inset:0;z-index:9400;display:none;background:linear-gradient(180deg,#FBFBFA 0%,#F4F4F2 100%);
-  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Manrope',sans-serif;color:#2A3334;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#tdyOverlay{position:fixed;inset:0;z-index:9400;display:none;background:#FAFAFB;
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Manrope',sans-serif;color:#1c1c1e;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 #tdyOverlay.open{display:block}
-.tdy-wrap{max-width:480px;margin:0 auto;padding:14px 18px 120px;}
-.tdy-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
-.tdy-title{font-weight:700;font-size:19px}
-.tdy-close{border:none;background:transparent;font-size:24px;color:#9AA3A3;cursor:pointer;padding:4px 8px;line-height:1}
-.tdy-datebar{display:flex;align-items:center;gap:10px;margin:10px 0 4px}
-.tdy-nav{width:30px;height:30px;border-radius:50%;border:1px solid #E6E7E5;background:#fff;color:#2A3334;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.tdy-dlabel{font-size:14px;font-weight:600;color:#4A5555}
-.tdy-today-btn{margin-left:auto;font-size:12px;font-weight:700;color:#6E8FC0;background:#EEF2F9;border:none;border-radius:999px;padding:6px 12px;cursor:pointer}
-.tdy-prog{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
-.tdy-prog .chk{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:#4A5555}
-.tdy-prog .bar{flex:1;height:7px;border-radius:999px;background:#E9E9E6;overflow:hidden}
-.tdy-prog .bar > i{display:block;height:100%;background:#6E8FC0;border-radius:999px;transition:width .35s}
-.tdy-coin{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:800;color:#B07A00;background:#FFF6D8;border:1px solid #F1DE97;border-radius:999px;padding:4px 11px 4px 9px}
-.tdy-sec{margin-top:18px}
-.tdy-sec-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.tdy-sec-h .ic{width:20px;height:20px;flex:none;color:#9AA3A3}
-.tdy-sec-h .lb{font-size:14px;font-weight:700;color:#5A6565}
-.tdy-sec-h .ln{flex:1;height:1px;background:#EAEAE7}
-.tdy-sec-h .ct{font-size:11px;color:#AEB4B4;font-weight:600}
-.tdy-empty{border:1.5px dashed #DADBD6;border-radius:14px;padding:14px;text-align:center;color:#B7BCBC;font-size:12.5px}
-.tdy-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid #F0F0ED}
-.tdy-ico{width:44px;height:44px;flex:none;border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
-.tdy-ico svg{width:44px;height:44px;display:block}
+.tdy-wrap{max-width:520px;margin:0 auto;padding:8px 16px 120px;}
+.tdy-head{display:flex;align-items:center;justify-content:flex-end;height:34px}
+.tdy-close{border:none;background:transparent;font-size:25px;color:#b8bcc2;cursor:pointer;padding:4px 6px;line-height:1}
+
+/* 週バー */
+.tdy-week{display:flex;align-items:stretch;gap:2px;margin:2px 0 6px}
+.tdy-warrow{width:26px;flex:none;border:none;background:transparent;color:#c0c4ca;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tdy-days{flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:0}
+.tdy-day{display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 0 8px;border-radius:14px;cursor:pointer;background:transparent;border:none;font-family:inherit}
+.tdy-day .wd{font-size:12px;color:#aeb2b8;font-weight:600}
+.tdy-day .dn{font-size:17px;color:#3a3a3c;font-weight:600;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:11px}
+.tdy-day.today .wd{color:#6c5ce7;font-weight:800}
+.tdy-day.sel .dn{background:#ece9fb;color:#5b46d6;font-weight:800}
+.tdy-day.sun .wd{color:#e3796f}.tdy-day.sat .wd{color:#6f93e3}
+
+/* 進捗 + コイン */
+.tdy-bar{display:flex;align-items:center;justify-content:space-between;margin:8px 2px 4px}
+.tdy-done{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;color:#3a3a3c}
+.tdy-done .ck{color:#6c5ce7;font-size:20px}
+.tdy-coin{display:flex;align-items:center;gap:5px;font-size:16px;font-weight:800;color:#9a7b00;background:linear-gradient(180deg,#FFF7DA,#FCEFB6);border:1px solid #F0DE93;border-radius:999px;padding:5px 13px 5px 10px}
+
+/* セクション */
+.tdy-sec{margin-top:20px}
+.tdy-sec-h{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.tdy-sec-h .ic{width:22px;height:22px;flex:none;color:#b0b4ba}
+.tdy-sec-h .lb{font-size:15px;font-weight:700;color:#6a6f76}
+.tdy-sec-h .ln{flex:1;height:1px;background:#ececec}
+
+.tdy-row{display:flex;align-items:center;gap:14px;padding:12px 2px}
+.tdy-ico{width:56px;height:56px;flex:none;border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.tdy-ico svg{width:56px;height:56px;display:block}
+.tdy-check{width:56px;height:56px;flex:none;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6c5ce7}
 .tdy-body{flex:1;min-width:0;cursor:pointer}
-.tdy-name{font-size:15.5px;font-weight:600;color:#2A3334;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tdy-row.done .tdy-name{color:#AEB4B4;text-decoration:line-through}
-.tdy-sub{font-size:11.5px;color:#9AA3A3;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
-.tdy-sub .rep{color:#6E8FC0}
-.tdy-edit{border:none;background:transparent;color:#C2C7C7;font-size:16px;cursor:pointer;padding:8px;flex:none}
-.tdy-foot{text-align:center;color:#B7BCBC;font-size:11px;margin-top:24px}
+.tdy-rep{display:flex;align-items:center;gap:4px;color:#9aa0c8;font-size:11px;margin-bottom:1px}
+.tdy-rep svg{width:13px;height:13px}
+.tdy-name{font-size:21px;font-weight:500;color:#2a2a2c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+.tdy-row.done .tdy-name{color:#bcbfc4;text-decoration:line-through}
+.tdy-meta{font-size:12px;color:#a7abb1;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.tdy-edit{width:42px;height:42px;flex:none;border:none;background:#f3f3f4;border-radius:50%;color:#b7bbc1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tdy-edit svg{width:18px;height:18px}
+.tdy-add{width:100%;border:2px dashed #d9dade;border-radius:18px;background:transparent;color:#c4c7cc;font-size:26px;padding:20px 0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tdy-foot{text-align:center;color:#c3c6cb;font-size:11px;margin-top:28px}
 </style>
 
 <button id="tdyLaunch" aria-label="今日のタスク">
@@ -11888,23 +11900,18 @@
 
 <div id="tdyOverlay">
   <div class="tdy-wrap">
-    <div class="tdy-head">
-      <div class="tdy-title">今日のタスク</div>
-      <button class="tdy-close" id="tdyClose">×</button>
+    <div class="tdy-head"><button class="tdy-close" id="tdyClose">×</button></div>
+    <div class="tdy-week">
+      <button class="tdy-warrow" id="tdyPrev">‹</button>
+      <div class="tdy-days" id="tdyDays"></div>
+      <button class="tdy-warrow" id="tdyNext">›</button>
     </div>
-    <div class="tdy-datebar">
-      <button class="tdy-nav" id="tdyPrev">‹</button>
-      <div class="tdy-dlabel" id="tdyDLabel">—</div>
-      <button class="tdy-nav" id="tdyNext">›</button>
-      <button class="tdy-today-btn" id="tdyTodayBtn">今日</button>
-    </div>
-    <div class="tdy-prog">
-      <div class="chk"><span style="color:#6E8FC0">✓</span> <span id="tdyDone">0</span>/<span id="tdyTotal">0</span></div>
-      <div class="bar"><i id="tdyBar" style="width:0%"></i></div>
+    <div class="tdy-bar">
+      <div class="tdy-done"><span class="ck">✓</span> <span id="tdyDone">0</span>/<span id="tdyTotal">0</span></div>
       <div class="tdy-coin"><span class="coin-ico"></span><span id="tdyCoin">0</span></div>
     </div>
     <div id="tdySections"></div>
-    <div class="tdy-foot">タスクをタップで完了 / 名前をタップで編集</div>
+    <div class="tdy-foot">雲をタップで完了 / 名前をタップで編集</div>
   </div>
 </div>
 
@@ -11913,12 +11920,11 @@
   "use strict";
   function $(id){return document.getElementById(id);}
   function pad(n){return String(n).padStart(2,'0');}
-  function ymdLocal(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
   function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
   var WD=['日','月','火','水','木','金','土'];
-  var tdyOffset=0;
+  var selDate=new Date(); selDate.setHours(0,0,0,0);
 
-  // ---- 雲キャラ生成 ----
+  // ---- 雲キャラ ----
   function cloudPath(cx,cy,R,amp,n){
     var p='';
     for(var i=0;i<n;i++){
@@ -11931,93 +11937,117 @@
     }
     return p+'Z';
   }
-  var CLOUD=cloudPath(22,22,13.5,3.0,11);
-  // launcherの雲もセット
-  try{ var lc=document.getElementById('tdyLaunchCloud'); if(lc) lc.setAttribute('d', cloudPath(22,22,14,3.1,11)); }catch(e){}
-
+  var CLOUD=cloudPath(28,27,17,3.6,12);
+  try{ var lc=$('tdyLaunchCloud'); if(lc) lc.setAttribute('d', cloudPath(22,22,14,3.1,11)); }catch(e){}
   function hashStr(s){ var h=0; s=String(s||''); for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
   function face(v){
-    // 0:にっこり 1:大笑い 2:ふつう 3:ねむい
-    if(v===1) return "<path d='M18.5 23.5 Q20 22 21.5 23.5' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/><path d='M26.5 23.5 Q28 22 29.5 23.5' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/><path d='M19.5 26.5 Q24 32 28.5 26.5 Z' fill='#fff' stroke='%COL%' stroke-width='1.7' stroke-linejoin='round'/>";
-    if(v===2) return "<circle cx='19' cy='24' r='1.5' fill='%COL%'/><circle cx='27' cy='24' r='1.5' fill='%COL%'/><path d='M22 28 H26' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/>";
-    if(v===3) return "<path d='M17.8 24.4 Q19.3 25.4 20.8 24.4' fill='none' stroke='%COL%' stroke-width='1.6' stroke-linecap='round'/><path d='M25.2 24.4 Q26.7 25.4 28.2 24.4' fill='none' stroke='%COL%' stroke-width='1.6' stroke-linecap='round'/><path d='M22 28.5 Q24 27.4 26 28.5' fill='none' stroke='%COL%' stroke-width='1.6' stroke-linecap='round'/>";
-    return "<circle cx='19' cy='24' r='1.6' fill='%COL%'/><circle cx='27' cy='24' r='1.6' fill='%COL%'/><path d='M19.8 27 Q24 30.5 28.2 27' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/>";
+    var C='#2A3334';
+    if(v===1) return "<path d='M22 25 Q24 23 26 25' fill='none' stroke='"+C+"' stroke-width='1.9' stroke-linecap='round'/><path d='M30 25 Q32 23 34 25' fill='none' stroke='"+C+"' stroke-width='1.9' stroke-linecap='round'/><path d='M23 29 Q28 35 33 29 Z' fill='#fff' stroke='"+C+"' stroke-width='1.9' stroke-linejoin='round'/>";
+    if(v===2) return "<circle cx='23' cy='26' r='1.7' fill='"+C+"'/><circle cx='33' cy='26' r='1.7' fill='"+C+"'/><path d='M26 31 H30' stroke='"+C+"' stroke-width='1.9' stroke-linecap='round'/>";
+    if(v===3) return "<path d='M21.5 26.5 Q23.2 27.6 24.9 26.5' fill='none' stroke='"+C+"' stroke-width='1.7' stroke-linecap='round'/><path d='M31.1 26.5 Q32.8 27.6 34.5 26.5' fill='none' stroke='"+C+"' stroke-width='1.7' stroke-linecap='round'/><path d='M26 31 Q28 29.7 30 31' fill='none' stroke='"+C+"' stroke-width='1.7' stroke-linecap='round'/>";
+    return "<circle cx='23' cy='26' r='1.8' fill='"+C+"'/><circle cx='33' cy='26' r='1.8' fill='"+C+"'/><path d='M23.8 30 Q28 34 32.2 30' fill='none' stroke='"+C+"' stroke-width='1.9' stroke-linecap='round'/>";
   }
-  function cloudSvg(seed, done){
-    var col='#2A3334';
-    var f = done ? face(1) : face(hashStr(seed)%4);
-    f = f.split('%COL%').join(col);
-    var check = done ? "<circle cx='35' cy='34' r='8' fill='#5BBd84'/><path d='M31.5 34 l2.4 2.4 4-4.6' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>" : "";
-    return "<svg viewBox='0 0 44 44' xmlns='http://www.w3.org/2000/svg'><path d='"+CLOUD+"' fill='"+(done?'#F1F5F1':'#fff')+"' stroke='"+col+"' stroke-width='2'/>"+f+check+"</svg>";
+  function cloudSvg(seed){
+    return "<svg viewBox='0 0 56 56' xmlns='http://www.w3.org/2000/svg'><path d='"+CLOUD+"' fill='#fff' stroke='#2A3334' stroke-width='2.2'/>"+face(hashStr(seed)%4)+"</svg>";
   }
+  var CHECK="<svg viewBox='0 0 56 56'><circle cx='28' cy='28' r='17' fill='none' stroke='#6c5ce7' stroke-width='2.4' opacity='.32'/><path d='M20 28.5 l5.5 5.5 11-12' fill='none' stroke='#6c5ce7' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+  var REPICON="<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M3 12a9 9 0 0 1 15-6.7L21 8'/><path d='M21 3v5h-5'/><path d='M21 12a9 9 0 0 1-15 6.7L3 16'/><path d='M3 21v-5h5'/></svg>";
+  var PEN="<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 20h9'/><path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z'/></svg>";
 
-  // ---- データ ----
-  function viewDate(){ var d=new Date(); d.setDate(d.getDate()+tdyOffset); d.setHours(0,0,0,0); return d; }
-  function taskYmd(t){
-    var d=t['(A)実行日']; if(!d||!d.start) return null;
-    var s=d.start, datePart=s.substring(0,10);
-    if(s.length>10){var h=parseInt(s.substring(11,13),10); if(h>=24){var dt=new Date(datePart+'T00:00:00'); dt.setDate(dt.getDate()+1); datePart=ymdLocal(dt);}}
-    return datePart;
+  // ---- データ（アプリ本体の関数を再利用） ----
+  function getTasks(){ try{ if(typeof tasks!=='undefined' && Array.isArray(tasks)) return tasks; }catch(e){} return load('tasks',[])||[]; }
+  function dateStrOf(t){ try{ if(typeof getDateString==='function') return getDateString(t); }catch(e){} var d=t['(A)実行日']; return (d&&d.start)? new Date(d.start).toDateString() : null; }
+  function startHHMM(t){
+    try{ if(typeof getStartTime==='function'){ var s=getStartTime(t); if(s) return s; } }catch(e){}
+    if(t._repeatConfig&&t._repeatConfig.time) return t._repeatConfig.time;
+    var d=t['(A)実行日']; if(d&&d.start&&d.start.length>10) return d.start.substring(11,16);
+    return null;
   }
-  function taskHour(t){
-    var d=t['(A)実行日']; if(!d||!d.start) return null;
-    var s=d.start; if(s.length<=10) return null;
-    var h=parseInt(s.substring(11,13),10); if(isNaN(h)) return null; return h;
+  function repeatOccursOn(t,d){
+    var rc=t._repeatConfig||{}; var cur=new Date(d.toDateString());
+    if(rc.start){var rs=new Date(rc.start);rs.setHours(0,0,0,0);if(cur<rs)return false;}
+    if(rc.end){var re=new Date(rc.end);re.setHours(23,59,59,999);if(cur>re)return false;}
+    if(Array.isArray(rc.daysOfWeek)&&rc.daysOfWeek.length>0){ if(rc.daysOfWeek.indexOf(cur.getDay())<0) return false; }
+    return true;
   }
-  function bucket(t){
-    var h=taskHour(t);
-    if(h==null) return 'unset';
+  function dayItems(d){
+    var dayStr=d.toDateString(); var arr=getTasks();
+    return arr.filter(function(t){
+      if(!t) return false;
+      if(t._type==='time'){ var dd=t['(A)実行日']; if(!dd||!dd.start) return false; return dateStrOf(t)===dayStr; }
+      if(t._type==='repeat' && t['(B)種類']!=='習慣'){ return repeatOccursOn(t,d); }
+      return false;
+    });
+  }
+  function bucketOf(t){
+    var hhmm=startHHMM(t); if(!hhmm) return 'unset';
+    var h=parseInt(hhmm.substring(0,2),10); if(isNaN(h)) return 'unset';
     if(h>=24) return 'night';
     if(h<11) return 'morning';
     if(h<17) return 'noon';
     return 'night';
   }
-  function timeLabel(t){
-    var h=taskHour(t); if(h==null) return '';
-    var d=t['(A)実行日']; var s=d.start; var mm=s.substring(14,16)||'00';
-    var hh=h; if(hh>=24) hh-=24;
-    return pad(hh)+':'+mm;
+  function metaOf(t){
+    var out=[]; var hhmm=startHHMM(t);
+    if(hhmm){ var h=parseInt(hhmm.substring(0,2),10); if(h>=24)h-=24; out.push(pad(h)+':'+hhmm.substring(3,5)); }
+    var est=t['(C)見込み/h']; if(est){ var m=Math.round(est*60); out.push(m<60?(m+'分'):(m%60===0?(m/60+'h'):(Math.floor(m/60)+'h'+m%60))); }
+    return out;
   }
-  function hLabel(h){ if(!h) return ''; var m=Math.round(h*60); if(m<60) return '見込み'+m+'分'; if(m%60===0) return '見込み'+(m/60)+'h'; return '見込み'+Math.floor(m/60)+'h'+(m%60); }
+  function isRep(t){ return t['(B)種類']==='習慣' || !!t._habitTemplateId || t._type==='repeat'; }
 
   var SECT=[
-    {key:'morning', label:'朝', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M17 18a5 5 0 0 0-10 0'/><path d='M12 2v7M4.2 10.2l1.4 1.4M1 18h2M21 18h2M18.4 11.6l1.4-1.4M22 18H2'/></svg>"},
-    {key:'noon',    label:'昼', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19'/></svg>"},
-    {key:'night',   label:'夜', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'/></svg>"},
-    {key:'unset',   label:'未設定', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9' stroke-dasharray='3 3'/><path d='M12 7v5l3 2'/></svg>"}
+    {key:'morning',label:'朝',ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M17 18a5 5 0 0 0-10 0'/><path d='M12 2v7M4.2 10.2l1.4 1.4M1 18h2M21 18h2M18.4 11.6l1.4-1.4M22 18H2'/></svg>"},
+    {key:'noon',label:'昼',ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19'/></svg>"},
+    {key:'night',label:'夜',ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'/></svg>"},
+    {key:'unset',label:'未設定',ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9' stroke-dasharray='3 3'/><path d='M12 7v5l3 2'/></svg>"}
   ];
 
+  function mondayOf(d){ var x=new Date(d); var wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); x.setHours(0,0,0,0); return x; }
+  function sameDay(a,b){ return a.toDateString()===b.toDateString(); }
+
+  function renderWeek(){
+    var today=new Date(); today.setHours(0,0,0,0);
+    var mon=mondayOf(selDate); var html='';
+    for(var i=0;i<7;i++){
+      var d=new Date(mon); d.setDate(mon.getDate()+i);
+      var isToday=sameDay(d,today), isSel=sameDay(d,selDate);
+      var cls='tdy-day'+(isSel?' sel':'')+(isToday?' today':'')+(d.getDay()===0?' sun':'')+(d.getDay()===6?' sat':'');
+      var wd=isToday?'今日':WD[d.getDay()];
+      html+='<button class="'+cls+'" data-d="'+d.toDateString()+'"><span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+'</span></button>';
+    }
+    $('tdyDays').innerHTML=html;
+  }
+
   function render(){
-    var d=viewDate(); var ds=ymdLocal(d);
-    $('tdyDLabel').textContent=(d.getMonth()+1)+'/'+d.getDate()+'（'+WD[d.getDay()]+'）'+(tdyOffset===0?' 今日':tdyOffset===1?' 明日':'');
-    var all=load('tasks',[])||[];
-    // 習慣（ルーチン）は別画面なので、ここでは通常タスクのみ。種類が無いものも対象。
-    items=all.filter(function(t){ return t && taskYmd(t)===ds && t['(B)種類']!=='習慣'; });
+    renderWeek();
+    var items=dayItems(selDate);
     var groups={morning:[],noon:[],night:[],unset:[]};
-    items.forEach(function(t){ (groups[bucket(t)]||groups.unset).push(t); });
-    Object.keys(groups).forEach(function(k){ groups[k].sort(function(a,b){ return (taskHour(a)==null?9999:taskHour(a))-(taskHour(b)==null?9999:taskHour(b)); }); });
+    items.forEach(function(t){ (groups[bucketOf(t)]||groups.unset).push(t); });
+    Object.keys(groups).forEach(function(k){ groups[k].sort(function(a,b){ var ha=startHHMM(a),hb=startHHMM(b); ha=ha?parseInt(ha.replace(':',''),10):99999; hb=hb?parseInt(hb.replace(':',''),10):99999; return ha-hb; }); });
 
     var total=items.length, done=items.filter(function(t){return t['(A)done'];}).length;
     $('tdyDone').textContent=done; $('tdyTotal').textContent=total;
-    $('tdyBar').style.width=(total?Math.round(done/total*100):0)+'%';
-    try{ var coins=load('rewardState',{}); var cc=(coins&&typeof coins.coins==='number')?coins.coins:(load('coins',0)||0); $('tdyCoin').textContent=cc; }catch(e){}
+    try{ var ce=document.querySelector('[data-coin-count]'); if(ce) $('tdyCoin').textContent=(ce.textContent||'0').trim(); }catch(e){}
 
     var html='';
     SECT.forEach(function(sec){
       var list=groups[sec.key];
-      html+='<div class="tdy-sec"><div class="tdy-sec-h"><span class="ic">'+sec.ic+'</span><span class="lb">'+sec.label+'</span><span class="ln"></span><span class="ct">'+(list.length?list.length+'件':'')+'</span></div>';
-      if(!list.length){ html+='<div class="tdy-empty">なし</div>'; }
-      else {
+      html+='<div class="tdy-sec"><div class="tdy-sec-h"><span class="ic">'+sec.ic+'</span><span class="lb">'+sec.label+'</span><span class="ln"></span></div>';
+      if(!list.length){
+        html+='<button class="tdy-add" data-act="add">＋</button>';
+      } else {
         list.forEach(function(t){
-          var id=t.id; var dn=!!t['(A)done'];
-          var subs=[]; var tl=timeLabel(t); if(tl) subs.push(tl); var el=hLabel(t['(C)見込み/h']); if(el) subs.push(el);
-          var rep=(t['(B)種類']&&t['(B)種類']!=='タスク')?t['(B)種類']:'';
+          var id=t.id, dn=!!t['(A)done'];
+          var meta=metaOf(t);
           html+='<div class="tdy-row'+(dn?' done':'')+'" data-id="'+String(id).replace(/"/g,'&quot;')+'">'
-            +'<button class="tdy-ico" data-act="toggle">'+cloudSvg(id,dn)+'</button>'
-            +'<div class="tdy-body" data-act="edit"><div class="tdy-name">'+(t.name||'(無題)').replace(/</g,'&lt;')+'</div>'
-            +(subs.length||rep?('<div class="tdy-sub">'+(rep?'<span class="rep">'+rep+'</span>':'')+subs.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div>'):'')
+            +'<button class="'+(dn?'tdy-check':'tdy-ico')+'" data-act="toggle" aria-label="完了切替">'+(dn?CHECK:cloudSvg(id))+'</button>'
+            +'<div class="tdy-body" data-act="edit">'
+              +(isRep(t)?('<div class="tdy-rep">'+REPICON+'</div>'):'')
+              +'<div class="tdy-name">'+(t.name||'(無題)').replace(/</g,'&lt;')+'</div>'
+              +(meta.length?('<div class="tdy-meta">'+meta.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div>'):'')
             +'</div>'
-            +'<button class="tdy-edit" data-act="edit">✎</button></div>';
+            +'<button class="tdy-edit" data-act="edit" aria-label="編集">'+PEN+'</button>'
+          +'</div>';
         });
       }
       html+='</div>';
@@ -12027,29 +12057,34 @@
 
   function onClick(e){
     var act=e.target.closest('[data-act]'); if(!act) return;
+    var a=act.getAttribute('data-act');
+    if(a==='add'){ try{ if(typeof openModal==='function') openModal(); }catch(err){} return; }
     var row=e.target.closest('.tdy-row'); if(!row) return;
     var id=row.getAttribute('data-id');
-    var a=act.getAttribute('data-act');
     if(a==='toggle'){
       try{
         if(typeof toggleTaskDone==='function'){ toggleTaskDone(id); }
-        else if(typeof tasks!=='undefined'){ var t=tasks.find(function(x){return x.id===id;}); if(t){ t['(A)done']=!t['(A)done']; localStorage.setItem('tasks',JSON.stringify(tasks)); } }
+        else { var arr=getTasks(); var t=arr.find(function(x){return x.id===id;}); if(t){ t['(A)done']=!t['(A)done']; localStorage.setItem('tasks',JSON.stringify(arr)); } }
       }catch(err){}
       render();
     } else if(a==='edit'){
-      try{ if(typeof openModal==='function'){ openModal(id); } }catch(err){}
+      try{ if(typeof openModal==='function') openModal(id); }catch(err){}
     }
   }
+  function onWeekClick(e){
+    var b=e.target.closest('[data-d]'); if(!b) return;
+    selDate=new Date(b.getAttribute('data-d')); selDate.setHours(0,0,0,0); render();
+  }
 
-  function open(){ tdyOffset=0; $('tdyOverlay').classList.add('open'); render(); }
+  function open(){ selDate=new Date(); selDate.setHours(0,0,0,0); $('tdyOverlay').classList.add('open'); render(); }
   function close(){ $('tdyOverlay').classList.remove('open'); }
 
   function init(){
     $('tdyLaunch').onclick=open;
     $('tdyClose').onclick=close;
-    $('tdyPrev').onclick=function(){ tdyOffset--; render(); };
-    $('tdyNext').onclick=function(){ tdyOffset++; render(); };
-    $('tdyTodayBtn').onclick=function(){ tdyOffset=0; render(); };
+    $('tdyPrev').onclick=function(){ selDate.setDate(selDate.getDate()-7); render(); };
+    $('tdyNext').onclick=function(){ selDate.setDate(selDate.getDate()+7); render(); };
+    $('tdyDays').addEventListener('click', onWeekClick);
     $('tdySections').addEventListener('click', onClick);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
