@@ -12153,7 +12153,8 @@
 .mz-toggle.on::after{transform:translateX(18px)}
 .mz-foot{font-size:11px;color:#9AA3A3;margin-top:22px;text-align:center;line-height:1.7}
 #mzAlert{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(244,243,239,.88);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-#mzAlert.show{display:flex;animation:mzAlertIn .25s ease}
+#mzAlert.show{display:flex;animation:mzAlertIn .25s ease, mzFlash .55s ease-in-out 4}
+@keyframes mzFlash{0%,100%{background:rgba(244,243,239,.9)}50%{background:rgba(150,172,216,.94)}}
 @keyframes mzAlertIn{from{opacity:0}to{opacity:1}}
 .mz-alertcard{width:min(86vw,360px);background:#fff;border-radius:24px;padding:30px 24px 24px;text-align:center;box-shadow:0 24px 60px -20px rgba(40,50,55,.5);animation:mzPulse 1.6s ease-in-out infinite}
 @keyframes mzPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
@@ -12403,7 +12404,9 @@
   }
   function chime(kind){ var n=kind==='focus'?[660,880]:kind==='done'?[523,659,784]:[520,392]; beep(n,'sine',0.16,0.5,0.16); }
   // 区切りの“はっきりした”アラーム（休憩を見逃さないよう長め・大きめ・繰り返し）
-  function alarmSound(){ beep([880,660,880,660,990,784],'triangle',0.34,0.26,0.28); }
+  function vibrate(){ try{ if(navigator.vibrate) navigator.vibrate([220,120,220,120,320]); }catch(e){} }
+  function notify(title,body){ try{ if(window.Notification && Notification.permission==='granted'){ var n=new Notification(title,{body:body}); setTimeout(function(){ try{n.close();}catch(e){} },8000); } }catch(e){} }
+  function alarmSound(){ beep([880,660,880,660,990,784],'triangle',0.34,0.26,0.28); vibrate(); }
   // ---- 画面を消さない（タイマー稼働中はスリープ防止）----
   async function reqWake(){ try{ if('wakeLock' in navigator){ mzWake=await navigator.wakeLock.request('screen'); } }catch(e){} }
   function relWake(){ try{ if(mzWake){ mzWake.release(); mzWake=null; } }catch(e){} }
@@ -12453,9 +12456,13 @@
   }
   // 現在のフォーカスブロックの「未記録分」を書き出す（中断・一時停止でも実時間を保存）
   function flushFocus(){
-    if(phase!=='focus' || !task) return;
+    if(phase!=='focus') return;
     var elapsed=totalSec-secondsLeft; var add=elapsed-accounted;
-    if(add>=1){ accounted+=add; writeFocus(add); }
+    if(add>=1){
+      accounted+=add;
+      try{ if(typeof recordFocus==='function') recordFocus(add/60); }catch(e){} // 「今週の集中時間」グラフ用（タスク未選択でも記録）
+      if(task) writeFocus(add); // Notion 手入力実績時間_out（タスク選択時のみ）
+    }
   }
 
   // ---- timer loop ----
@@ -12473,7 +12480,7 @@
         if(alertPause){ enterReady('focus'); return; }
         currentRep++; begin('focus',st.focus*60);
       } else {
-        alarmSound(); secondsLeft=0; phase='done'; running=false; relWake();
+        alarmSound(); secondsLeft=0; phase='done'; running=false; relWake(); notify('完了！','おつかれさまでした 🎉');
       }
     }
     updateRecBtn(); paint();
@@ -12501,7 +12508,8 @@
     $('mzAlertSub').textContent=next==='break'?('休憩しよう（'+st.brk+'分）'):('集中に戻ろう（'+(st.focus>=60?(Math.floor(st.focus/60)+'時間'+(st.focus%60?st.focus%60+'分':'')):st.focus+'分')+'）');
     $('mzAlertGo').textContent=next==='break'?'休憩する':'集中する';
     $('mzAlertExt').style.display=next==='break'?'inline-block':'none';
-    ov.classList.add('show');
+    ov.classList.remove('show'); void ov.offsetWidth; ov.classList.add('show'); // フラッシュ再生
+    notify($('mzAlertTitle').textContent, $('mzAlertSub').textContent);
   }
   function hideAlert(){ var ov=$('mzAlert'); if(ov) ov.classList.remove('show'); }
   function tick(){
@@ -12512,6 +12520,7 @@
   }
   function startTimer(){
     ensureAudio();
+    try{ if(alertPause && window.Notification && Notification.permission==='default'){ Notification.requestPermission(); } }catch(e){}
     if(phase==='ready'){ startPending(); return; }
     if(phase==='idle'||phase==='done'){
       currentRep=1; sessionPomos=0; accounted=0; sessionLoggedSec=0; startStamped=false; sessionStart=Date.now();
