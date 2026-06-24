@@ -2420,7 +2420,7 @@
       </div>
     </div>
     <div class="header-right">
-      <button class="coin-pill" onclick="openRewards()" title="ごほうび">🪙 <span data-coin-count>0</span></button>
+      <button class="coin-pill" onclick="openRewards()" title="ごほうび"><span class="coin-ico"></span> <span data-coin-count>0</span></button>
       <div class="nav-group">
         <button class="icon-btn" onclick="changeDay(-7)">‹</button>
         <button class="today-btn" onclick="goToday()">今日</button>
@@ -2748,7 +2748,7 @@
 <!-- ===== グラフ画面 ===== -->
 <div class="routine-screen" id="graphScreen">
   <div style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#fff6d6,#ffe9a8);border:1px solid #f4dc8a;border-radius:18px;padding:16px 18px;margin-bottom:18px;">
-    <div style="font-size:34px;line-height:1;">🪙</div>
+    <div style="font-size:34px;line-height:1;"><span class="coin-ico"></span></div>
     <div>
       <div style="font-size:12px;color:#9a7b1a;font-weight:600;">貯まったコイン</div>
       <div style="font-size:28px;font-weight:800;color:#7a5d00;line-height:1.1;"><span data-coin-count>0</span> <span style="font-size:14px;font-weight:700;">コイン</span></div>
@@ -2804,9 +2804,9 @@
   </div>
 </div>
 
-<!-- 🪙 コイン獲得トースト -->
+<!-- <span class="coin-ico"></span> コイン獲得トースト -->
 <div id="coinToast" style="display:none;position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:4000;background:#1c1c1e;color:#fff;border-radius:24px;padding:10px 18px;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
-  <span style="font-size:18px;">🪙</span> +1 コイン！
+  <span style="font-size:18px;"><span class="coin-ico"></span></span> +1 コイン！
 </div>
 
 <!-- 🎁 ごほうび画面 -->
@@ -2815,7 +2815,7 @@
     <button onclick="closeRewards()" style="background:#fff;border:none;border-radius:20px;padding:9px 18px 9px 14px;font-size:15px;font-weight:700;color:#1c1c1e;cursor:pointer;font-family:inherit;box-shadow:0 1px 5px rgba(0,0,0,0.06);">‹ 戻る</button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 2px 2px;">
       <div style="font-size:26px;font-weight:800;color:#1c1c1e;">ごほうび</div>
-      <div class="coin-pill" style="cursor:default;">🪙 <span data-coin-count>0</span></div>
+      <div class="coin-pill" style="cursor:default;"><span class="coin-ico"></span> <span data-coin-count>0</span></div>
     </div>
     <div style="display:flex;gap:10px;margin:14px 0 6px;">
       <button id="rwTabList" class="rw-tab rw-tab-active" onclick="rewardSwitchTab('list')">ごほうび一覧</button>
@@ -5219,7 +5219,7 @@
     task._localLastEdited = new Date().toISOString();
     updateModalDoneUI(task['(A)done']);
     localStorage.setItem('tasks', JSON.stringify(tasks));
-    { // 🪙 コイン＆完了ログ
+    { // <span class="coin-ico"></span> コイン＆完了ログ
       const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || task.id) : task.id;
       const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
       if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
@@ -6337,7 +6337,7 @@
   }
 
   // ============================================================
-  // 🪙 報酬（コイン）＆ 完了/集中ログ ＋ グラフ
+  // <span class="coin-ico"></span> 報酬（コイン）＆ 完了/集中ログ ＋ グラフ
   // ============================================================
   function getRewardStore() {
     try {
@@ -6417,7 +6417,7 @@
   }
   function showCoinToast(amt) {
     updateCoinDisplays();
-    showToast('<span style="font-size:18px;">🪙</span> +' + (amt != null ? amt : 1) + ' コイン！');
+    showToast('<span style="font-size:18px;"><span class="coin-ico"></span></span> +' + (amt != null ? amt : 1) + ' コイン！');
   }
   function showRewardToast(msg) {
     showToast('<span style="font-size:18px;">🎁</span> ' + msg);
@@ -6612,7 +6612,7 @@
       const affordable = bal >= r.cost && r.cost > 0;
       const pct = r.cost > 0 ? Math.min(100, Math.round(bal / r.cost * 100)) : 0;
       const footer = affordable
-        ? `<button onclick='rewardRedeemById(${JSON.stringify(r.id)})' style="margin-top:10px;width:100%;background:#f5c518;color:#5a4500;border:none;border-radius:12px;padding:9px 0;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">🪙 ${r.cost} で交換</button>`
+        ? `<button onclick='rewardRedeemById(${JSON.stringify(r.id)})' style="margin-top:10px;width:100%;background:#f5c518;color:#5a4500;border:none;border-radius:12px;padding:9px 0;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;"><span class="coin-ico"></span> ${r.cost} で交換</button>`
         : `<div style="margin-top:10px;width:100%;"><div style="height:7px;background:#ececf3;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#f5c518;border-radius:4px;"></div></div><div style="font-size:11px;color:#9a97ad;text-align:center;margin-top:5px;">${bal}/${r.cost}</div></div>`;
       html += `<div style="background:#fff;border-radius:18px;padding:16px 14px;box-shadow:0 2px 10px rgba(80,70,140,0.05);display:flex;flex-direction:column;align-items:center;text-align:center;">
         <div style="font-size:40px;line-height:1;margin-bottom:10px;">${r.emoji}</div>
@@ -6639,7 +6639,7 @@
       const ds = `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
       return `<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:14px;padding:13px 16px;margin-bottom:8px;box-shadow:0 1px 6px rgba(80,70,140,0.04);">
         <div><div style="font-size:14px;font-weight:600;color:#2d2b3a;">${it.name}</div><div style="font-size:11px;color:#9a97ad;margin-top:2px;">${ds}</div></div>
-        <div style="font-size:13px;font-weight:800;color:#c08a00;">−🪙${it.cost}</div>
+        <div style="font-size:13px;font-weight:800;color:#c08a00;">−<span class="coin-ico"></span>${it.cost}</div>
       </div>`;
     }).join('');
   }
@@ -7438,7 +7438,7 @@
     if (newState) h[templateId][dateStr] = true;
     else delete h[templateId][dateStr];
     saveHabitHistory(h);
-    { // 🪙 ルーチン達成でもコイン
+    { // <span class="coin-ico"></span> ルーチン達成でもコイン
       const _nm = (template && template.name) || (inst && inst.name) || '';
       if (newState) awardCompletion(templateId, _nm, dateStr, 8); else revokeCompletion(templateId, dateStr);
     }
@@ -9261,7 +9261,7 @@
     task['(A)done'] = !task['(A)done'];
     task._localLastEdited = new Date().toISOString();
     localStorage.setItem('tasks', JSON.stringify(tasks));
-    { // 🪙 コイン＆完了ログ
+    { // <span class="coin-ico"></span> コイン＆完了ログ
       const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || id) : id;
       const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
       if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
@@ -11650,7 +11650,7 @@
     t.runningSince = null;
     t.lastStop = new Date().toISOString();
     t.state = 'stopped';
-    if (_wasActive) recordFocus((t.netMs || 0) / 60000); // 🪙 集中時間ログ
+    if (_wasActive) recordFocus((t.netMs || 0) / 60000); // <span class="coin-ico"></span> 集中時間ログ
     task._localLastEdited = new Date().toISOString();
     persistTasks();
     timerRenderForTask(id);
@@ -11834,6 +11834,229 @@
 
   init();
 </script>
+<!-- ===================== 今日のタスク 一覧ビュー ===================== -->
+<style>
+/* コイン（🪙→ゴールドスターコイン） */
+.coin-ico{display:inline-block;width:1em;height:1em;vertical-align:-0.16em;background-repeat:no-repeat;background-position:center;background-size:contain;background-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2048%2048'%3E%3Cdefs%3E%3CradialGradient%20id='cg'%20cx='0.4'%20cy='0.34'%20r='0.72'%3E%3Cstop%20offset='0'%20stop-color='%23FFE9A0'/%3E%3Cstop%20offset='0.52'%20stop-color='%23F6C638'/%3E%3Cstop%20offset='1'%20stop-color='%23DA9A10'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle%20cx='24'%20cy='24'%20r='22'%20fill='%23B9790A'/%3E%3Ccircle%20cx='24'%20cy='24'%20r='19.5'%20fill='url(%23cg)'/%3E%3Ccircle%20cx='24'%20cy='24'%20r='19.5'%20fill='none'%20stroke='%23FFF3C7'%20stroke-opacity='0.55'%20stroke-width='1.4'/%3E%3Cpath%20d='M24%2010.5l3.7%207.5%208.3%201.2-6%205.8%201.4%208.2L24%2036.6l-7.4%203.9%201.4-8.2-6-5.8%208.3-1.2z'%20fill='%23F0B11A'%20stroke='%23B9790A'%20stroke-width='1'%20stroke-linejoin='round'/%3E%3Cline%20x1='22.4'%20y1='21.5'%20x2='22.4'%20y2='27'%20stroke='%23B9790A'%20stroke-width='1.5'%20stroke-linecap='round'/%3E%3Cline%20x1='25.6'%20y1='21.5'%20x2='25.6'%20y2='27'%20stroke='%23B9790A'%20stroke-width='1.5'%20stroke-linecap='round'/%3E%3C/svg%3E");}
+
+#tdyLaunch{position:fixed;left:16px;bottom:148px;z-index:9000;width:52px;height:52px;border-radius:50%;
+  border:none;background:#fff;box-shadow:0 8px 22px -8px rgba(40,50,55,.5),0 0 0 1px rgba(0,0,0,.05);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
+#tdyLaunch svg{display:block}
+#tdyOverlay{position:fixed;inset:0;z-index:9400;display:none;background:linear-gradient(180deg,#FBFBFA 0%,#F4F4F2 100%);
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Manrope',sans-serif;color:#2A3334;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#tdyOverlay.open{display:block}
+.tdy-wrap{max-width:480px;margin:0 auto;padding:14px 18px 120px;}
+.tdy-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.tdy-title{font-weight:700;font-size:19px}
+.tdy-close{border:none;background:transparent;font-size:24px;color:#9AA3A3;cursor:pointer;padding:4px 8px;line-height:1}
+.tdy-datebar{display:flex;align-items:center;gap:10px;margin:10px 0 4px}
+.tdy-nav{width:30px;height:30px;border-radius:50%;border:1px solid #E6E7E5;background:#fff;color:#2A3334;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tdy-dlabel{font-size:14px;font-weight:600;color:#4A5555}
+.tdy-today-btn{margin-left:auto;font-size:12px;font-weight:700;color:#6E8FC0;background:#EEF2F9;border:none;border-radius:999px;padding:6px 12px;cursor:pointer}
+.tdy-prog{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+.tdy-prog .chk{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:#4A5555}
+.tdy-prog .bar{flex:1;height:7px;border-radius:999px;background:#E9E9E6;overflow:hidden}
+.tdy-prog .bar > i{display:block;height:100%;background:#6E8FC0;border-radius:999px;transition:width .35s}
+.tdy-coin{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:800;color:#B07A00;background:#FFF6D8;border:1px solid #F1DE97;border-radius:999px;padding:4px 11px 4px 9px}
+.tdy-sec{margin-top:18px}
+.tdy-sec-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tdy-sec-h .ic{width:20px;height:20px;flex:none;color:#9AA3A3}
+.tdy-sec-h .lb{font-size:14px;font-weight:700;color:#5A6565}
+.tdy-sec-h .ln{flex:1;height:1px;background:#EAEAE7}
+.tdy-sec-h .ct{font-size:11px;color:#AEB4B4;font-weight:600}
+.tdy-empty{border:1.5px dashed #DADBD6;border-radius:14px;padding:14px;text-align:center;color:#B7BCBC;font-size:12.5px}
+.tdy-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid #F0F0ED}
+.tdy-ico{width:44px;height:44px;flex:none;border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.tdy-ico svg{width:44px;height:44px;display:block}
+.tdy-body{flex:1;min-width:0;cursor:pointer}
+.tdy-name{font-size:15.5px;font-weight:600;color:#2A3334;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tdy-row.done .tdy-name{color:#AEB4B4;text-decoration:line-through}
+.tdy-sub{font-size:11.5px;color:#9AA3A3;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.tdy-sub .rep{color:#6E8FC0}
+.tdy-edit{border:none;background:transparent;color:#C2C7C7;font-size:16px;cursor:pointer;padding:8px;flex:none}
+.tdy-foot{text-align:center;color:#B7BCBC;font-size:11px;margin-top:24px}
+</style>
+
+<button id="tdyLaunch" aria-label="今日のタスク">
+  <svg width="30" height="30" viewBox="0 0 44 44">
+    <path id="tdyLaunchCloud" fill="#fff" stroke="#2A3334" stroke-width="2.4" d=""/>
+    <circle cx="18" cy="22" r="1.7" fill="#2A3334"/><circle cx="26" cy="22" r="1.7" fill="#2A3334"/>
+    <path d="M18.5 26 Q22 29 25.5 26" fill="none" stroke="#2A3334" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+</button>
+
+<div id="tdyOverlay">
+  <div class="tdy-wrap">
+    <div class="tdy-head">
+      <div class="tdy-title">今日のタスク</div>
+      <button class="tdy-close" id="tdyClose">×</button>
+    </div>
+    <div class="tdy-datebar">
+      <button class="tdy-nav" id="tdyPrev">‹</button>
+      <div class="tdy-dlabel" id="tdyDLabel">—</div>
+      <button class="tdy-nav" id="tdyNext">›</button>
+      <button class="tdy-today-btn" id="tdyTodayBtn">今日</button>
+    </div>
+    <div class="tdy-prog">
+      <div class="chk"><span style="color:#6E8FC0">✓</span> <span id="tdyDone">0</span>/<span id="tdyTotal">0</span></div>
+      <div class="bar"><i id="tdyBar" style="width:0%"></i></div>
+      <div class="tdy-coin"><span class="coin-ico"></span><span id="tdyCoin">0</span></div>
+    </div>
+    <div id="tdySections"></div>
+    <div class="tdy-foot">タスクをタップで完了 / 名前をタップで編集</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  function $(id){return document.getElementById(id);}
+  function pad(n){return String(n).padStart(2,'0');}
+  function ymdLocal(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+  function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+  var WD=['日','月','火','水','木','金','土'];
+  var tdyOffset=0;
+
+  // ---- 雲キャラ生成 ----
+  function cloudPath(cx,cy,R,amp,n){
+    var p='';
+    for(var i=0;i<n;i++){
+      var a0=2*Math.PI*i/n, a1=2*Math.PI*(i+1)/n, am=(a0+a1)/2;
+      var x0=cx+R*Math.cos(a0), y0=cy+R*Math.sin(a0);
+      var x1=cx+R*Math.cos(a1), y1=cy+R*Math.sin(a1);
+      var mx=cx+(R+amp)*Math.cos(am), my=cy+(R+amp)*Math.sin(am);
+      if(i===0) p+='M'+x0.toFixed(1)+' '+y0.toFixed(1);
+      p+=' Q'+mx.toFixed(1)+' '+my.toFixed(1)+' '+x1.toFixed(1)+' '+y1.toFixed(1);
+    }
+    return p+'Z';
+  }
+  var CLOUD=cloudPath(22,22,13.5,3.0,11);
+  // launcherの雲もセット
+  try{ var lc=document.getElementById('tdyLaunchCloud'); if(lc) lc.setAttribute('d', cloudPath(22,22,14,3.1,11)); }catch(e){}
+
+  function hashStr(s){ var h=0; s=String(s||''); for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
+  function face(v){
+    // 0:にっこり 1:大笑い 2:ふつう 3:ねむい
+    if(v===1) return "<path d='M18.5 23.5 Q20 22 21.5 23.5' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/><path d='M26.5 23.5 Q28 22 29.5 23.5' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/><path d='M19.5 26.5 Q24 32 28.5 26.5 Z' fill='#fff' stroke='%COL%' stroke-width='1.7' stroke-linejoin='round'/>";
+    if(v===2) return "<circle cx='19' cy='24' r='1.5' fill='%COL%'/><circle cx='27' cy='24' r='1.5' fill='%COL%'/><path d='M22 28 H26' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/>";
+    if(v===3) return "<path d='M17.8 24.4 Q19.3 25.4 20.8 24.4' fill='none' stroke='%COL%' stroke-width='1.6' stroke-linecap='round'/><path d='M25.2 24.4 Q26.7 25.4 28.2 24.4' fill='none' stroke='%COL%' stroke-width='1.6' stroke-linecap='round'/><path d='M22 28.5 Q24 27.4 26 28.5' fill='none' stroke='%COL%' stroke-width='1.6' stroke-linecap='round'/>";
+    return "<circle cx='19' cy='24' r='1.6' fill='%COL%'/><circle cx='27' cy='24' r='1.6' fill='%COL%'/><path d='M19.8 27 Q24 30.5 28.2 27' fill='none' stroke='%COL%' stroke-width='1.7' stroke-linecap='round'/>";
+  }
+  function cloudSvg(seed, done){
+    var col='#2A3334';
+    var f = done ? face(1) : face(hashStr(seed)%4);
+    f = f.split('%COL%').join(col);
+    var check = done ? "<circle cx='35' cy='34' r='8' fill='#5BBd84'/><path d='M31.5 34 l2.4 2.4 4-4.6' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>" : "";
+    return "<svg viewBox='0 0 44 44' xmlns='http://www.w3.org/2000/svg'><path d='"+CLOUD+"' fill='"+(done?'#F1F5F1':'#fff')+"' stroke='"+col+"' stroke-width='2'/>"+f+check+"</svg>";
+  }
+
+  // ---- データ ----
+  function viewDate(){ var d=new Date(); d.setDate(d.getDate()+tdyOffset); d.setHours(0,0,0,0); return d; }
+  function taskYmd(t){
+    var d=t['(A)実行日']; if(!d||!d.start) return null;
+    var s=d.start, datePart=s.substring(0,10);
+    if(s.length>10){var h=parseInt(s.substring(11,13),10); if(h>=24){var dt=new Date(datePart+'T00:00:00'); dt.setDate(dt.getDate()+1); datePart=ymdLocal(dt);}}
+    return datePart;
+  }
+  function taskHour(t){
+    var d=t['(A)実行日']; if(!d||!d.start) return null;
+    var s=d.start; if(s.length<=10) return null;
+    var h=parseInt(s.substring(11,13),10); if(isNaN(h)) return null; return h;
+  }
+  function bucket(t){
+    var h=taskHour(t);
+    if(h==null) return 'unset';
+    if(h>=24) return 'night';
+    if(h<11) return 'morning';
+    if(h<17) return 'noon';
+    return 'night';
+  }
+  function timeLabel(t){
+    var h=taskHour(t); if(h==null) return '';
+    var d=t['(A)実行日']; var s=d.start; var mm=s.substring(14,16)||'00';
+    var hh=h; if(hh>=24) hh-=24;
+    return pad(hh)+':'+mm;
+  }
+  function hLabel(h){ if(!h) return ''; var m=Math.round(h*60); if(m<60) return '見込み'+m+'分'; if(m%60===0) return '見込み'+(m/60)+'h'; return '見込み'+Math.floor(m/60)+'h'+(m%60); }
+
+  var SECT=[
+    {key:'morning', label:'朝', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M17 18a5 5 0 0 0-10 0'/><path d='M12 2v7M4.2 10.2l1.4 1.4M1 18h2M21 18h2M18.4 11.6l1.4-1.4M22 18H2'/></svg>"},
+    {key:'noon',    label:'昼', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19'/></svg>"},
+    {key:'night',   label:'夜', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'/></svg>"},
+    {key:'unset',   label:'未設定', ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9' stroke-dasharray='3 3'/><path d='M12 7v5l3 2'/></svg>"}
+  ];
+
+  function render(){
+    var d=viewDate(); var ds=ymdLocal(d);
+    $('tdyDLabel').textContent=(d.getMonth()+1)+'/'+d.getDate()+'（'+WD[d.getDay()]+'）'+(tdyOffset===0?' 今日':tdyOffset===1?' 明日':'');
+    var all=load('tasks',[])||[];
+    // 習慣（ルーチン）は別画面なので、ここでは通常タスクのみ。種類が無いものも対象。
+    items=all.filter(function(t){ return t && taskYmd(t)===ds && t['(B)種類']!=='習慣'; });
+    var groups={morning:[],noon:[],night:[],unset:[]};
+    items.forEach(function(t){ (groups[bucket(t)]||groups.unset).push(t); });
+    Object.keys(groups).forEach(function(k){ groups[k].sort(function(a,b){ return (taskHour(a)==null?9999:taskHour(a))-(taskHour(b)==null?9999:taskHour(b)); }); });
+
+    var total=items.length, done=items.filter(function(t){return t['(A)done'];}).length;
+    $('tdyDone').textContent=done; $('tdyTotal').textContent=total;
+    $('tdyBar').style.width=(total?Math.round(done/total*100):0)+'%';
+    try{ var coins=load('rewardState',{}); var cc=(coins&&typeof coins.coins==='number')?coins.coins:(load('coins',0)||0); $('tdyCoin').textContent=cc; }catch(e){}
+
+    var html='';
+    SECT.forEach(function(sec){
+      var list=groups[sec.key];
+      html+='<div class="tdy-sec"><div class="tdy-sec-h"><span class="ic">'+sec.ic+'</span><span class="lb">'+sec.label+'</span><span class="ln"></span><span class="ct">'+(list.length?list.length+'件':'')+'</span></div>';
+      if(!list.length){ html+='<div class="tdy-empty">なし</div>'; }
+      else {
+        list.forEach(function(t){
+          var id=t.id; var dn=!!t['(A)done'];
+          var subs=[]; var tl=timeLabel(t); if(tl) subs.push(tl); var el=hLabel(t['(C)見込み/h']); if(el) subs.push(el);
+          var rep=(t['(B)種類']&&t['(B)種類']!=='タスク')?t['(B)種類']:'';
+          html+='<div class="tdy-row'+(dn?' done':'')+'" data-id="'+String(id).replace(/"/g,'&quot;')+'">'
+            +'<button class="tdy-ico" data-act="toggle">'+cloudSvg(id,dn)+'</button>'
+            +'<div class="tdy-body" data-act="edit"><div class="tdy-name">'+(t.name||'(無題)').replace(/</g,'&lt;')+'</div>'
+            +(subs.length||rep?('<div class="tdy-sub">'+(rep?'<span class="rep">'+rep+'</span>':'')+subs.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div>'):'')
+            +'</div>'
+            +'<button class="tdy-edit" data-act="edit">✎</button></div>';
+        });
+      }
+      html+='</div>';
+    });
+    $('tdySections').innerHTML=html;
+  }
+
+  function onClick(e){
+    var act=e.target.closest('[data-act]'); if(!act) return;
+    var row=e.target.closest('.tdy-row'); if(!row) return;
+    var id=row.getAttribute('data-id');
+    var a=act.getAttribute('data-act');
+    if(a==='toggle'){
+      try{
+        if(typeof toggleTaskDone==='function'){ toggleTaskDone(id); }
+        else if(typeof tasks!=='undefined'){ var t=tasks.find(function(x){return x.id===id;}); if(t){ t['(A)done']=!t['(A)done']; localStorage.setItem('tasks',JSON.stringify(tasks)); } }
+      }catch(err){}
+      render();
+    } else if(a==='edit'){
+      try{ if(typeof openModal==='function'){ openModal(id); } }catch(err){}
+    }
+  }
+
+  function open(){ tdyOffset=0; $('tdyOverlay').classList.add('open'); render(); }
+  function close(){ $('tdyOverlay').classList.remove('open'); }
+
+  function init(){
+    $('tdyLaunch').onclick=open;
+    $('tdyClose').onclick=close;
+    $('tdyPrev').onclick=function(){ tdyOffset--; render(); };
+    $('tdyNext').onclick=function(){ tdyOffset++; render(); };
+    $('tdyTodayBtn').onclick=function(){ tdyOffset=0; render(); };
+    $('tdySections').addEventListener('click', onClick);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+<!-- =================== end 今日のタスク 一覧ビュー =================== -->
+
 <!-- ===================== minee timer (merged) ===================== -->
 <style>
 #mzLaunch{position:fixed;left:16px;bottom:84px;z-index:9000;width:52px;height:52px;border-radius:50%;
