@@ -4318,6 +4318,10 @@
         e.stopPropagation();
         if (typeof gcalShowEventDetail === 'function') gcalShowEventDetail(ev);
       });
+      el.dataset.gcalId = ev.id;
+      el.dataset.gcalCal = ev.calendarId || '';
+      // タスク由来(ロック)でなければ長押しドラッグで移動可能にする
+      if (!evLocked && typeof setupGcalDrag === 'function') setupGcalDrag(el, ev);
       timeline.appendChild(el);
     });
 
@@ -9787,8 +9791,181 @@
   }
 
   // ============================================================
-  // (B)種類 / (B)実行期間 セレクター管理
+  // GCal予定の長押しドラッグ移動（タスクと同じ操作感）
+  //   ・タスク由来(ロック)の予定には付けない（呼び出し側で除外）
+  //   ・ドロップ時に events.patch で開始/終了を更新（所要時間は維持）
   // ============================================================
+  let gcalDragState = null;
+  function setupGcalDrag(card, ev) {
+    let longPressTimer = null;
+    let isDragging = false;
+    let ghost = null;
+    let timeIndicator = null;
+    let touchStartY = 0;
+    let touchMoved = false;
+    let lastClientY = 0;
+    let autoScrollRAF = null;
+    let dragScroller = null;
+
+    const _toMin = (t) => { const p = String(t||'0:0').split(':'); return (parseInt(p[0],10)||0)*60 + (parseInt(p[1],10)||0); };
+    const startMinOrig = _toMin(ev.startTime);
+    let durMin = _toMin(ev.endTime) - startMinOrig;
+    if (!(durMin > 0)) durMin = 30; // 1分など極端な場合の保険
+
+    function stopAutoScroll() {
+      if (autoScrollRAF) { cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
+      if (dragScroller) { dragScroller.style.scrollBehavior = ''; dragScroller = null; }
+    }
+
+    function startLongPress(clientY) {
+      touchStartY = clientY;
+      touchMoved = false;
+      longPressTimer = setTimeout(() => {
+        if (touchMoved) return;
+        isDragging = true;
+        lastClientY = touchStartY;
+        card.classList.add('dragging');
+        ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.innerHTML = `<div class="task-time">${ev.startTime}〜${ev.endTime}</div><div class="task-name">${ev.title}</div>`;
+        document.body.appendChild(ghost);
+        timeIndicator = document.createElement('div');
+        timeIndicator.className = 'drag-time-indicator';
+        timeIndicator.textContent = ev.startTime || '';
+        document.body.appendChild(timeIndicator);
+        if (navigator.vibrate) navigator.vibrate(30);
+
+        const scroller = document.getElementById('timelineScroll');
+        const tlElNow = document.getElementById('timeline');
+        let minUnderFinger = null, relYfinger = 0;
+        if (tlElNow) {
+          relYfinger = touchStartY - tlElNow.getBoundingClientRect().top;
+          minUnderFinger = timelineYToMin(relYfinger);
+        }
+        window._dragExpandMode = true;
+        renderTimeline();
+        const _newCard = document.querySelector(`#timeline .tl-event[data-gcal-id="${ev.id}"]`);
+        if (_newCard) _newCard.classList.add('dragging');
+        if (scroller && minUnderFinger != null) {
+          const yNew = timelineMinToY(minUnderFinger);
+          if (yNew != null) scroller.scrollTop += (yNew - relYfinger);
+        }
+        if (scroller) {
+          dragScroller = scroller;
+          scroller.style.scrollBehavior = 'auto';
+          const EDGE = 96, MAX_SPEED = 24;
+          const step = () => {
+            if (!isDragging) { autoScrollRAF = null; return; }
+            const r = scroller.getBoundingClientRect();
+            const topZone = r.top + EDGE, botZone = r.bottom - EDGE;
+            let delta = 0;
+            if (lastClientY < topZone) { const ratio = Math.min(1,(topZone-lastClientY)/EDGE); delta = -MAX_SPEED*ratio*ratio; }
+            else if (lastClientY > botZone) { const ratio = Math.min(1,(lastClientY-botZone)/EDGE); delta = MAX_SPEED*ratio*ratio; }
+            if (delta !== 0) {
+              const before = scroller.scrollTop;
+              scroller.scrollTop += delta;
+              if (scroller.scrollTop !== before) updateDragTime(lastClientY);
+            }
+            autoScrollRAF = requestAnimationFrame(step);
+          };
+          autoScrollRAF = requestAnimationFrame(step);
+        }
+      }, 500);
+    }
+
+    function updateDragTime(clientY) {
+      if (!isDragging || !ghost) return;
+      ghost.style.top = (clientY - 30) + 'px';
+      timeIndicator.style.top = (clientY - 30) + 'px';
+      const tlEl = document.getElementById('timeline');
+      const tlRect = tlEl.getBoundingClientRect();
+      const relY = clientY - tlRect.top;
+      let rawMin = timelineYToMin(relY);
+      if (rawMin == null) return;
+      const floorMin = (window._timelineStartH != null ? window._timelineStartH : 0) * 60;
+      const clampedMin = Math.max(floorMin, Math.min(23 * 60 + 55, rawMin));
+      const closestMin = Math.round(clampedMin / 5) * 5;
+      const hh = Math.floor(closestMin / 60).toString().padStart(2,'0');
+      const mm = (closestMin % 60).toString().padStart(2,'0');
+      const newTime = `${hh}:${mm}`;
+      // 終了時刻も表示（所要時間維持）
+      let endMin = closestMin + durMin; if (endMin > 1439) endMin = 1439;
+      const eh = Math.floor(endMin/60).toString().padStart(2,'0');
+      const em = (endMin%60).toString().padStart(2,'0');
+      timeIndicator.textContent = `${newTime}〜${eh}:${em}`;
+      ghost.querySelector('.task-time').textContent = `${newTime}〜${eh}:${em}`;
+      gcalDragState = { eventId: ev.id, calendarId: ev.calendarId, newStartMin: closestMin };
+    }
+
+    function moveDrag(clientY) {
+      if (!isDragging || !ghost) return;
+      lastClientY = clientY;
+      updateDragTime(clientY);
+    }
+
+    async function endDrag(e) {
+      clearTimeout(longPressTimer);
+      if (!isDragging) return; // タップは既存のclickハンドラ(編集パネル)に任せる
+      isDragging = false;
+      card.classList.remove('dragging');
+      stopAutoScroll();
+      if (ghost) { ghost.remove(); ghost = null; }
+      if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
+      window._dragExpandMode = false;
+
+      const ds = gcalDragState;
+      gcalDragState = null;
+      if (!ds || ds.newStartMin == null || ds.newStartMin === startMinOrig) {
+        renderTimeline(); // 変化なし → 展開を戻すだけ
+        return;
+      }
+
+      // 移動先の開始/終了を組み立てて patch
+      const d = currentDate;
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const sH = String(Math.floor(ds.newStartMin/60)).padStart(2,'0');
+      const sM = String(ds.newStartMin%60).padStart(2,'0');
+      let endMin = ds.newStartMin + durMin; if (endMin > 1439) endMin = 1439;
+      const eH = String(Math.floor(endMin/60)).padStart(2,'0');
+      const eM = String(endMin%60).padStart(2,'0');
+      const tz = (typeof gcalTzName === 'function') ? gcalTzName() : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+      const body = {
+        start: { dateTime: gcalLocalToRFC3339(`${dateStr}T${sH}:${sM}`), timeZone: tz },
+        end:   { dateTime: gcalLocalToRFC3339(`${dateStr}T${eH}:${eM}`), timeZone: tz },
+      };
+      try {
+        if (navigator.vibrate) navigator.vibrate(15);
+        await gcalApiPatch(ds.calendarId, ds.eventId, body);
+        await gcalAfterWrite();
+      } catch (err) {
+        alert('予定の移動に失敗しました: ' + (err.message || err));
+        renderTimeline();
+      }
+    }
+
+    card.addEventListener('touchstart', function(e) {
+      startLongPress(e.touches[0].clientY);
+    }, { passive: true });
+    card.addEventListener('touchmove', function(e) {
+      const dy = Math.abs(e.touches[0].clientY - touchStartY);
+      if (dy > 8) touchMoved = true;
+      if (isDragging) { e.preventDefault(); moveDrag(e.touches[0].clientY); }
+      else if (touchMoved) { clearTimeout(longPressTimer); }
+    }, { passive: false });
+    card.addEventListener('touchend', function(e) { endDrag(e); });
+    card.addEventListener('touchcancel', function() {
+      clearTimeout(longPressTimer);
+      const was = isDragging;
+      isDragging = false;
+      card.classList.remove('dragging');
+      stopAutoScroll();
+      if (ghost) { ghost.remove(); ghost = null; }
+      if (timeIndicator) { timeIndicator.remove(); timeIndicator = null; }
+      if (was && window._dragExpandMode) { window._dragExpandMode = false; renderTimeline(); }
+      gcalDragState = null;
+    });
+  }
+
 
   const SHURUI_OPTIONS = [
     { value: '雑務',     label: '雑務',     bg: '#f2f2f7', color: '#3a3a3c' },
