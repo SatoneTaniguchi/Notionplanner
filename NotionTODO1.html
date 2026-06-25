@@ -151,16 +151,25 @@
     color: #1c1c1e;
   }
 
-  .week-day.today .week-day-num {
+  /* 選択中の日 = 黒の塗りつぶし（今まさに表示している日） */
+  .week-day.selected .week-day-num {
     background: #1c1c1e;
     color: white;
     font-weight: 600;
   }
 
-  .week-day.selected .week-day-num {
+  /* 今日 = オレンジのリング（塗りつぶさず枠で示す。選択日と区別） */
+  .week-day.today .week-day-num {
+    box-shadow: inset 0 0 0 2px #ff9500;
+    font-weight: 600;
+  }
+
+  /* 今日かつ選択中 = 黒塗り＋オレンジのリング */
+  .week-day.today.selected .week-day-num {
     background: #1c1c1e;
     color: white;
     font-weight: 600;
+    box-shadow: inset 0 0 0 2px #ff9500;
   }
 
   .week-day.sunday .week-day-label { color: #ff3b30; }
@@ -3789,7 +3798,7 @@
       if (i === 0) cls.push('sunday');
       if (i === 6) cls.push('saturday');
       if (isToday) cls.push('today');
-      if (isSelected && !isToday) cls.push('selected');
+      if (isSelected) cls.push('selected');
       const btn = document.createElement('div');
       btn.className = cls.join(' ');
       btn.innerHTML = `
@@ -4256,6 +4265,7 @@
     });
 
     // ── GCalイベント描画 ──
+    const gcalCardSpans = []; // 空き時間カードと重ならないようにするためのGCalカード占有範囲(px)
     gcalWithCols.forEach(ev => {
       const y = toY(ev.startMin);
       const evDurMin = ev.endMin - ev.startMin;
@@ -4298,6 +4308,7 @@
       el.className = 'tl-event';
       el.style.cssText = `position:absolute;top:${evCardTop}px;height:${evCardH}px;left:${cardLeft}px;width:${cardWidth}px;background:${color}15;border-left:3px solid ${color};border-radius:10px;padding:6px 8px;overflow:hidden;cursor:pointer;box-sizing:border-box;z-index:2;${isPast?'opacity:0.4;filter:saturate(0.5);':''}`;
       window._maxCardBottom = Math.max(window._maxCardBottom || 0, evCardTop + evCardH);
+      gcalCardSpans.push({ top: evCardTop, bottom: evCardTop + evCardH });
       const evLocked = (typeof gcalIsTaskDerived === 'function') && gcalIsTaskDerived(ev);
       const lockMark = evLocked ? '🔒 ' : '';
       el.innerHTML = timeHTML
@@ -4477,13 +4488,35 @@
       // 次のカードの上端 = toY(gapEnd) - OVERHANG。そこから更に余白を取った位置を下端とする
       const yNextSlot = toY(gapEnd);
       const nextCardTop = yNextSlot - (SLOT_H - 6) / 2; // 次カードの実際の上端
-      const yH = Math.max(60, nextCardTop - yTop - 12); // 次カード上端の12px手前まで
+      const yH = Math.max(60, nextCardTop - yTop - 12);
+
+      // ── GCal予定カードと重ならないよう上下をクランプ ──
+      let fTop = yTop;
+      let fBot = yTop + yH;
+      gcalCardSpans.forEach(s => {
+        if (s.bottom <= fTop || s.top >= fBot) return; // 重なりなし
+        const overlapTop = s.top - fTop;      // free上端から見たカード上端までの余地
+        const overlapBot = fBot - s.bottom;   // カード下端からfree下端までの余地
+        if (s.top <= fTop && s.bottom >= fBot) {
+          // freeが完全にカードに覆われる → 表示しない
+          fBot = fTop; // → 後でスキップ
+        } else if (overlapTop >= overlapBot) {
+          // カードはfreeの下寄り → freeをカードの上で切る
+          fBot = Math.min(fBot, s.top - 8);
+        } else {
+          // カードはfreeの上寄り → freeをカードの下から始める
+          fTop = Math.max(fTop, s.bottom + 8);
+        }
+      });
+      if (fBot - fTop < 44) continue; // 余地が無ければ空き時間カードは出さない
+      const fFinalTop = fTop;
+      const fFinalH = fBot - fTop; // 次カード上端の12px手前まで
       const hh = Math.floor(freeMin / 60);
       const mm = freeMin % 60;
 
       const freeDiv = document.createElement('div');
       freeDiv.className = 'tl-free-card';
-      freeDiv.style.cssText = `top:${yTop}px;height:${Math.max(60,yH)}px;left:100px;right:16px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;z-index:1;`;
+      freeDiv.style.cssText = `top:${fFinalTop}px;height:${Math.max(44,fFinalH)}px;left:100px;right:16px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;z-index:1;`;
 
       const uid = 'ftg-' + i + '-' + Date.now();
       const allGroupData = laterGroupData(allLaterTasks).map((g, gi) => ({ ...g, id: `${uid}-${gi}` }));
