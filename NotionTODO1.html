@@ -5744,7 +5744,7 @@
     const _syncIsEdit = !!editingTaskId;     // 編集かどうかを確定させておく
     const _syncNewId  = _syncIsEdit ? null : (tasks[tasks.length - 1]?.id);
     setTimeout(() => {
-      if (!notionSettings.token || !notionSettings.dbId) {
+      if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
         // Notion未設定でもローカルにインスタンス展開はしておく
         const tpl = tasks.find(t => t.id === (_syncIsEdit ? _syncEditId : _syncNewId));
         if (tpl && tpl['(B)種類'] === '習慣' && tpl._type === 'repeat') {
@@ -6648,7 +6648,7 @@
   }
 
   async function rewardFetchAll() {
-    if (!notionSettings.token || !notionSettings.rewardDbId) return [];
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.rewardDbId) return [];
     const res = await notionApiCall(`/databases/${notionSettings.rewardDbId}/query`, 'POST', {});
     const list = (res.results || []).map(p => {
       const pr = p.properties || {};
@@ -6666,7 +6666,7 @@
   }
 
   async function rewardFetchHistory() {
-    if (!notionSettings.token || !notionSettings.historyDbId) return [];
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.historyDbId) return [];
     const res = await notionApiCall(`/databases/${notionSettings.historyDbId}/query`, 'POST', {
       sorts: [{ timestamp: 'created_time', direction: 'descending' }],
     });
@@ -6709,7 +6709,7 @@
 
   // ── ごほうび画面（オーバーレイ）──
   function openRewards() {
-    if (!notionSettings.token || !notionSettings.rewardDbId) {
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.rewardDbId) {
       alert('先にNボタン（Notion設定）で「ごほうびDB」と「受け取り履歴DB」のIDを設定してください。');
       openNotionPanel();
       return;
@@ -7161,7 +7161,7 @@
   // インスタンスをNotionへ登録（通常タスクとして）
   function pushHabitInstanceToNotion(inst) {
     if (!inst || inst._notionId || inst._notionPushing) return;
-    if (!notionSettings.token || !notionSettings.dbId) return;
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) return;
     inst._notionPushing = true;
     localStorage.setItem('tasks', JSON.stringify(tasks));
     notionApiCall('/pages', 'POST', {
@@ -7185,7 +7185,7 @@
     const logEl = document.getElementById('habitSyncDebugLog');
     const setLog = (s) => { if (logEl) logEl.textContent = s; };
 
-    if (!notionSettings.token || !notionSettings.dbId) {
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
       setLog('❌ Notion未設定です（token または dbId が空）。\n「設定」タブでトークンとデータベースIDを入力して保存してください。');
       return;
     }
@@ -10928,7 +10928,7 @@
 
   // ステータスプロパティの選択肢をDBスキーマから取得
   async function notionFetchProjectStatusOptions() {
-    if (!notionSettings.token || !notionSettings.projectDbId) return;
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.projectDbId) return;
     const statusProp = notionSettings.projStatusProp || '(A)ステータス';
     const typeProp   = notionSettings.projTypeProp   || '(D)種類';
     try {
@@ -10966,7 +10966,7 @@
 
   // --- プロジェクトDBを取得（種類「目標」等は除外）し、id→名前マップと詳細配列を構築 ---
   async function notionFetchProjects() {
-    if (!notionSettings.token || !notionSettings.projectDbId) return notionProjectMap;
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.projectDbId) return notionProjectMap;
     try {
       await notionFetchProjectStatusOptions();
       let allPages = [];
@@ -11107,7 +11107,7 @@
 
   // --- Notionからタスクを取得（前後1ヵ月・実行日あり or 実行期間1〜4のみ後でやる対象） ---
   async function notionFetchTasks() {
-    if (!notionSettings.token || !notionSettings.dbId) {
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
       alert('Notion設定を先に保存してください');
       return;
     }
@@ -11205,7 +11205,7 @@
 
   // --- フルSync: Notion → ローカル & ローカル → Notion ---
   async function notionFullSync() {
-    if (!notionSettings.token || !notionSettings.dbId) {
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
       alert('Notion設定を先に保存してください');
       notionSwitchTab('setup');
       return;
@@ -11377,7 +11377,7 @@
   // --- 新規タスクをNotionへ作成（Push中の編集にも追従） ---
   function pushNewTaskToNotion(t) {
     if (!t || t._notionId || t._notionPushing) return;
-    if (!notionSettings.token || !notionSettings.dbId) return;
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) return;
     t._notionPushing = true; // fullSync・再保存との二重push防止
     delete t._notionDirty;
     localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -11405,7 +11405,7 @@
   // プロジェクト指定で新規タスクをNotion作成（relationを自動セット）
   function pushNewProjectTaskToNotion(t, projectId) {
     if (!t || t._notionId || t._notionPushing) return;
-    if (!notionSettings.token || !notionSettings.dbId) return;
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) return;
     t._notionPushing = true;
     delete t._notionDirty;
     localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -11432,7 +11432,7 @@
 
   // --- 新規プロジェクトをNotionに作成 ---
   async function notionCreateProject(fields) {
-    if (!notionSettings.token || !notionSettings.projectDbId) { alert('Notion設定（トークン・プロジェクトDB ID）が必要です'); return false; }
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.projectDbId) { alert('Notion設定（トークン・プロジェクトDB ID）が必要です'); return false; }
     const name = (fields.name || '').trim();
     if (!name) { alert('プロジェクト名を入力してください'); return false; }
     const titleProp  = (notionProjectSchema && notionProjectSchema.titleProp) || 'タスク名';
