@@ -2,7 +2,7 @@
   "name": "Any Planner",
   "short_name": "Planner",
   "description": "Notion連携タスク・ルーチン管理アプリ",
-  "start_url": "./",
+  "start_url": "./NotionTODO1.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
