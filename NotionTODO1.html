@@ -2658,6 +2658,7 @@
         <input id="notionHistoryDbInput" type="text" placeholder="受け取り履歴DBのID"
           style="width:100%;background:#f2f2f7;border:none;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;outline:none;"
           value="">
+        <div style="font-size:11px;color:#b0adc0;margin-top:5px;line-height:1.5;">🪙 貯めたコインも自動バックアップされます。このDBに <b>獲得コイン</b>(数値) / <b>キー</b>(テキスト) / <b>日付</b>(テキスト) を追加すると有効化（Safariのデータを消しても起動時に残高を自動復元）。揃うまでは作動せず、残高は壊しません。</div>
       </div>
       <div style="margin-bottom:14px;">
         <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;font-weight:500;">📁 プロジェクトDB ID（任意）</div>
@@ -3723,6 +3724,8 @@
     // まず Worker から設定(トークン/DB ID)を取得・補完してから同期判定する。
     // → 新しいブラウザでも再入力なしで繋がる。
     notionBootstrapConfig().then(() => {
+      // 獲得履歴DBから「貯めたコイン」を復元（Safari削除後も残高が飛ばない）
+      try { rewardFetchEarned(); } catch(e) {}
       if (notionSettings.autoSync && (notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
         setTimeout(() => notionFullSync(), 2000);
       }
@@ -6480,6 +6483,112 @@
   }
   function saveRewardStore(s) { localStorage.setItem('rewardStore', JSON.stringify(s)); }
 
+  // ── 獲得履歴（Notionバックアップ）────────────────────────────
+  // 「貯めたコイン」を1件ずつ Notion に記録し、起動時にそこから累計を復元する。
+  // Safariのデータを消しても残高が飛ばなくなる。
+  // 専用の「獲得履歴DB」を作ってもよいし、既存の「受け取り履歴DB」を共用してもよい
+  // （共用時は そのDBに 獲得コイン / キー / 日付 プロパティを追加すればOK）。
+  const EARNED_PROPS = { coins: '獲得コイン', key: 'キー', date: '日付' };
+  let _earnedMeta = null;        // { titleProp, ok } キャッシュ
+
+  // 獲得履歴の保存先DB（受け取り履歴DBを共用）
+  function earnedDbIdResolved() {
+    return notionSettings.historyDbId || '';
+  }
+  function earnedConfigured() {
+    return !!((notionSettings.token || notionSettings.managed) && earnedDbIdResolved());
+  }
+  // DBスキーマを1度だけ取得。獲得コイン/キー/日付 が揃っていて初めて ok=true。
+  // → 受け取り履歴DBをプロパティ未追加のまま流用しても、誤って残高を0にしない。
+  async function earnedMeta() {
+    if (_earnedMeta) return _earnedMeta;
+    const dbId = earnedDbIdResolved();
+    if (!dbId) return (_earnedMeta = { titleProp: '名前', ok: false });
+    try {
+      const db = await notionApiCall(`/databases/${dbId}`, 'GET');
+      const props = db.properties || {};
+      const titleEntry = Object.entries(props).find(([, v]) => v.type === 'title');
+      const ok = !!props[EARNED_PROPS.coins] && !!props[EARNED_PROPS.key] && !!props[EARNED_PROPS.date];
+      _earnedMeta = { titleProp: titleEntry ? titleEntry[0] : '名前', ok };
+    } catch (e) { _earnedMeta = { titleProp: '名前', ok: false }; }
+    return _earnedMeta;
+  }
+  // 1件を記録。pageId を返す（失敗・未設定時 null）。
+  async function earnedCreate(name, coins, key, dateStr) {
+    if (!earnedConfigured()) return null;
+    const meta = await earnedMeta();
+    if (!meta.ok) return null;
+    try {
+      const props = {};
+      props[meta.titleProp]     = { title: [{ text: { content: String(name || '(無題)') } }] };
+      props[EARNED_PROPS.coins] = { number: Math.round(coins) || 0 };
+      props[EARNED_PROPS.key]   = { rich_text: [{ text: { content: String(key || '') } }] };
+      props[EARNED_PROPS.date]  = { rich_text: [{ text: { content: String(dateStr || '') } }] };
+      const page = await notionApiCall('/pages', 'POST', {
+        parent: { database_id: earnedDbIdResolved() }, properties: props,
+      });
+      return (page && page.id) ? page.id : null;
+    } catch (e) { return null; }
+  }
+  async function earnedArchive(pageId) {
+    if (!pageId || !earnedConfigured()) return;
+    try { await notionApiCall(`/pages/${pageId}`, 'PATCH', { archived: true }); } catch (e) {}
+  }
+  // pageId が分からない場合のフォールバック削除（キー＋日付で検索）。
+  async function earnedArchiveByKey(key, dateStr) {
+    if (!earnedConfigured()) return;
+    const meta = await earnedMeta();
+    if (!meta.ok) return;
+    try {
+      const res = await notionApiCall(`/databases/${earnedDbIdResolved()}/query`, 'POST', {
+        filter: { and: [
+          { property: EARNED_PROPS.key,  rich_text: { equals: String(key) } },
+          { property: EARNED_PROPS.date, rich_text: { equals: String(dateStr) } },
+        ] },
+      });
+      for (const p of (res.results || [])) { await earnedArchive(p.id); }
+    } catch (e) {}
+  }
+  // 獲得履歴を正本として、貯めた累計と完了ログをローカルへ復元する。
+  // （Safari削除後の復旧 ＆ 二重登録の防止を兼ねる）
+  // 受け取り履歴DBと共用していても、獲得コイン>0 の行だけを拾うので混ざらない。
+  async function rewardFetchEarned() {
+    if (!earnedConfigured()) return;
+    const meta = await earnedMeta();
+    if (!meta.ok) return; // プロパティ未整備なら何もしない（残高を壊さない）
+    let results = [];
+    try {
+      let cursor;
+      do {
+        const body = cursor ? { start_cursor: cursor } : {};
+        const res = await notionApiCall(`/databases/${earnedDbIdResolved()}/query`, 'POST', body);
+        results = results.concat(res.results || []);
+        cursor = res.has_more ? res.next_cursor : undefined;
+      } while (cursor);
+    } catch (e) { return; }
+
+    const completions = results.map(p => {
+      const pr = p.properties || {};
+      let name = '';
+      for (const k in pr) {
+        if (pr[k] && pr[k].type === 'title') { name = (pr[k].title || []).map(r => r.plain_text).join(''); break; }
+      }
+      return {
+        key:     _rwText(pr[EARNED_PROPS.key]),
+        name:    name,
+        dateStr: _rwText(pr[EARNED_PROPS.date]),
+        coins:   _rwNum(pr[EARNED_PROPS.coins]),
+        pageId:  p.id,
+      };
+    }).filter(c => (c.coins || 0) > 0); // 獲得行のみ（受け取り履歴行は除外）
+
+    const s = getRewardStore();
+    s.completions = completions;
+    s.coins = completions.reduce((sum, c) => sum + (c.coins || 0), 0);
+    saveRewardStore(s);
+    updateCoinDisplays();
+  }
+
   // タスクごとの獲得コイン数を算出（実行期間タグ・見込み時間・優先度で配分）
   function taskCoins(task) {
     if (!task) return 10;
@@ -6512,6 +6621,15 @@
     s.coins = (s.coins || 0) + amt;
     saveRewardStore(s);
     showCoinToast(amt);
+    // Notion 獲得履歴へ自動バックアップ（pageIdを後で完了ログに紐付け）
+    if (earnedConfigured()) {
+      earnedCreate(name || '', amt, key, dateStr).then(pageId => {
+        if (!pageId) return;
+        const s2 = getRewardStore();
+        const c = s2.completions.find(x => x.key === key && x.dateStr === dateStr);
+        if (c) { c.pageId = pageId; saveRewardStore(s2); }
+      }).catch(() => {});
+    }
   }
   function revokeCompletion(key, dateStr) {
     if (!key) return;
@@ -6520,10 +6638,16 @@
     if (idx < 0) return;
     const rec = s.completions[idx];
     const amt = Math.max(1, Math.round(rec && rec.coins != null ? rec.coins : 1));
+    const pageId = rec && rec.pageId;
     s.completions.splice(idx, 1);
     s.coins = Math.max(0, (s.coins || 0) - amt);
     saveRewardStore(s);
     updateCoinDisplays();
+    // Notion 獲得履歴からも削除（アーカイブ）
+    if (earnedConfigured()) {
+      if (pageId) earnedArchive(pageId);
+      else earnedArchiveByKey(key, dateStr);
+    }
   }
   // 集中（実働）時間の記録（分）。タイマー終了時に呼ぶ。
   function recordFocus(minutes) {
@@ -6670,10 +6794,12 @@
     const res = await notionApiCall(`/databases/${notionSettings.historyDbId}/query`, 'POST', {
       sorts: [{ timestamp: 'created_time', direction: 'descending' }],
     });
+    // 消費コイン>0 の行だけを「受け取り履歴」とみなす。
+    // （獲得履歴を同じDBに共用していても混ざらない＆消費合計を汚さない）
     const items = (res.results || []).map(p => {
       const pr = p.properties || {};
       return { name: _rwText(pr[HISTORY_PROPS.name]) || '(無題)', cost: _rwNum(pr[HISTORY_PROPS.cost]), date: p.created_time };
-    });
+    }).filter(x => (x.cost || 0) > 0);
     const s = getRewardStore();
     s.spent = items.reduce((sum, x) => sum + (x.cost || 0), 0); // 消費合計をキャッシュ
     saveRewardStore(s);
@@ -6716,8 +6842,12 @@
     }
     document.getElementById('rewardOverlay').style.display = 'flex';
     rewardSwitchTab('list');
-    // 残高を最新化（消費合計を取得）
-    rewardFetchHistory().then(() => { updateCoinDisplays(); if (rewardTab === 'history') renderRewardHistory(); }).catch(() => {});
+    // 残高を最新化（獲得＝獲得履歴 / 消費＝受け取り履歴）。共用DB時の競合を避け直列実行。
+    rewardFetchEarned()
+      .catch(() => {})
+      .then(() => rewardFetchHistory())
+      .then(() => { updateCoinDisplays(); if (rewardTab === 'history') renderRewardHistory(); })
+      .catch(() => {});
   }
   function closeRewards() { document.getElementById('rewardOverlay').style.display = 'none'; }
 
@@ -10544,6 +10674,7 @@
     });
     notionSettings = { token, dbId, rewardDbId, historyDbId, projectDbId, projTypeProp, projExcludeTypes, projDeadlineProp, projNextProp, projGoalRelProp, projDateProp, projStatusProp, props, autoSync: notionSettings.autoSync, managed: notionSettings.managed };
     localStorage.setItem('notionSettings', JSON.stringify(notionSettings));
+    _earnedMeta = null; // DB/プロパティ変更を次回チェックで反映
 
     const statusEl = document.getElementById('notionConnStatus');
     statusEl.textContent = '接続テスト中...';
