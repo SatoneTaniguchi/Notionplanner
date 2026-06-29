@@ -13268,6 +13268,12 @@
         <div class="mz-step"><button class="mz-sb" data-f="reps" data-d="-1">−</button><div class="mz-val" id="mzRepsV">4<small>回</small></div><button class="mz-sb" data-f="reps" data-d="1">+</button></div></div>
       <div class="mz-prow"><div><b>終了したら知らせて一時停止</b><span>休憩を見逃さない（画面で通知＋アラーム）</span></div>
         <button class="mz-toggle" id="mzAlertPause" aria-label="終了通知"></button></div>
+      <div class="mz-prow"><div><b>バックグラウンド通知</b><span>アプリを閉じても通知（ホーム画面に追加が必要）</span></div>
+        <button class="mz-toggle" id="mzPushToggle" aria-label="バックグラウンド通知"></button></div>
+      <div class="mz-prow" style="display:none;padding-top:0">
+        <input id="mzPushUrl" type="text" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="通知サーバーURL（https://...workers.dev）"
+          style="width:100%;box-sizing:border-box;background:#F4F5F4;border:none;border-radius:10px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;color:#2b2b2b;">
+      </div>
       <div class="mz-prow"><div><b>開始/終了日時も記録</b><span>オフなら実績時間だけ更新</span></div>
         <button class="mz-toggle" id="mzStamp" aria-label="開始終了日時"></button></div>
     </div>
@@ -13427,7 +13433,7 @@
   function chime(kind){ var n=kind==='focus'?[660,880]:kind==='done'?[523,659,784]:[520,392]; beep(n,'sine',0.16,0.5,0.16); }
   // 区切りの“はっきりした”アラーム（休憩を見逃さないよう長め・大きめ・繰り返し）
   function vibrate(){ try{ if(navigator.vibrate) navigator.vibrate([220,120,220,120,320]); }catch(e){} }
-  function notify(title,body){ try{ if(window.Notification && Notification.permission==='granted'){ var n=new Notification(title,{body:body}); setTimeout(function(){ try{n.close();}catch(e){} },8000); } }catch(e){} }
+  function notify(title,body){ try{ var pc=mzPushCfg(); if(pc&&pc.enabled&&pc.sub) return; }catch(e){} try{ if(window.Notification && Notification.permission==='granted'){ var n=new Notification(title,{body:body}); setTimeout(function(){ try{n.close();}catch(e){} },8000); } }catch(e){} }
   function alarmSound(){ beep([880,660,880,660,990,784],'triangle',0.34,0.26,0.28); vibrate(); }
   // ---- 画面を消さない（タイマー稼働中はスリープ防止）----
   async function reqWake(){ try{ if('wakeLock' in navigator){ mzWake=await navigator.wakeLock.request('screen'); } }catch(e){} }
@@ -13505,24 +13511,24 @@
         alarmSound(); secondsLeft=0; phase='done'; running=false; relWake(); notify('完了！','おつかれさまでした 🎉');
       }
     }
-    updateRecBtn(); paint();
+    updateRecBtn(); paint(); mzPushSync();
   }
   // 切れ目で一時停止して画面で知らせる（休憩を見逃さない）
   function enterReady(next){
     _pendingNext=next; phase='ready'; running=false; cancelAnimationFrame(raf); relWake();
-    showAlert(next); updateRecBtn(); paint();
+    showAlert(next); updateRecBtn(); paint(); mzPushSync();
   }
   function startPending(){
     var nx=_pendingNext; _pendingNext=null; hideAlert();
     if(nx==='focus'){ currentRep++; accounted=0; begin('focus',st.focus*60); }
     else { begin('break',st.brk*60); }
     running=true; reqWake(); updateRecBtn();
-    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint();
+    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint(); mzPushSync();
   }
   function extendFocus(min){
     _extending=true; hideAlert(); _pendingNext=null;
     accounted=0; begin('focus',min*60); running=true; reqWake(); updateRecBtn();
-    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint();
+    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint(); mzPushSync();
   }
   function showAlert(next){
     var ov=$('mzAlert'); if(!ov) return;
@@ -13549,11 +13555,11 @@
       begin('focus',st.focus*60); running=true; updateRecBtn(); updateTotalLabel();
     } else { endAt=Date.now()+secondsLeft*1000; running=true; }
     reqWake();
-    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint();
+    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint(); mzPushSync();
   }
-  function pauseTimer(){ flushFocus(); running=false; cancelAnimationFrame(raf); relWake(); paint(); }
+  function pauseTimer(){ flushFocus(); running=false; cancelAnimationFrame(raf); relWake(); paint(); mzPushCancelAll(); }
   function toggle(){ running?pauseTimer():startTimer(); }
-  function reset(){ flushFocus(); hideAlert(); _pendingNext=null; running=false; cancelAnimationFrame(raf); relWake(); phase='idle'; currentRep=1; sessionPomos=0; accounted=0; secondsLeft=st.focus*60; totalSec=st.focus*60; updateRecBtn(); paint(); }
+  function reset(){ flushFocus(); hideAlert(); _pendingNext=null; running=false; cancelAnimationFrame(raf); relWake(); phase='idle'; currentRep=1; sessionPomos=0; accounted=0; secondsLeft=st.focus*60; totalSec=st.focus*60; updateRecBtn(); paint(); mzPushCancelAll(); }
   function recordNow(){ flushFocus(); }
   // タイマー側からタスクを完了にする（未記録の集中を保存→アプリ純正のtoggleTaskDoneで完了）
   async function completeTask(){
@@ -13581,7 +13587,7 @@
       task=null; sessionLoggedSec=0; taskTotalH=null;
       $('mzSelect').value='';
       $('mzTaskSub').textContent='「'+nm+'」を完了にしました';
-      rebuildSelect(); updateRecBtn(); updateTotalLabel(); paint();
+      rebuildSelect(); updateRecBtn(); updateTotalLabel(); paint(); mzPushCancelAll();
     } else {
       setStatus('error','完了に失敗');
     }
@@ -13601,7 +13607,68 @@
     renderSteppers(); paint();
   }
 
-  function open(){ $('mzOverlay').classList.add('open'); rebuildSelect(); applyTheme(); renderSteppers(); updateRecBtn(); updateTotalLabel(); paint(); }
+  // ===== バックグラウンド通知（Web Push）=====
+  // アプリを閉じていても、Cloudflare Worker が指定時刻にプッシュを送る。
+  var MZ_VAPID_PUBLIC = 'BMtHBfXHEXaT9svJDps-Mt1A2ErKA53wwDFVujoPnsr8IlV185JkqAf8SGh7kaF0CSRKLGHu2L20NFX3-h0pl9c';
+  function mzPushCfg(){ var c=load('mzPush', { enabled:false, url:'', token:'', sub:null, client:'' }); if(!c.url) c.url=MZ_PROXY; return c; }
+  function mzPushSaveCfg(c){ save('mzPush', c); }
+  function mzClientId(){ var c=mzPushCfg(); if(!c.client){ c.client = 'c-' + Math.random().toString(36).slice(2) + Date.now().toString(36); mzPushSaveCfg(c); } return c.client; }
+  function urlB64ToU8(b64){ var pad='='.repeat((4-b64.length%4)%4); var s=(b64+pad).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(s); var out=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i); return out; }
+
+  function mzUpdatePushUI(){
+    var c=mzPushCfg(); var btn=$('mzPushToggle'); var inp=$('mzPushUrl');
+    if(inp && document.activeElement!==inp) inp.value=c.url||'';
+    if(btn){ var on=!!(c.enabled && c.sub); btn.className='mz-toggle'+(on?' on':''); btn.style.setProperty('--mzc', theme.disk); }
+  }
+  async function mzEnablePush(){
+    var c=mzPushCfg();
+    var urlInp=$('mzPushUrl'); if(urlInp) c.url=(urlInp.value||'').trim().replace(/\/+$/,'');
+    if(!c.url) c.url=MZ_PROXY;
+    if(!c.url){ setStatus('error','通知サーバーURLを入力してください'); return; }
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){ setStatus('error','この環境は通知に未対応'); return; }
+    try{
+      if(typeof Notification!=='undefined'){ var perm=await Notification.requestPermission(); if(perm!=='granted'){ setStatus('error','通知が許可されていません'); return; } }
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if(!sub){ sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlB64ToU8(MZ_VAPID_PUBLIC) }); }
+      c.sub = sub.toJSON(); c.enabled=true; mzClientId(); mzPushSaveCfg(c);
+      setStatus('ok','通知を有効化しました');
+      mzUpdatePushUI(); mzPushSync();
+    }catch(e){ setStatus('error','有効化に失敗: '+(e&&e.message||e)); }
+  }
+  function mzDisablePush(){ var c=mzPushCfg(); c.enabled=false; mzPushSaveCfg(c); mzPushCancelAll(); mzUpdatePushUI(); setStatus('ok','通知をオフにしました'); }
+
+  // 現状から、これから鳴らすべき通知の予定表を作る（自動継続を仮定。一時停止モードは次の1件のみ）
+  function mzPlan(){
+    var out=[]; if(!running || endAt<=Date.now()) return out;
+    var t=endAt, ph=phase, rep=currentRep;
+    for(var i=0;i<60;i++){
+      if(ph==='focus'){
+        if(rep>=st.reps){ out.push({when:t,title:'完了！',body:'おつかれさまでした 🎉'}); break; }
+        out.push({when:t,title:'おつかれさま！',body:'休憩しよう（'+st.brk+'分）'});
+        ph='break'; t=t+st.brk*60*1000;
+      } else if(ph==='break'){
+        out.push({when:t,title:'休憩おわり！',body:'集中に戻ろう'});
+        ph='focus'; rep=rep+1; t=t+st.focus*60*1000;
+      } else break;
+      if(alertPause) break;
+    }
+    return out;
+  }
+  function mzPushPost(path, payload){
+    var c=mzPushCfg(); if(!c.url) return Promise.resolve();
+    var h={'Content-Type':'application/json'}; if(c.token) h['X-Auth']=c.token;
+    return fetch(c.url+path,{method:'POST',headers:h,body:JSON.stringify(payload)}).catch(function(){});
+  }
+  function mzPushSync(){
+    var c=mzPushCfg(); if(!c.enabled||!c.url||!c.sub) return;
+    var plan=mzPlan();
+    var jobs=plan.map(function(p,i){ return {id:'mz'+i, when:p.when, title:p.title, body:p.body, tag:'mztimer'}; });
+    mzPushPost('/schedule', { client:mzClientId(), sub:c.sub, replace:true, jobs:jobs });
+  }
+  function mzPushCancelAll(){ var c=mzPushCfg(); if(!c.url) return; mzPushPost('/cancel', { client:mzClientId() }); }
+
+  function open(){ $('mzOverlay').classList.add('open'); rebuildSelect(); applyTheme(); renderSteppers(); updateRecBtn(); updateTotalLabel(); mzUpdatePushUI(); paint(); }
   function close(){ $('mzOverlay').classList.remove('open'); relWake(); }
 
   function init(){
@@ -13619,7 +13686,10 @@
     $('mzStamp').className='mz-toggle'+(stamp?' on':''); $('mzStamp').style.setProperty('--mzc',theme.disk);
     $('mzStamp').onclick=function(){ stamp=!stamp; save('mineeTimer:stamp',stamp); this.className='mz-toggle'+(stamp?' on':''); };
     $('mzAlertPause').className='mz-toggle'+(alertPause?' on':''); $('mzAlertPause').style.setProperty('--mzc',theme.disk);
-    $('mzAlertPause').onclick=function(){ alertPause=!alertPause; save('mineeTimer:alertPause',alertPause); this.className='mz-toggle'+(alertPause?' on':''); };
+    $('mzAlertPause').onclick=function(){ alertPause=!alertPause; save('mineeTimer:alertPause',alertPause); this.className='mz-toggle'+(alertPause?' on':''); mzPushSync(); };
+    mzUpdatePushUI();
+    $('mzPushToggle').onclick=function(){ var c=mzPushCfg(); if(c.enabled && c.sub){ mzDisablePush(); } else { mzEnablePush(); } };
+    if($('mzPushUrl')) $('mzPushUrl').onchange=function(){ var c=mzPushCfg(); c.url=(this.value||'').trim().replace(/\/+$/,''); mzPushSaveCfg(c); };
     $('mzAlertGo').onclick=startPending;
     $('mzAlertExt').onclick=function(){ extendFocus(5); };
     document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible' && running) reqWake(); });
