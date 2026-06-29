@@ -69,3 +69,32 @@ self.addEventListener('fetch', (event) => {
     return cached || network;
   })());
 });
+// ============================================================================
+//  ↓↓↓ この内容を、既存の sw.js の末尾に「追記」してください ↓↓↓
+//  （既存のキャッシュ処理などはそのまま残してOK。重複定義に注意）
+// ============================================================================
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; }
+  catch (e) { data = { title: '通知', body: event.data ? event.data.text() : '' }; }
+  const title = data.title || '通知';
+  const options = {
+    body: data.body || '',
+    tag: data.tag || 'mztimer',
+    renotify: true,
+    data: data,
+    // icon / badge は任意。アプリのアイコンファイルがあれば指定可:
+    // icon: '/icon-192.png', badge: '/icon-192.png',
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const all = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) { if ('focus' in c) return c.focus(); }
+    if (clients.openWindow) return clients.openWindow('./');
+  })());
+});
