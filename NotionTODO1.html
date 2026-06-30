@@ -709,7 +709,7 @@
 
   .later-item:last-child { border-bottom: none; }
 
-  .later-item.drag-over-top { border-top: 2px solid #007aff; }
+  .later-item.drag-over-top { border-top: 2px solid #6c5ce7; }
   .later-item.dragging-item { opacity: 0.4; }
 
   .later-drag-handle {
@@ -1639,7 +1639,7 @@
   }
 
   .later-item.drag-over-item {
-    border-top: 2px solid #007aff;
+    border-top: 2px solid #6c5ce7;
   }
 
   .later-section-title {
@@ -2412,6 +2412,30 @@
     background: #6c5ce7; border-color: #6c5ce7; color: #fff;
   }
   .weekday-picker button.sun.on { background:#6c5ce7; }
+
+  /* ===== アクセント統一: TODOの黒い操作・ハイライトを紫に ===== */
+  .today-btn { background: #6c5ce7; }
+  .fab { background: #6c5ce7; box-shadow: 0 4px 16px rgba(108,92,231,0.35); }
+  .week-day.selected .week-day-num { background: #6c5ce7; }
+  .week-day.today.selected .week-day-num { background: #6c5ce7; }
+  .tl-now-line, .now-line { background: #6c5ce7; }
+  .tl-now-badge, .tl-now-add, .now-badge, .now-add-btn { background: #6c5ce7; }
+
+  /* ===== タスク追加モーダル: 白ベース＋紫アクセントに統一 ===== */
+  .modal-header { background: #fff; box-shadow: inset 0 -1px 0 #ededed; }
+  .modal-close { background: #f2f2f7; color: #1c1c1e; }
+  .modal-save { background: #6c5ce7; color: #fff; }
+  .modal-checkbox { background: #f2f2f7; }
+  .modal-task-input { color: #1c1c1e; border-bottom-color: #e5e5ea; }
+  .modal-task-input::placeholder { color: #c7c7cc; }
+  .modal-tabs { background: #f2f2f7; }
+  .modal-tab.active { background: #fff; color: #6c5ce7; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .duration-btn.selected { background: #6c5ce7; color: #fff; border-color: #6c5ce7; }
+  /* メモは使用頻度が低いので各タブの最下部へ */
+  #tabLater, #tabTime, #tabRepeat { display: flex; flex-direction: column; }
+  #tabLater .modal-section:has(.modal-memo),
+  #tabTime  .modal-section:has(.modal-memo),
+  #tabRepeat .modal-section:has(.modal-memo) { order: 99; }
 </style>
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2628,7 +2652,7 @@
     <div id="notionTabSetupContent" style="flex:1;overflow-y:auto;padding:16px 20px 40px;">
       <div style="font-size:13px;color:#8e8e93;margin-bottom:16px;line-height:1.5;">
         Notion Integration TokenとデータベースIDを入力してください。
-        <br><a href="https://www.notion.so/my-integrations" target="_blank" style="color:#007aff;">インテグレーション作成 →</a>
+        <br><a href="https://www.notion.so/my-integrations" target="_blank" style="color:#6c5ce7;">インテグレーション作成 →</a>
       </div>
 
       <!-- Token入力 -->
@@ -3000,7 +3024,7 @@
         </div>
         <div class="modal-input-block">
           <div class="modal-subtitle" id="modalSubtitle">・あとで</div>
-          <input class="modal-task-input" id="taskNameInput" placeholder="タスク名を入力..." autofocus>
+          <input class="modal-task-input" id="taskNameInput" placeholder="タスク名を入力..." autofocus onkeydown="if(event.key==='Enter'){event.preventDefault();saveTask();}">
         </div>
         <div id="modalCheckbox" onclick="toggleModalDone()" style="
           width:20px;height:20px;border-radius:50%;border:2px solid #6a6a6c;
@@ -3079,7 +3103,7 @@
             <div class="pro-label"><div class="pro-icon">📅</div> 日付</div>
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:13px;color:#8e8e93;" id="timeDateLabel">今日</span>
-              <div id="timeDateDisplay" style="background:#f2f2f7;border-radius:10px;padding:6px 12px;font-size:14px;font-weight:500;color:#007aff;cursor:pointer;">
+              <div id="timeDateDisplay" style="background:#f2f2f7;border-radius:10px;padding:6px 12px;font-size:14px;font-weight:500;color:#6c5ce7;cursor:pointer;">
                 <span id="timeDateText">選択</span> <span id="timeDateArrow">∨</span>
               </div>
             </div>
@@ -3089,8 +3113,8 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
               <div style="font-size:16px;font-weight:700;" id="calPickerTitle"></div>
               <div style="display:flex;gap:8px;">
-                <button id="calPrevBtn" style="background:none;border:none;font-size:20px;color:#007aff;cursor:pointer;">‹</button>
-                <button id="calNextBtn" style="background:none;border:none;font-size:20px;color:#007aff;cursor:pointer;">›</button>
+                <button id="calPrevBtn" style="background:none;border:none;font-size:20px;color:#6c5ce7;cursor:pointer;">‹</button>
+                <button id="calNextBtn" style="background:none;border:none;font-size:20px;color:#6c5ce7;cursor:pointer;">›</button>
               </div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:6px;">
@@ -3122,7 +3146,7 @@
           <div onclick="openStartTimePop()" id="timeDisplayBtn" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
-            <span id="timeDisplayLabel" style="font-size:22px;font-weight:600;color:#007aff;letter-spacing:1px;">07:00</span>
+            <span id="timeDisplayLabel" style="font-size:22px;font-weight:600;color:#6c5ce7;letter-spacing:1px;">07:00</span>
             <span id="timeDisplayArrow" style="font-size:13px;color:#8e8e93;margin-left:4px;">∨</span>
           </div>
           <button type="button" id="nowBtn" onclick="openNowPopup()" style="
@@ -3248,15 +3272,15 @@
             <!-- 開始日 -->
             <div style="margin-bottom:10px;">
               <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">開始日</div>
-              <div id="repeatStartDateBtn" style="background:#f2f2f7;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:500;color:#007aff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+              <div id="repeatStartDateBtn" style="background:#f2f2f7;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:500;color:#6c5ce7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
                 <span id="repeatStartDateText">選択してください</span><span>∨</span>
               </div>
               <div id="repeatStartCalPanel" style="display:none;margin-top:8px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                   <div style="font-size:15px;font-weight:700;" id="repeatStartCalTitle"></div>
                   <div style="display:flex;gap:8px;">
-                    <button id="repeatStartCalPrev" style="background:none;border:none;font-size:18px;color:#007aff;cursor:pointer;">‹</button>
-                    <button id="repeatStartCalNext" style="background:none;border:none;font-size:18px;color:#007aff;cursor:pointer;">›</button>
+                    <button id="repeatStartCalPrev" style="background:none;border:none;font-size:18px;color:#6c5ce7;cursor:pointer;">‹</button>
+                    <button id="repeatStartCalNext" style="background:none;border:none;font-size:18px;color:#6c5ce7;cursor:pointer;">›</button>
                   </div>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
@@ -3268,15 +3292,15 @@
             <!-- 終了日 -->
             <div>
               <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">終了日</div>
-              <div id="repeatEndDateBtn" style="background:#f2f2f7;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:500;color:#007aff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+              <div id="repeatEndDateBtn" style="background:#f2f2f7;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:500;color:#6c5ce7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
                 <span id="repeatEndDateText">選択してください</span><span>∨</span>
               </div>
               <div id="repeatEndCalPanel" style="display:none;margin-top:8px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                   <div style="font-size:15px;font-weight:700;" id="repeatEndCalTitle"></div>
                   <div style="display:flex;gap:8px;">
-                    <button id="repeatEndCalPrev" style="background:none;border:none;font-size:18px;color:#007aff;cursor:pointer;">‹</button>
-                    <button id="repeatEndCalNext" style="background:none;border:none;font-size:18px;color:#007aff;cursor:pointer;">›</button>
+                    <button id="repeatEndCalPrev" style="background:none;border:none;font-size:18px;color:#6c5ce7;cursor:pointer;">‹</button>
+                    <button id="repeatEndCalNext" style="background:none;border:none;font-size:18px;color:#6c5ce7;cursor:pointer;">›</button>
                   </div>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
@@ -3301,7 +3325,7 @@
           <div onclick="openRepeatTimePop()" id="repeatTimeDisplayBtn" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
-            <span id="repeatTimeDisplayLabel" style="font-size:22px;font-weight:600;color:#007aff;letter-spacing:1px;">07:00</span>
+            <span id="repeatTimeDisplayLabel" style="font-size:22px;font-weight:600;color:#6c5ce7;letter-spacing:1px;">07:00</span>
             <span id="repeatTimeDisplayArrow" style="font-size:13px;color:#8e8e93;margin-left:4px;">∨</span>
           </div>
           <div id="repeatDrumPickerContainer" style="display:none;margin-top:10px;">
@@ -4538,7 +4562,7 @@
       // あふれているときだけ下端にスクロール誘導を表示し、タップでカード内を下にスクロール。
       const moreBtn = document.createElement('div');
       moreBtn.textContent = '▾ スクロールで続きを表示';
-      moreBtn.style.cssText = 'display:none;text-align:center;font-size:11px;color:#007aff;font-weight:700;padding:6px 0 3px;cursor:pointer;position:sticky;bottom:0;background:linear-gradient(to top,#f2f2f7 60%,rgba(242,242,247,0));';
+      moreBtn.style.cssText = 'display:none;text-align:center;font-size:11px;color:#6c5ce7;font-weight:700;padding:6px 0 3px;cursor:pointer;position:sticky;bottom:0;background:linear-gradient(to top,#f2f2f7 60%,rgba(242,242,247,0));';
       moreBtn.addEventListener('click', e => {
         e.stopPropagation();
         freeDiv.scrollBy({ top: Math.max(40, freeDiv.clientHeight - 24), behavior: 'smooth' });
@@ -5382,9 +5406,9 @@
     currentTab = tab;
     document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('tabLater').style.display = tab === 'later' ? 'block' : 'none';
-    document.getElementById('tabTime').style.display = tab === 'time' ? 'block' : 'none';
-    document.getElementById('tabRepeat').style.display = tab === 'repeat' ? 'block' : 'none';
+    document.getElementById('tabLater').style.display = tab === 'later' ? 'flex' : 'none';
+    document.getElementById('tabTime').style.display = tab === 'time' ? 'flex' : 'none';
+    document.getElementById('tabRepeat').style.display = tab === 'repeat' ? 'flex' : 'none';
     const subtitles = { later: '・あとで', time: '・時間指定', repeat: '・繰り返し' };
     document.getElementById('modalSubtitle').textContent = subtitles[tab];
     if (tab === 'time') initTimeSelects(null, null);
@@ -5442,7 +5466,7 @@
       const style = isSelected
         ? 'background:#1c1c1e;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:15px;'
         : isToday
-          ? 'background:#e5e5ea;color:#007aff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:15px;font-weight:600;'
+          ? 'background:#e5e5ea;color:#6c5ce7;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:15px;font-weight:600;'
           : 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:15px;';
       html += `<div data-date="${dateStr}" style="${style}">${d}</div>`;
     }
@@ -6590,24 +6614,86 @@
   }
 
   // タスクごとの獲得コイン数を算出（実行期間タグ・見込み時間・優先度で配分）
+  // ===== 褒めメッセージ（タスク完了・タイマー終了で使い回し）=====
+  window.__praise = [
+    '今のスピード感、完全に漫画の主人公',
+    '今日の覇者は君だ',
+    '意志あるところに道は開ける',
+    '継続は力なり',
+    '完璧。これ以上を言葉にできない',
+    'やると決めて、やった。最高だ',
+    '君の集中力、もはや才能',
+    '一歩進んだ。世界が少し変わった',
+    'その手で未来をたぐり寄せたね',
+    'ナイス！流れに乗ってきたぞ',
+    '今日のMVPは間違いなく君',
+    '積み重ねが君を裏切らない',
+    'やりきる人だけが見れる景色だ',
+    'えらい。本気でえらい',
+    '集中モード、完全に覚醒してる',
+    '小さな一歩が、でかい自信になる',
+    'この調子、止まる気配なし',
+    '行動した君が、昨日の君に勝った',
+    'さすが。期待を軽々超えてくる',
+    '手を動かした君が正義',
+    '今日もちゃんと前に進んでる',
+    'やる気は出すものじゃなく、出てくるもの。出たね',
+    '理想を現実にしていく音がする',
+    '君の「やった」が積み上がっていく',
+    'もう誰も君を止められない',
+    '一つ片付くたびに強くなってる',
+    'お見事。流れるような完了だ',
+    '面倒を越えた先にいる、それが君',
+    '集中の質、過去最高かもしれない',
+    '今日の自分、ちょっと好きになれる',
+    '淡々と勝ち続ける人、それが君',
+    'できるって、こういうことだ',
+    '未来の君が「ありがとう」って言ってる',
+    'ここまで来た。あとは流れに乗るだけ',
+    'やったね、文句なしの花マル',
+    '本気の君は、いつだって眩しい',
+  ];
+  window.__randomPraise = function () {
+    var a = window.__praise;
+    return a[Math.floor(Math.random() * a.length)];
+  };
+
   function taskCoins(task) {
     if (!task) return 10;
     const kikan = String(task['(B)実行期間'] || '');
+    const isYuu = kikan.indexOf('🔥') >= 0 || kikan.indexOf('優') >= 0;
+
+    // 実績（実働）時間があれば、それに応じて付与（見積もりより手厚く＝傾斜）
+    let actualMin = 0;
+    try {
+      const tm = task._timer;
+      if (tm) {
+        actualMin = (tm.netMs || 0) / 60000;
+        if (tm.state === 'running' && tm.runningSince) actualMin += (Date.now() - new Date(tm.runningSince).getTime()) / 60000;
+      }
+    } catch (e) {}
+    if (actualMin >= 1) {
+      let c = 30 * (actualMin / 60); // 実働1時間あたり約30コイン（見積もりの26より上）
+      if (isYuu) c += 4;             // 優先度ボーナス
+      c += 3;                        // 実績を記録した行動へのボーナス
+      return Math.max(8, Math.min(200, Math.round(c)));
+    }
+
+    // 実績なし: 従来の見積もりベース（実績ありより控えめ＝傾斜をつける）
     const est = parseFloat(task['(C)見込み/h']);
     const hasEst = !isNaN(est) && est > 0;
-    const isYuu = kikan.indexOf('🔥') >= 0 || kikan.indexOf('優') >= 0; // 優先度高
     const isShort = /短/.test(kikan) || /^\s*1\./.test(kikan) || /^\s*3\./.test(kikan) || /<\s*30m/.test(kikan);
     const isLong  = /長/.test(kikan) || /^\s*2\./.test(kikan) || /^\s*4\./.test(kikan) || />\s*30m/.test(kikan);
     let coins;
     if (hasEst) {
-      coins = 26 * est;          // 見込み時間が長いほど多い（約26コイン/時間）
-      if (isYuu) coins += 3;     // 優先度が高いものは少し加算
+      coins = 26 * est;
+      if (isYuu) coins += 3;
     } else if (isShort) {
-      coins = isYuu ? 14 : 10;   // 優短 / 低短（30分以内＝低め）
+      coins = isYuu ? 14 : 10;
     } else if (isLong) {
-      coins = isYuu ? 38 : 32;   // 優長 / 低長（30分超＝高め、優が少し上）
+      coins = isYuu ? 38 : 32;
     } else {
-      coins = 12;                // タグも見込み時間も無い
+      coins = 12;
     }
     return Math.max(5, Math.min(150, Math.round(coins)));
   }
@@ -6674,7 +6760,11 @@
   }
   function showCoinToast(amt) {
     updateCoinDisplays();
-    showToast('<span style="font-size:18px;"><span class="coin-ico"></span></span> +' + (amt != null ? amt : 1) + ' コイン！');
+    var praise = (window.__randomPraise ? window.__randomPraise() : 'やったね！');
+    showToast('<div style="display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;">'
+      + '<div style="font-size:14px;font-weight:700;">' + praise + '</div>'
+      + '<div><span class="coin-ico"></span> +' + (amt != null ? amt : 1) + ' コイン</div>'
+      + '</div>');
   }
   function showRewardToast(msg) {
     showToast('<span style="font-size:18px;">🎁</span> ' + msg);
@@ -10369,7 +10459,7 @@
       const style = isSel
         ? 'background:#1c1c1e;color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:13px;'
         : isToday
-          ? 'background:#e5e5ea;color:#007aff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:13px;font-weight:600;'
+          ? 'background:#e5e5ea;color:#6c5ce7;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:13px;font-weight:600;'
           : 'width:28px;height:28px;display:flex;align-items:center;justify-content:center;margin:auto;cursor:pointer;font-size:13px;';
       html += `<div data-date="${date.toDateString()}" style="${style}">${d}</div>`;
     }
@@ -10643,7 +10733,7 @@
       const isTitle = key === 'name';
       return `
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <div style="flex:1;font-size:12px;color:#8e8e93;">${label}${isTitle ? ' <span style="font-size:10px;background:#e5f4ff;color:#007aff;border-radius:6px;padding:1px 5px;">自動検出</span>' : ''}</div>
+          <div style="flex:1;font-size:12px;color:#8e8e93;">${label}${isTitle ? ' <span style="font-size:10px;background:#efeefb;color:#6c5ce7;border-radius:6px;padding:1px 5px;">自動検出</span>' : ''}</div>
           <input data-prop-key="${key}" value="${val}"
             ${isTitle ? 'readonly style="width:140px;background:#f2f2f7;border:1px solid #e5e5ea;border-radius:8px;padding:5px 8px;font-size:12px;font-family:inherit;outline:none;color:#8e8e93;"' : 'style="width:140px;background:white;border:1px solid #e5e5ea;border-radius:8px;padding:5px 8px;font-size:12px;font-family:inherit;outline:none;"'} />
         </div>
@@ -13508,7 +13598,7 @@
         if(alertPause){ enterReady('focus'); return; }
         currentRep++; begin('focus',st.focus*60);
       } else {
-        alarmSound(); secondsLeft=0; phase='done'; running=false; relWake(); notify('完了！','おつかれさまでした 🎉');
+        alarmSound(); secondsLeft=0; phase='done'; running=false; relWake(); notify('🎉 '+(window.__randomPraise?window.__randomPraise():'完了！'),'全セット完了！おつかれさまでした'); try{ if(typeof showToast==='function') showToast('<div style=\"font-size:14px;font-weight:700;text-align:center;\">🎉 '+(window.__randomPraise?window.__randomPraise():'完了！')+'</div>'); }catch(e){}
       }
     }
     updateRecBtn(); paint(); mzPushSync();
@@ -13532,7 +13622,7 @@
   }
   function showAlert(next){
     var ov=$('mzAlert'); if(!ov) return;
-    $('mzAlertTitle').textContent=next==='break'?'おつかれさま！':'休憩おわり！';
+    $('mzAlertTitle').textContent=next==='break'?(window.__randomPraise?window.__randomPraise():'おつかれさま！'):'休憩おわり！';
     $('mzAlertSub').textContent=next==='break'?('休憩しよう（'+st.brk+'分）'):('集中に戻ろう（'+(st.focus>=60?(Math.floor(st.focus/60)+'時間'+(st.focus%60?st.focus%60+'分':'')):st.focus+'分')+'）');
     $('mzAlertGo').textContent=next==='break'?'休憩する':'集中する';
     $('mzAlertExt').style.display=next==='break'?'inline-block':'none';
@@ -13642,10 +13732,11 @@
   function mzPlan(){
     var out=[]; if(!running || endAt<=Date.now()) return out;
     var t=endAt, ph=phase, rep=currentRep;
+    var pr=function(){ return window.__randomPraise?window.__randomPraise():'おつかれさま！'; };
     for(var i=0;i<60;i++){
       if(ph==='focus'){
-        if(rep>=st.reps){ out.push({when:t,title:'完了！',body:'おつかれさまでした 🎉'}); break; }
-        out.push({when:t,title:'おつかれさま！',body:'休憩しよう（'+st.brk+'分）'});
+        if(rep>=st.reps){ out.push({when:t,title:'🎉 '+pr(),body:'全セット完了！おつかれさまでした'}); break; }
+        out.push({when:t,title:'🎉 '+pr(),body:'集中おわり！休憩しよう（'+st.brk+'分）'});
         ph='break'; t=t+st.brk*60*1000;
       } else if(ph==='break'){
         out.push({when:t,title:'休憩おわり！',body:'集中に戻ろう'});
@@ -13660,13 +13751,26 @@
     var h={'Content-Type':'application/json'}; if(c.token) h['X-Auth']=c.token;
     return fetch(c.url+path,{method:'POST',headers:h,body:JSON.stringify(payload)}).catch(function(){});
   }
+  // 開くまで鳴らし続ける（近似）。Cronが1分間隔なので約1分おきに繰り返す。
+  var MZ_NAG_COUNT = 10;     // 最大何回まで鳴らすか（約この分数ぶん）
+  var MZ_NAG_GAP   = 60000;  // 繰り返し間隔(ms)
   function mzPushSync(){
     var c=mzPushCfg(); if(!c.enabled||!c.url||!c.sub) return;
     var plan=mzPlan();
-    var jobs=plan.map(function(p,i){ return {id:'mz'+i, when:p.when, title:p.title, body:p.body, tag:'mztimer'}; });
+    var nag = alertPause ? MZ_NAG_COUNT : 1;  // 一時停止モードのときだけ繰り返す
+    var jobs=[]; var n=0;
+    for(var i=0;i<plan.length;i++){
+      for(var r=0;r<nag;r++){
+        jobs.push({ id:'mz'+(n++), when:plan[i].when + r*MZ_NAG_GAP, title:plan[i].title, body:plan[i].body, tag:'mztimer' });
+      }
+    }
     mzPushPost('/schedule', { client:mzClientId(), sub:c.sub, replace:true, jobs:jobs });
   }
   function mzPushCancelAll(){ var c=mzPushCfg(); if(!c.url) return; mzPushPost('/cancel', { client:mzClientId() }); }
+  // アプリを開いた（前面に戻った）ら、繰り返し通知を止める／予定を貼り直す
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState==='visible'){ try{ var c=mzPushCfg(); if(c.enabled && c.sub) mzPushSync(); }catch(e){} }
+  });
 
   function open(){ $('mzOverlay').classList.add('open'); rebuildSelect(); applyTheme(); renderSteppers(); updateRecBtn(); updateTotalLabel(); mzUpdatePushUI(); paint(); }
   function close(){ $('mzOverlay').classList.remove('open'); relWake(); }
