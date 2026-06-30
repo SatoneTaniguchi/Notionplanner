@@ -8343,7 +8343,6 @@
       const ring = isTodayOcc ? (doneToday ? `<span style="margin-left:auto;font-size:11px;font-weight:800;color:#2c8a4a;">✓ 完了</span>` : `<span style="margin-left:auto;font-size:11px;font-weight:800;color:${accent||'#6c5ce7'};">今日</span>`) : '';
       return `<div class="routine-card"${accentStyle}>`
         + `<div class="routine-card-top" onclick="editTask('${editId}')" style="cursor:pointer;">`
-        +   `<div class="routine-avatar">${avatarSVG(doneToday)}</div>`
         +   `<div class="routine-card-name">${task.name || '(無題)'}</div>`
         +   ring
         +   `<div class="routine-card-chev">›</div>`
