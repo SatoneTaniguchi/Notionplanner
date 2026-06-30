@@ -2436,6 +2436,11 @@
   #tabLater .modal-section:has(.modal-memo),
   #tabTime  .modal-section:has(.modal-memo),
   #tabRepeat .modal-section:has(.modal-memo) { order: 99; }
+
+  /* 毎月/毎年 指定UI */
+  .rmode-btn { border:1.5px solid #e3e0f0; background:#fff; color:#6c5ce7; border-radius:14px; padding:7px 16px; font-size:14px; font-weight:600; font-family:inherit; cursor:pointer; }
+  .rmode-btn.selected { background:#6c5ce7; border-color:#6c5ce7; color:#fff; }
+  .rsel { border:1.5px solid #e3e0f0; border-radius:10px; padding:8px 10px; font-size:15px; font-weight:600; color:#6c5ce7; background:#fff; font-family:inherit; }
 </style>
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -3257,6 +3262,27 @@
             </div>
             <div style="font-size:11px;color:#b0b0b8;margin-top:6px;">※未選択なら頻度どおり毎日対象になります</div>
           </div>
+          <!-- 毎月の指定 -->
+          <div id="repeatMonthlyArea" style="display:none;margin-top:14px;">
+            <div style="font-size:13px;color:#8e8e93;margin-bottom:8px;">毎月のタイミング</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <button type="button" class="rmode-btn selected" data-mmode="date">日付で指定</button>
+              <button type="button" class="rmode-btn" data-mmode="weekday">曜日で指定</button>
+            </div>
+            <div id="repeatMonthlyDate" style="display:flex;align-items:center;gap:8px;font-size:15px;color:#1c1c1e;flex-wrap:wrap;">
+              毎月 <select id="repeatDomSelect" class="rsel"></select> 日
+            </div>
+            <div id="repeatMonthlyWeekday" style="display:none;align-items:center;gap:8px;font-size:15px;color:#1c1c1e;flex-wrap:wrap;">
+              毎月 <select id="repeatNthSelect" class="rsel"></select> <select id="repeatNthDowSelect" class="rsel"></select> 曜
+            </div>
+          </div>
+          <!-- 毎年の指定 -->
+          <div id="repeatYearlyArea" style="display:none;margin-top:14px;">
+            <div style="font-size:13px;color:#8e8e93;margin-bottom:8px;">毎年のタイミング</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:15px;color:#1c1c1e;flex-wrap:wrap;">
+              毎年 <select id="repeatYearMonthSelect" class="rsel"></select> 月 <select id="repeatYearDaySelect" class="rsel"></select> 日
+            </div>
+          </div>
         </div>
 
         <!-- 月の日付を制限 -->
@@ -3892,8 +3918,10 @@
       if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (cur < rs) return false; }
       if (rc.end)   { const re = new Date(rc.end);   re.setHours(23,59,59,999); if (cur > re) return false; }
       if (Array.isArray(rc.daysOfWeek) && rc.daysOfWeek.length > 0) {
-        if (!rc.daysOfWeek.includes(cur.getDay())) return false;
+        return rc.daysOfWeek.includes(cur.getDay());
       }
+      if (rc.type === 'monthly') return _rMatchMonthly(rc, cur);
+      if (rc.type === 'yearly')  return _rMatchYearly(rc, cur);
       return true;
     };
     const alldayLocalTasks = tasks.filter(t => {
@@ -3964,10 +3992,12 @@
         const rc = t._repeatConfig || {};
         if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (cur < rs) return false; }
         if (rc.end)   { const re = new Date(rc.end);   re.setHours(23,59,59,999); if (cur > re) return false; }
-        // 曜日指定がある場合はその曜日のみ
+        // 曜日指定があればその曜日のみ
         if (Array.isArray(rc.daysOfWeek) && rc.daysOfWeek.length > 0) {
-          if (!rc.daysOfWeek.includes(cur.getDay())) return false;
+          return rc.daysOfWeek.includes(cur.getDay());
         }
+        if (rc.type === 'monthly') return _rMatchMonthly(rc, cur);
+        if (rc.type === 'yearly')  return _rMatchYearly(rc, cur);
         return true;
       }
       return false;
@@ -5333,6 +5363,14 @@
         document.querySelectorAll('#repeatWeekdayPicker button[data-dow]').forEach(b => {
           b.classList.toggle('on', repeatDaysOfWeek.includes(parseInt(b.dataset.dow)));
         });
+        // 毎月/毎年の指定を復元
+        repeatMonthlyMode = rc.monthlyMode || 'date';
+        repeatDayOfMonth = (rc.dayOfMonth != null) ? rc.dayOfMonth : new Date().getDate();
+        repeatNthWeek = (rc.nthWeek != null) ? rc.nthWeek : 1;
+        repeatNthDow = (rc.nthDow != null) ? rc.nthDow : new Date().getDay();
+        repeatYearlyMonth = (rc.month != null) ? rc.month : (new Date().getMonth() + 1);
+        repeatYearlyDay = (rc.day != null) ? rc.day : new Date().getDate();
+        if (typeof syncRepeatMonthlyYearlyUI === 'function') syncRepeatMonthlyYearlyUI();
       } else {
         document.getElementById('modalSubtitle').textContent = '・あとで';
         const tabs = document.querySelectorAll('.modal-tab');
@@ -5363,6 +5401,11 @@
         b.classList.toggle('selected', b.dataset.repeat === 'daily');
       });
       document.querySelectorAll('#repeatWeekdayPicker button[data-dow]').forEach(b => b.classList.remove('on'));
+      repeatMonthlyMode = 'date';
+      repeatDayOfMonth = new Date().getDate();
+      repeatNthWeek = 1; repeatNthDow = new Date().getDay();
+      repeatYearlyMonth = new Date().getMonth() + 1; repeatYearlyDay = new Date().getDate();
+      if (typeof syncRepeatMonthlyYearlyUI === 'function') syncRepeatMonthlyYearlyUI();
     }
     setTimeout(() => document.getElementById('taskNameInput').focus(), 100);
   }
@@ -5669,6 +5712,7 @@
             allDay: rAllday,
             daysOfWeek: repeatDaysOfWeek.slice().sort((a,b)=>a-b)
           };
+          Object.assign(task._repeatConfig, repeatExtraCfg());
           task._allDay = rAllday;
           task['(A)実行日'] = rAllday
             ? { start: new Date(currentDate).toDateString() }
@@ -5722,6 +5766,7 @@
           allDay: rAllday,
           daysOfWeek: repeatDaysOfWeek.slice().sort((a,b)=>a-b)
         };
+        Object.assign(task._repeatConfig, repeatExtraCfg());
         task._allDay = rAllday;
         // 今日の日付で実行日も設定（繰り返しは_repeatConfigが主）
         task['(A)実行日'] = rAllday
@@ -7608,6 +7653,29 @@
   }
 
   // 指定タスクが指定日に「該当する（実施対象の）」日かどうか
+  function _rDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); } // m:0-11
+  function _rMatchDom(d, dom) {
+    const dim = _rDaysInMonth(d.getFullYear(), d.getMonth());
+    if (dom === 'last' || dom > 31) return d.getDate() === dim;
+    const target = (dom > dim) ? dim : dom; // 31日指定で短い月は末日に丸める
+    return d.getDate() === target;
+  }
+  function _rMatchMonthly(rc, d) {
+    if (rc.monthlyMode === 'weekday' && rc.nthDow != null && rc.nthWeek != null) {
+      if (d.getDay() !== rc.nthDow) return false;
+      if (rc.nthWeek === -1) return (d.getDate() + 7) > _rDaysInMonth(d.getFullYear(), d.getMonth());
+      return (Math.floor((d.getDate() - 1) / 7) + 1) === rc.nthWeek;
+    }
+    const dom = (rc.dayOfMonth != null) ? rc.dayOfMonth : (rc.start ? new Date(rc.start).getDate() : d.getDate());
+    return _rMatchDom(d, dom);
+  }
+  function _rMatchYearly(rc, d) {
+    const mo = (rc.month != null) ? (rc.month - 1) : (rc.start ? new Date(rc.start).getMonth() : d.getMonth());
+    if (d.getMonth() !== mo) return false;
+    const da = (rc.day != null) ? rc.day : (rc.start ? new Date(rc.start).getDate() : d.getDate());
+    return _rMatchDom(d, da);
+  }
+
   function habitOccursOn(task, date) {
     const d = (date instanceof Date) ? new Date(date) : new Date(date);
     d.setHours(0,0,0,0);
@@ -7704,15 +7772,8 @@
           const rs = new Date(rc.start); rs.setHours(0,0,0,0);
           return rs.getDay() === d.getDay();
         }
-        case 'monthly': {
-          if (!rc.start) return true;
-          return new Date(rc.start).getDate() === d.getDate();
-        }
-        case 'yearly': {
-          if (!rc.start) return true;
-          const rs = new Date(rc.start);
-          return rs.getMonth() === d.getMonth() && rs.getDate() === d.getDate();
-        }
+        case 'monthly': return _rMatchMonthly(rc, d);
+        case 'yearly':  return _rMatchYearly(rc, d);
         case 'interval': {
           if (!rc.start) return true;
           const rs = new Date(rc.start); rs.setHours(0,0,0,0);
@@ -8020,8 +8081,18 @@
       switch (rc.type) {
         case 'daily': return '毎日';
         case 'weekly': return '毎週';
-        case 'monthly': return '毎月';
-        case 'yearly': return '毎年';
+        case 'monthly': {
+          if (rc.monthlyMode === 'weekday' && rc.nthDow != null && rc.nthWeek != null) {
+            return '毎月 ' + (rc.nthWeek === -1 ? '最終' : '第' + rc.nthWeek) + wd[rc.nthDow] + '曜';
+          }
+          const dom = (rc.dayOfMonth != null) ? rc.dayOfMonth : (rc.start ? new Date(rc.start).getDate() : null);
+          return dom == null ? '毎月' : ('毎月 ' + (dom === 'last' ? '末日' : dom + '日'));
+        }
+        case 'yearly': {
+          const mo = (rc.month != null) ? rc.month : (rc.start ? new Date(rc.start).getMonth() + 1 : null);
+          const da = (rc.day != null) ? rc.day : (rc.start ? new Date(rc.start).getDate() : null);
+          return (mo == null || da == null) ? '毎年' : ('毎年 ' + mo + '月' + (da === 'last' ? '末日' : da + '日'));
+        }
       }
     }
     const ov = (typeof getHabitFreqOverride === 'function') ? getHabitFreqOverride(task.id) : null;
@@ -10318,6 +10389,45 @@
   let repeatIntervalUnit = '日';
   let repeatDateLimitOn = false;
   let repeatDaysOfWeek = [];  // 選択された曜日 (0=日 .. 6=土)
+  let repeatMonthlyMode = 'date';                  // 'date' | 'weekday'
+  let repeatDayOfMonth = new Date().getDate();      // 1..31 | 'last'
+  let repeatNthWeek = 1;                            // 1..5 | -1(最終)
+  let repeatNthDow = new Date().getDay();           // 0..6
+  let repeatYearlyMonth = new Date().getMonth() + 1;// 1..12
+  let repeatYearlyDay = new Date().getDate();       // 1..31
+
+  function syncRepeatMonthlyYearlyUI() {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = String(v); };
+    set('repeatDomSelect', repeatDayOfMonth);
+    set('repeatNthSelect', repeatNthWeek);
+    set('repeatNthDowSelect', repeatNthDow);
+    set('repeatYearMonthSelect', repeatYearlyMonth);
+    set('repeatYearDaySelect', repeatYearlyDay);
+    const ma = document.getElementById('repeatMonthlyArea');
+    if (ma) {
+      ma.querySelectorAll('.rmode-btn').forEach(b => b.classList.toggle('selected', b.dataset.mmode === repeatMonthlyMode));
+      const md = document.getElementById('repeatMonthlyDate'), mw = document.getElementById('repeatMonthlyWeekday');
+      if (md) md.style.display = repeatMonthlyMode === 'date' ? 'flex' : 'none';
+      if (mw) mw.style.display = repeatMonthlyMode === 'weekday' ? 'flex' : 'none';
+      ma.style.display = repeatType === 'monthly' ? '' : 'none';
+    }
+    const wa = document.getElementById('repeatWeekdayArea');
+    if (wa) wa.style.display = (repeatType === 'daily' || repeatType === 'weekly') ? '' : 'none';
+    const ya = document.getElementById('repeatYearlyArea');
+    if (ya) ya.style.display = repeatType === 'yearly' ? '' : 'none';
+  }
+
+  function repeatExtraCfg() {
+    const ex = { monthlyMode: null, dayOfMonth: null, nthWeek: null, nthDow: null, month: null, day: null };
+    if (repeatType === 'monthly') {
+      ex.monthlyMode = repeatMonthlyMode;
+      if (repeatMonthlyMode === 'weekday') { ex.nthWeek = repeatNthWeek; ex.nthDow = repeatNthDow; }
+      else { ex.dayOfMonth = repeatDayOfMonth; }
+    } else if (repeatType === 'yearly') {
+      ex.month = repeatYearlyMonth; ex.day = repeatYearlyDay;
+    }
+    return ex;
+  }
 
   function initRepeatTab() {
     // 曜日ピッカー
@@ -10346,8 +10456,36 @@
       repeatType = btn.dataset.repeat;
       document.getElementById('repeatIntervalDisplay').style.display =
         repeatType === 'interval' ? 'block' : 'none';
+      syncRepeatMonthlyYearlyUI();
       if (repeatType === 'interval') openIntervalDrum();
     });
+
+    // 毎月/毎年セレクトを生成
+    (function(){
+      const opt = (v,l)=>'<option value="'+v+'">'+(l!=null?l:v)+'</option>';
+      const dom = document.getElementById('repeatDomSelect');
+      if (dom){ let h=''; for(let i=1;i<=31;i++) h+=opt(i); h+=opt('last','末日'); dom.innerHTML=h; }
+      const nth = document.getElementById('repeatNthSelect');
+      if (nth) nth.innerHTML = opt(1,'第1')+opt(2,'第2')+opt(3,'第3')+opt(4,'第4')+opt(5,'第5')+opt(-1,'最終');
+      const wd=['日','月','火','水','木','金','土'];
+      const ndow = document.getElementById('repeatNthDowSelect');
+      if (ndow){ let h=''; for(let j=0;j<7;j++) h+=opt(j,wd[j]); ndow.innerHTML=h; }
+      const ym = document.getElementById('repeatYearMonthSelect');
+      if (ym){ let h=''; for(let k=1;k<=12;k++) h+=opt(k); ym.innerHTML=h; }
+      const yd = document.getElementById('repeatYearDaySelect');
+      if (yd){ let h=''; for(let n=1;n<=31;n++) h+=opt(n); yd.innerHTML=h; }
+    })();
+    const _bindSel=(id,fn)=>{ const el=document.getElementById(id); if(el) el.addEventListener('change',fn); };
+    _bindSel('repeatDomSelect', function(){ repeatDayOfMonth = this.value==='last'?'last':parseInt(this.value); });
+    _bindSel('repeatNthSelect', function(){ repeatNthWeek = parseInt(this.value); });
+    _bindSel('repeatNthDowSelect', function(){ repeatNthDow = parseInt(this.value); });
+    _bindSel('repeatYearMonthSelect', function(){ repeatYearlyMonth = parseInt(this.value); });
+    _bindSel('repeatYearDaySelect', function(){ repeatYearlyDay = parseInt(this.value); });
+    const _ma = document.getElementById('repeatMonthlyArea');
+    if (_ma) _ma.querySelectorAll('.rmode-btn').forEach(b => b.addEventListener('click', function(){
+      repeatMonthlyMode = this.dataset.mmode; syncRepeatMonthlyYearlyUI();
+    }));
+    syncRepeatMonthlyYearlyUI();
 
     // 間隔ドラムロール
     document.getElementById('intervalDrumDoneBtn').addEventListener('click', closeIntervalDrum);
