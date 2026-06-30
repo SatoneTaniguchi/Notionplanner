@@ -1,55 +1,43 @@
-/* NotionTODO Service Worker
-   方針:
-   - HTML（ページ遷移）は「ネットワーク優先」。オンライン中は常に最新を取得するので、
-     ホーム画面PWAでも全機能（TODO/ルーチン/プロジェクト/グラフ/AI）が最新版で表示される。
-     オフライン時のみ直近キャッシュにフォールバック。
-   - 同一オリジンの静的ファイルは stale-while-revalidate（表示は速く、裏で更新）。
-   - 他オリジン（Notionプロキシ workers.dev、Google認証/カレンダーなど）は一切インターセプトしない。
-   - 起動時に古いキャッシュを破棄し、即座に制御を奪って最新へ更新する。
-*/
-const CACHE = 'notiontodo-2026-06-24-1';
+// sw.js — NotionTODO PWA Service Worker
+// 方針:
+//  ・HTML(ページ本体)は常にネットワーク優先(network-first)で取得 → 更新が必ず反映される
+//  ・オフライン時のみキャッシュを使う
+//  ・その他の静的ファイルは cache-first
+//  ・Web Push(バックグラウンド通知)に対応
+//  ・新しい版が出たら即時切り替え(skipWaiting)
+
+const CACHE = 'notiontodo-v2026-06-30a';   // ← デプロイのたびにこの文字列を変えると確実です
 
 self.addEventListener('install', (event) => {
-  // 新しいSWを待たせず即アクティブ化
+  // 新SWをすぐ有効化できるよう待機しない
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // 古いバージョンのキャッシュを全削除（旧シェルの残留を防ぐ）
+    // 古いキャッシュを掃除
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });
 
-// ページ側から SKIP_WAITING を受けたら即時切替
-self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
-});
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
-  let url;
-  try { url = new URL(req.url); } catch (e) { return; }
-
-  // 他オリジン（API/認証/プロキシ等）はそのまま通す＝触らない
-  if (url.origin !== self.location.origin) return;
-
   const accept = req.headers.get('accept') || '';
-  const isNavigation = req.mode === 'navigate' || accept.includes('text/html');
+  const isHTML = req.mode === 'navigate' || accept.includes('text/html');
 
-  if (isNavigation) {
-    // HTMLはネットワーク優先（最新の全機能版を常に取得）
+  if (isHTML) {
+    // ページ本体は常に最新を取りに行く。失敗時のみキャッシュ。
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        const fresh = await fetch(req, { cache: 'no-store' });
         const cache = await caches.open(CACHE);
         cache.put(req, fresh.clone());
         return fresh;
-      } catch (err) {
+      } catch (e) {
         const cached = await caches.match(req);
         return cached || (await caches.match('./')) || Response.error();
       }
@@ -57,23 +45,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 同一オリジンの静的アセット: stale-while-revalidate
+  // その他GET: キャッシュ優先、無ければ取得してキャッシュ
   event.respondWith((async () => {
     const cached = await caches.match(req);
-    const network = fetch(req).then((res) => {
+    if (cached) return cached;
+    try {
+      const res = await fetch(req);
       if (res && res.status === 200 && res.type === 'basic') {
-        caches.open(CACHE).then((c) => c.put(req, res.clone()));
+        const cache = await caches.open(CACHE);
+        cache.put(req, res.clone());
       }
       return res;
-    }).catch(() => cached);
-    return cached || network;
+    } catch (e) {
+      return cached || Response.error();
+    }
   })());
 });
-// ============================================================================
-//  ↓↓↓ この内容を、既存の sw.js の末尾に「追記」してください ↓↓↓
-//  （既存のキャッシュ処理などはそのまま残してOK。重複定義に注意）
-// ============================================================================
 
+// アプリ本体からの「すぐ更新して」指示
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING' || (event.data && event.data.type === 'SKIP_WAITING')) {
+    self.skipWaiting();
+  }
+});
+
+// ===== Web Push（バックグラウンド通知）=====
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; }
@@ -84,8 +80,8 @@ self.addEventListener('push', (event) => {
     tag: data.tag || 'mztimer',
     renotify: true,
     data: data,
-    // icon / badge は任意。アプリのアイコンファイルがあれば指定可:
-    // icon: '/icon-192.png', badge: '/icon-192.png',
+    // アイコン画像があれば指定可:
+    // icon: './icon-192.png', badge: './icon-192.png',
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
