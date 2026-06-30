@@ -3516,7 +3516,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v7';
+  const APP_VERSION = '2026-06-30-v8';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -13882,11 +13882,23 @@
     try{
       if(typeof Notification!=='undefined'){ var perm=await Notification.requestPermission(); if(perm!=='granted'){ setStatus('error','通知が許可されていません'); return; } }
       var reg = await navigator.serviceWorker.ready;
-      var sub = await reg.pushManager.getSubscription();
-      if(!sub){ sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlB64ToU8(MZ_VAPID_PUBLIC) }); }
+      // 古い購読は一旦解除して作り直す（SW更新やVAPID変更で無効化された購読対策）
+      try { var old = await reg.pushManager.getSubscription(); if(old) await old.unsubscribe(); } catch(e){}
+      var sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlB64ToU8(MZ_VAPID_PUBLIC) });
       c.sub = sub.toJSON(); c.enabled=true; mzClientId(); mzPushSaveCfg(c);
-      setStatus('ok','通知を有効化しました');
-      mzUpdatePushUI(); mzPushSync();
+      mzUpdatePushUI();
+      setStatus('ok','登録中… テスト送信します');
+      // サーバーに購読を保存（jobs空でもsubは保存される）
+      await mzPushPost('/schedule', { client:mzClientId(), sub:c.sub, replace:true, jobs:[] });
+      // 即時テスト送信して経路を確認
+      try{
+        var r = await fetch(c.url+'/test?client='+encodeURIComponent(mzClientId()), { method:'GET' });
+        var j = {}; try { j = await r.json(); } catch(e){}
+        var ps = (j && (j.pushStatus!=null)) ? j.pushStatus : r.status;
+        if (ps && ps < 300) setStatus('ok','有効化＋テスト送信OK（通知が来るか確認）');
+        else setStatus('error','テスト送信の応答: '+ps+'（届かない場合は購読が無効かも）');
+      }catch(e){ setStatus('ok','有効化しました（テスト送信は確認できず）'); }
+      mzPushSync();
     }catch(e){ setStatus('error','有効化に失敗: '+(e&&e.message||e)); }
   }
   function mzDisablePush(){ var c=mzPushCfg(); c.enabled=false; mzPushSaveCfg(c); mzPushCancelAll(); mzUpdatePushUI(); setStatus('ok','通知をオフにしました'); }
