@@ -3883,10 +3883,25 @@
     });
 
     // ── 終日エリア ──
+    const _repeatAllDayOccurs = (t) => {
+      if (t._type !== 'repeat') return false;
+      if (t['(B)種類'] === '習慣') return false; // 習慣はインスタンスで処理
+      if (!(t._allDay || (t._repeatConfig && t._repeatConfig.allDay))) return false; // 終日のみ
+      const cur = new Date(dayStr);
+      const rc = t._repeatConfig || {};
+      if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (cur < rs) return false; }
+      if (rc.end)   { const re = new Date(rc.end);   re.setHours(23,59,59,999); if (cur > re) return false; }
+      if (Array.isArray(rc.daysOfWeek) && rc.daysOfWeek.length > 0) {
+        if (!rc.daysOfWeek.includes(cur.getDay())) return false;
+      }
+      return true;
+    };
     const alldayLocalTasks = tasks.filter(t => {
-      if (t._type !== 'time') return false;
-      if (getDateString(t) !== dayStr) return false;
-      return isAllDayTask(t); // 終日タスクのみ
+      if (t._type === 'time') {
+        if (getDateString(t) !== dayStr) return false;
+        return isAllDayTask(t); // 終日タスクのみ
+      }
+      return _repeatAllDayOccurs(t); // 終日の繰り返しルーチンも対象
     });
     const gcalAlldayEvs = (gcalEvents[dayStr + '_allday'] || [])
       .filter(ev => gcalCalendarPrefs[ev._calendarId] !== false);
@@ -3943,6 +3958,8 @@
       if (t._type === 'repeat') {
         // 習慣テンプレートは個別インスタンスが表示されるので除外
         if (t['(B)種類'] === '習慣') return false;
+        // 終日の繰り返し（ルーチン）は終日エリアで表示するのでタイムライン本体からは除外
+        if (t._allDay || (t._repeatConfig && t._repeatConfig.allDay)) return false;
         const cur = new Date(dayStr);
         const rc = t._repeatConfig || {};
         if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (cur < rs) return false; }
@@ -8139,7 +8156,6 @@
         const endedLabel = task._endedAt ? task._endedAt.replace(/-/g, '/') : '';
         html += `<div class="routine-card ended">`
           + `<div class="routine-card-top">`
-          +   `<div class="routine-avatar">${avatarSVG(false)}</div>`
           +   `<div class="routine-card-name">${task.name || '(無題)'}</div>`
           + `</div>`
           + `<div class="routine-badges">`
@@ -13452,6 +13468,16 @@
     sessionLoggedSec=0; taskTotalH=null;
     $('mzTaskSub').textContent='選択中: '+task.name;
     setStatus('','');
+    // 所要時間が設定されていれば、タイマーの初期時間に反映（停止中のみ）
+    if(!running){
+      var _durH = parseFloat(t['(C)見込み/h']);
+      if(!isNaN(_durH) && _durH>0){
+        st.focus = Math.min(1440, Math.max(1, Math.round(_durH*60)));
+        save('mineeTimer:settings', st);
+        if(phase==='idle'){ secondsLeft=st.focus*60; totalSec=st.focus*60; }
+        renderSteppers(); paint();
+      }
+    }
     updateRecBtn(); updateTotalLabel();
     loadTaskTotal();
   }
@@ -13767,9 +13793,16 @@
     mzPushPost('/schedule', { client:mzClientId(), sub:c.sub, replace:true, jobs:jobs });
   }
   function mzPushCancelAll(){ var c=mzPushCfg(); if(!c.url) return; mzPushPost('/cancel', { client:mzClientId() }); }
-  // アプリを開いた（前面に戻った）ら、繰り返し通知を止める／予定を貼り直す
+  // アプリを離れる直前に予約／戻ってきたら繰り返しを止める
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState==='visible'){ try{ var c=mzPushCfg(); if(c.enabled && c.sub) mzPushSync(); }catch(e){} }
+    try{
+      var c=mzPushCfg(); if(!c.enabled||!c.sub) return;
+      if(document.visibilityState==='hidden'){
+        if(running) mzPushSync();      // 閉じている間に届くよう予約を更新
+      } else if(document.visibilityState==='visible'){
+        mzPushCancelAll();             // 開いたら繰り返しを停止（送信前の予約を空上書きで消さない）
+      }
+    }catch(e){}
   });
 
   function open(){ $('mzOverlay').classList.add('open'); rebuildSelect(); applyTheme(); renderSteppers(); updateRecBtn(); updateTotalLabel(); mzUpdatePushUI(); paint(); }
