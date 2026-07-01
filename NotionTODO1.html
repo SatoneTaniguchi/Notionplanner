@@ -3516,7 +3516,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v9';
+  const APP_VERSION = '2026-06-30-v10';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -13927,7 +13927,7 @@
     return fetch(c.url+path,{method:'POST',headers:h,body:JSON.stringify(payload)}).catch(function(){});
   }
   // 開くまで鳴らし続ける（近似）。Cronが1分間隔なので約1分おきに繰り返す。
-  var MZ_NAG_COUNT = 10;     // 最大何回まで鳴らすか（約この分数ぶん）
+  var MZ_NAG_COUNT = 3;     // 最大何回まで鳴らすか（約この分数ぶん）
   var MZ_NAG_GAP   = 60000;  // 繰り返し間隔(ms)
   function mzPushSync(){
     var c=mzPushCfg(); if(!c.enabled||!c.url||!c.sub) return;
@@ -13942,15 +13942,8 @@
     mzPushPost('/schedule', { client:mzClientId(), sub:c.sub, replace:true, jobs:jobs });
   }
   function mzPushCancelAll(){ var c=mzPushCfg(); if(!c.url) return; mzPushPost('/cancel', { client:mzClientId() }); }
-  // 戻ってきたら「繰り返し通知」だけ止める。実行中の予約や貼り直しはしない（閉じている間の配信を壊さない）
-  document.addEventListener('visibilitychange', function(){
-    try{
-      if(document.visibilityState!=='visible') return;
-      var c=mzPushCfg(); if(!c.enabled||!c.sub) return;
-      // フェーズ終了後（=繰り返し通知が動いている）に開いた時だけ停止
-      if(running && endAt <= Date.now()) mzPushCancelAll();
-    }catch(e){}
-  });
+  // （アプリ復帰時のキャンセルは行わない：未送信の予約を消してしまい、閉じている間に届かなくなるため）
+  // 繰り返し通知は、タイマーを次へ進める/一時停止/リセットした時に自然に停止する。
 
   function open(){ $('mzOverlay').classList.add('open'); rebuildSelect(); applyTheme(); renderSteppers(); updateRecBtn(); updateTotalLabel(); mzUpdatePushUI(); paint(); }
   function close(){ $('mzOverlay').classList.remove('open'); relWake(); }
