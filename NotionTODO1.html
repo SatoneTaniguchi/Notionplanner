@@ -3516,7 +3516,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v10';
+  const APP_VERSION = '2026-06-30-v11';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -3609,6 +3609,13 @@
     const d = task['(A)実行日'];
     if (!d || !d.start) return false;
     return d.start.length <= 10; // 日付のみ文字列 = Notion終日
+  }
+
+  // 習慣・掃除・美容は「ルーチン」として同じ扱い（Notion同期・展開の対象）
+  function isRoutineKind(t) {
+    if (!t) return false;
+    var k = t['(B)種類'];
+    return k === '習慣' || k === '掃除' || k === '美容';
   }
 
   function getEndTime(task) {
@@ -3911,7 +3918,7 @@
     // ── 終日エリア ──
     const _repeatAllDayOccurs = (t) => {
       if (t._type !== 'repeat') return false;
-      if (t['(B)種類'] === '習慣') return false; // 習慣はインスタンスで処理
+      if (isRoutineKind(t)) return false; // 習慣はインスタンスで処理
       if (!(t._allDay || (t._repeatConfig && t._repeatConfig.allDay))) return false; // 終日のみ
       const cur = new Date(dayStr);
       const rc = t._repeatConfig || {};
@@ -3985,7 +3992,7 @@
       }
       if (t._type === 'repeat') {
         // 習慣テンプレートは個別インスタンスが表示されるので除外
-        if (t['(B)種類'] === '習慣') return false;
+        if (isRoutineKind(t)) return false;
         // 終日の繰り返し（ルーチン）は終日エリアで表示するのでタイムライン本体からは除外
         if (t._allDay || (t._repeatConfig && t._repeatConfig.allDay)) return false;
         const cur = new Date(dayStr);
@@ -4438,7 +4445,7 @@
       const isPast = isPastDay || (isToday && endMin < nowMin);
       const _done = t['(A)done'];
       const _shuruiOpt = SHURUI_OPTIONS.find(o => o.value === t['(B)種類']);
-      const isHabit = t['(B)種類'] === '習慣';
+      const isHabit = isRoutineKind(t);
       const totalW = window.innerWidth - 116;
       const colW = Math.floor(totalW / item._totalCols);
       const cardLeft = 100 + item._col * colW;
@@ -4772,7 +4779,7 @@
     return tasks.filter(t => {
       if (t['(A)done']) return false;
       if (t._projectOnly) return false; // プロジェクト表示専用（日付・実行期間なし）はあとでやるに出さない
-      if (t['(B)種類'] === '習慣') return false; // 習慣は振り分けない
+      if (isRoutineKind(t)) return false; // 習慣は振り分けない
       if (t._type === 'later') return true;
       if (t._type === 'time') {
         try {
@@ -5071,7 +5078,7 @@
         : '';
       // グループ表示中はバッジ重複を避けるため、グループ化のときはバッジ非表示
       const _projBadge = laterGroupByProject ? '' : projectBadgeHTML(t);
-      const _isHabitL = t['(B)種類'] === '習慣';
+      const _isHabitL = isRoutineKind(t);
       const _repeatBadgeL = _isHabitL ? '<span style="font-size:11px;margin-left:4px;opacity:0.6;">🔁</span>' : '';
       const _checkL = _isHabitL
         ? `<div class="habit-star ${_done?'done':''}" onclick="event.stopPropagation();if(!${_done})spawnSparkles(this);toggleTaskDone('${t.id}',this)">${_done?'⭐':'☆'}</div>`
@@ -5440,8 +5447,8 @@
     updateModalDoneUI(task['(A)done']);
     localStorage.setItem('tasks', JSON.stringify(tasks));
     { // <span class="coin-ico"></span> コイン＆完了ログ
-      const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || task.id) : task.id;
-      const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
+      const _k = (isRoutineKind(task)) ? (task._habitTemplateId || task.id) : task.id;
+      const _ds = (isRoutineKind(task)) ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
       if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
     }
     renderTimeline();
@@ -5611,7 +5618,7 @@
     let _editInstance = null;
     if (editingTaskId) {
       const _et = tasks.find(t => t.id === editingTaskId);
-      if (_et && _et['(B)種類'] === '習慣' && _et._habitTemplateId) {
+      if (_et && isRoutineKind(_et) && _et._habitTemplateId) {
         _editInstance = _et;
         _repeatScope = await askRepeatScope('編集');
         if (!_repeatScope) return; // キャンセル
@@ -5836,7 +5843,7 @@
       if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
         // Notion未設定でもローカルにインスタンス展開はしておく
         const tpl = tasks.find(t => t.id === (_syncIsEdit ? _syncEditId : _syncNewId));
-        if (tpl && tpl['(B)種類'] === '習慣' && tpl._type === 'repeat') {
+        if (tpl && isRoutineKind(tpl) && tpl._type === 'repeat') {
           if (_syncIsEdit) reconcileHabitInstances(tpl);
           expandHabitTemplate(tpl);
           if (currentScreen === 'routine') renderRoutineScreen();
@@ -5848,7 +5855,7 @@
         const t = tasks.find(t => t.id === _syncEditId);
         if (t) {
           t._localLastEdited = new Date().toISOString();
-          if (t['(B)種類'] === '習慣' && t._type === 'repeat') {
+          if (isRoutineKind(t) && t._type === 'repeat') {
             // 習慣テンプレート: 曜日変更などに合わせて未来インスタンスを再構築。
             // reconcile で不要分を整理 → expandAllHabitsAndSync が不足分を作って Notion 登録。
             reconcileHabitInstances(t);
@@ -5869,7 +5876,7 @@
       } else {
         // 新規タスク: 退避したidで安全に参照
         const t = tasks.find(t => t.id === _syncNewId);
-        if (t && t['(B)種類'] === '習慣' && t._type === 'repeat') {
+        if (t && isRoutineKind(t) && t._type === 'repeat') {
           // 習慣テンプレート: 展開してインスタンスをNotionに登録。
           // expandAllHabitsAndSync が内部で expandHabitTemplate を呼び、
           // 新規作成されたインスタンスのみ Notion へ push する。
@@ -5900,7 +5907,7 @@
     // ・通常テンプレート(_type:'repeat')を開いている → そのid
     // ・展開インスタンス(_habitTemplateId付き)を開いている → その_habitTemplateId
     // ・疑似テンプレートのメンバー(種類:習慣で同名の独立タスク群)を開いている → 同名グループ
-    const isHabitKind = task['(B)種類'] === '習慣';
+    const isHabitKind = isRoutineKind(task);
     let habitTemplateId = null;
     let pseudoGroupName = null;
     if (isHabitKind) {
@@ -5921,7 +5928,7 @@
     if (isHabit) {
       // 関連タスクをすべて集める（テンプレート本体＋全インスタンス／疑似メンバー）
       const related = tasks.filter(t => {
-        if (t['(B)種類'] !== '習慣') return false;
+        if (!isRoutineKind(t)) return false;
         if (habitTemplateId) {
           return t.id === habitTemplateId || t._habitTemplateId === habitTemplateId;
         }
@@ -6518,7 +6525,7 @@
 
   // ルーチン集計セクションをタイムライン下部に描画
   function renderRoutineSummary(timeline, todayTasks) {
-    const habitTasks = todayTasks.filter(t => t['(B)種類'] === '習慣' && !t._isRoutine);
+    const habitTasks = todayTasks.filter(t => isRoutineKind(t) && !t._isRoutine);
     if (habitTasks.length === 0) return;
     const doneHabits = habitTasks.filter(t => t['(A)done']);
     const total = habitTasks.length;
@@ -7253,7 +7260,7 @@
     // 本物の繰り返しテンプレートと同名のものは擬似ルーチン化しない（カード重複・「まだ対象日がありません」防止）
     const templateNames = new Set(templates.map(t => (t.name || '(無題)').trim()));
     const standalone = tasks.filter(t =>
-      t['(B)種類'] === '習慣' &&
+      isRoutineKind(t) &&
       kinds.includes('習慣') &&
       t._type !== 'repeat' &&
       t._type !== 'repeat_ended' &&
@@ -7321,7 +7328,7 @@
     if (typeof templateId === 'string' && templateId.startsWith('pseudo_')) {
       const name = templateId.slice('pseudo_'.length);
       return tasks.find(t =>
-        t['(B)種類'] === '習慣' &&
+        isRoutineKind(t) &&
         t._type !== 'repeat' &&
         !t._habitTemplateId &&
         (t.name || '(無題)').trim() === name &&
@@ -7339,7 +7346,7 @@
   // テンプレートから個別インスタンスを生成（不足分のみ追加）
   // 戻り値: 新規生成したインスタンス配列
   function expandHabitTemplate(template) {
-    if (!template || template['(B)種類'] !== '習慣' || template._type !== 'repeat') return [];
+    if (!template || !isRoutineKind(template) || template._type !== 'repeat') return [];
     const rc = template._repeatConfig || {};
     const today = new Date(); today.setHours(0,0,0,0);
     const startD = new Date(today); startD.setDate(today.getDate() - HABIT_PAST_DAYS);
@@ -7426,7 +7433,7 @@
       const createdIds = new Set(allCreated.map(i => i.id));
       tasks.forEach(t => {
         if (createdIds.has(t.id)) return;            // 既に(1)で処理
-        if (t['(B)種類'] !== '習慣') return;          // 習慣のみ
+        if (!isRoutineKind(t)) return;          // 習慣のみ
         if (t._type === 'repeat' || t._type === 'repeat_ended') return; // テンプレ本体は送らない
         if (t._notionId || t._notionPushing) return; // 既に登録済み/中
         const j = t['(A)実行日'];
@@ -7474,7 +7481,7 @@
     window._habitSyncErrors = [];
     const today = new Date(); today.setHours(0,0,0,0);
     const targets = tasks.filter(t => {
-      if (t['(B)種類'] !== '習慣') return false;
+      if (!isRoutineKind(t)) return false;
       if (t._type === 'repeat' || t._type === 'repeat_ended') return false;
       if (t._notionId || t._notionPushing) return false;
       const j = t['(A)実行日']; if (!j || !j.start) return false;
@@ -7483,7 +7490,7 @@
       return diff >= -HABIT_PAST_DAYS && diff <= HABIT_FUTURE_DAYS;
     });
 
-    const habitKindCount = tasks.filter(t => t['(B)種類'] === '習慣').length;
+    const habitKindCount = tasks.filter(t => isRoutineKind(t)).length;
     const tplCount = tasks.filter(t => t['(B)種類']==='習慣' && (t._type==='repeat'||t._type==='repeat_ended')).length;
     const instWithTplId = tasks.filter(t => t['(B)種類']==='習慣' && t._habitTemplateId).length;
     const alreadySynced = tasks.filter(t => t['(B)種類']==='習慣' && t._notionId).length;
@@ -9701,11 +9708,11 @@
     task._localLastEdited = new Date().toISOString();
     localStorage.setItem('tasks', JSON.stringify(tasks));
     { // <span class="coin-ico"></span> コイン＆完了ログ
-      const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || id) : id;
-      const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
+      const _k = (isRoutineKind(task)) ? (task._habitTemplateId || id) : id;
+      const _ds = (isRoutineKind(task)) ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
       if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
     }
-    if (task['(B)種類'] === '習慣') {
+    if (isRoutineKind(task)) {
       const h = getHabitHistory();
       // インスタンスはテンプレートID+_habitDate、それ以外は自身のid+表示日付
       const histId = task._habitTemplateId || id;
@@ -9733,11 +9740,11 @@
 
   // 繰り返し（習慣）インスタンスかどうか
   function isHabitInstance(t) {
-    return t && t['(B)種類'] === '習慣' && !!t._habitTemplateId;
+    return t && isRoutineKind(t) && !!t._habitTemplateId;
   }
   // 繰り返しテンプレート本体か
   function isHabitTemplate(t) {
-    return t && t['(B)種類'] === '習慣' && t._type === 'repeat';
+    return t && isRoutineKind(t) && t._type === 'repeat';
   }
 
   // 「この日だけ / この日以降」を尋ねる（繰り返しタスク用）。
@@ -13926,17 +13933,20 @@
     var h={'Content-Type':'application/json'}; if(c.token) h['X-Auth']=c.token;
     return fetch(c.url+path,{method:'POST',headers:h,body:JSON.stringify(payload)}).catch(function(){});
   }
-  // 開くまで鳴らし続ける（近似）。Cronが1分間隔なので約1分おきに繰り返す。
-  var MZ_NAG_COUNT = 3;     // 最大何回まで鳴らすか（約この分数ぶん）
-  var MZ_NAG_GAP   = 60000;  // 繰り返し間隔(ms)
+  // 開くまで鳴らし続ける（近似）。Cronが1分間隔なので、30秒刻みにすると1回のCronで複数まとめて届く。
+  var MZ_NAG_COUNT = 8;      // 最大何回鳴らすか
+  var MZ_NAG_GAP   = 30000;  // 繰り返し間隔(ms)：30秒
   function mzPushSync(){
     var c=mzPushCfg(); if(!c.enabled||!c.url||!c.sub) return;
     var plan=mzPlan();
-    var nag = alertPause ? MZ_NAG_COUNT : 1;  // 一時停止モードのときだけ繰り返す
     var jobs=[]; var n=0;
     for(var i=0;i<plan.length;i++){
+      // 最後の予定（＝一時停止待ち or 全完了）は多めに繰り返して気づきやすく。途中の自動遷移は1回。
+      var isLast = (i === plan.length - 1);
+      var nag = isLast ? MZ_NAG_COUNT : 1;
       for(var r=0;r<nag;r++){
-        jobs.push({ id:'mz'+(n++), when:plan[i].when + r*MZ_NAG_GAP, title:plan[i].title, body:plan[i].body, tag:'mztimer' });
+        var jid='mz'+(n++);
+        jobs.push({ id:jid, when:plan[i].when + r*MZ_NAG_GAP, title:plan[i].title, body:plan[i].body, tag:jid });
       }
     }
     mzPushPost('/schedule', { client:mzClientId(), sub:c.sub, replace:true, jobs:jobs });
