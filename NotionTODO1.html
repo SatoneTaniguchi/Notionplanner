@@ -3516,7 +3516,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v8';
+  const APP_VERSION = '2026-06-30-v9';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -13942,15 +13942,13 @@
     mzPushPost('/schedule', { client:mzClientId(), sub:c.sub, replace:true, jobs:jobs });
   }
   function mzPushCancelAll(){ var c=mzPushCfg(); if(!c.url) return; mzPushPost('/cancel', { client:mzClientId() }); }
-  // アプリを離れる直前に予約／戻ってきたら繰り返しを止める
+  // 戻ってきたら「繰り返し通知」だけ止める。実行中の予約や貼り直しはしない（閉じている間の配信を壊さない）
   document.addEventListener('visibilitychange', function(){
     try{
+      if(document.visibilityState!=='visible') return;
       var c=mzPushCfg(); if(!c.enabled||!c.sub) return;
-      if(document.visibilityState==='hidden'){
-        if(running) mzPushSync();      // 閉じている間に届くよう予約を更新
-      } else if(document.visibilityState==='visible'){
-        mzPushCancelAll();             // 開いたら繰り返しを停止（送信前の予約を空上書きで消さない）
-      }
+      // フェーズ終了後（=繰り返し通知が動いている）に開いた時だけ停止
+      if(running && endAt <= Date.now()) mzPushCancelAll();
     }catch(e){}
   });
 
