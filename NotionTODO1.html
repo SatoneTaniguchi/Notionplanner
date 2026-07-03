@@ -3518,7 +3518,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v15';
+  const APP_VERSION = '2026-06-30-v21';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -3612,6 +3612,9 @@
     if (!d || !d.start) return false;
     return d.start.length <= 10; // 日付のみ文字列 = Notion終日
   }
+
+  var ROUTINE_KINDS = ['習慣','掃除','美容'];
+  function isRoutineKind(t){ if(!t) return false; var k=t['(B)種類']; return k==='習慣'||k==='掃除'||k==='美容'; }
 
   function getEndTime(task) {
     const d = task['(A)実行日'];
@@ -3913,7 +3916,7 @@
     // ── 終日エリア ──
     const _repeatAllDayOccurs = (t) => {
       if (t._type !== 'repeat') return false;
-      if (t['(B)種類'] === '習慣') return false; // 習慣はインスタンスで処理
+      if (isRoutineKind(t)) return false; // 習慣はインスタンスで処理
       if (!(t._allDay || (t._repeatConfig && t._repeatConfig.allDay))) return false; // 終日のみ
       const cur = new Date(dayStr);
       const rc = t._repeatConfig || {};
@@ -3987,7 +3990,7 @@
       }
       if (t._type === 'repeat') {
         // 習慣テンプレートは個別インスタンスが表示されるので除外
-        if (t['(B)種類'] === '習慣') return false;
+        if (isRoutineKind(t)) return false;
         // 終日の繰り返し（ルーチン）は終日エリアで表示するのでタイムライン本体からは除外
         if (t._allDay || (t._repeatConfig && t._repeatConfig.allDay)) return false;
         const cur = new Date(dayStr);
@@ -4440,7 +4443,7 @@
       const isPast = isPastDay || (isToday && endMin < nowMin);
       const _done = t['(A)done'];
       const _shuruiOpt = SHURUI_OPTIONS.find(o => o.value === t['(B)種類']);
-      const isHabit = t['(B)種類'] === '習慣';
+      const isHabit = isRoutineKind(t);
       const totalW = window.innerWidth - 116;
       const colW = Math.floor(totalW / item._totalCols);
       const cardLeft = 100 + item._col * colW;
@@ -4774,7 +4777,7 @@
     return tasks.filter(t => {
       if (t['(A)done']) return false;
       if (t._projectOnly) return false; // プロジェクト表示専用（日付・実行期間なし）はあとでやるに出さない
-      if (t['(B)種類'] === '習慣') return false; // 習慣は振り分けない
+      if (isRoutineKind(t)) return false; // 習慣は振り分けない
       if (t._type === 'later') return true;
       if (t._type === 'time') {
         try {
@@ -5073,7 +5076,7 @@
         : '';
       // グループ表示中はバッジ重複を避けるため、グループ化のときはバッジ非表示
       const _projBadge = laterGroupByProject ? '' : projectBadgeHTML(t);
-      const _isHabitL = t['(B)種類'] === '習慣';
+      const _isHabitL = isRoutineKind(t);
       const _repeatBadgeL = _isHabitL ? '<span style="font-size:11px;margin-left:4px;opacity:0.6;">🔁</span>' : '';
       const _checkL = _isHabitL
         ? `<div class="habit-star ${_done?'done':''}" onclick="event.stopPropagation();if(!${_done})spawnSparkles(this);toggleTaskDone('${t.id}',this)">${_done?'⭐':'☆'}</div>`
@@ -5442,8 +5445,8 @@
     updateModalDoneUI(task['(A)done']);
     localStorage.setItem('tasks', JSON.stringify(tasks));
     { // <span class="coin-ico"></span> コイン＆完了ログ
-      const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || task.id) : task.id;
-      const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
+      const _k = (isRoutineKind(task)) ? (task._habitTemplateId || task.id) : task.id;
+      const _ds = (isRoutineKind(task)) ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
       if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
     }
     renderTimeline();
@@ -5613,7 +5616,7 @@
     let _editInstance = null;
     if (editingTaskId) {
       const _et = tasks.find(t => t.id === editingTaskId);
-      if (_et && _et['(B)種類'] === '習慣' && _et._habitTemplateId) {
+      if (_et && isRoutineKind(_et) && _et._habitTemplateId) {
         _editInstance = _et;
         _repeatScope = await askRepeatScope('編集');
         if (!_repeatScope) return; // キャンセル
@@ -5838,7 +5841,7 @@
       if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
         // Notion未設定でもローカルにインスタンス展開はしておく
         const tpl = tasks.find(t => t.id === (_syncIsEdit ? _syncEditId : _syncNewId));
-        if (tpl && tpl['(B)種類'] === '習慣' && tpl._type === 'repeat') {
+        if (tpl && isRoutineKind(tpl) && tpl._type === 'repeat') {
           if (_syncIsEdit) reconcileHabitInstances(tpl);
           expandHabitTemplate(tpl);
           if (currentScreen === 'routine') renderRoutineScreen();
@@ -5850,7 +5853,7 @@
         const t = tasks.find(t => t.id === _syncEditId);
         if (t) {
           t._localLastEdited = new Date().toISOString();
-          if (t['(B)種類'] === '習慣' && t._type === 'repeat') {
+          if (isRoutineKind(t) && t._type === 'repeat') {
             // 習慣テンプレート: 曜日変更などに合わせて未来インスタンスを再構築。
             // reconcile で不要分を整理 → expandAllHabitsAndSync が不足分を作って Notion 登録。
             reconcileHabitInstances(t);
@@ -5871,7 +5874,7 @@
       } else {
         // 新規タスク: 退避したidで安全に参照
         const t = tasks.find(t => t.id === _syncNewId);
-        if (t && t['(B)種類'] === '習慣' && t._type === 'repeat') {
+        if (t && isRoutineKind(t) && t._type === 'repeat') {
           // 習慣テンプレート: 展開してインスタンスをNotionに登録。
           // expandAllHabitsAndSync が内部で expandHabitTemplate を呼び、
           // 新規作成されたインスタンスのみ Notion へ push する。
@@ -5902,7 +5905,7 @@
     // ・通常テンプレート(_type:'repeat')を開いている → そのid
     // ・展開インスタンス(_habitTemplateId付き)を開いている → その_habitTemplateId
     // ・疑似テンプレートのメンバー(種類:習慣で同名の独立タスク群)を開いている → 同名グループ
-    const isHabitKind = task['(B)種類'] === '習慣';
+    const isHabitKind = isRoutineKind(task);
     let habitTemplateId = null;
     let pseudoGroupName = null;
     if (isHabitKind) {
@@ -5923,7 +5926,7 @@
     if (isHabit) {
       // 関連タスクをすべて集める（テンプレート本体＋全インスタンス／疑似メンバー）
       const related = tasks.filter(t => {
-        if (t['(B)種類'] !== '習慣') return false;
+        if (!isRoutineKind(t)) return false;
         if (habitTemplateId) {
           return t.id === habitTemplateId || t._habitTemplateId === habitTemplateId;
         }
@@ -6520,7 +6523,7 @@
 
   // ルーチン集計セクションをタイムライン下部に描画
   function renderRoutineSummary(timeline, todayTasks) {
-    const habitTasks = todayTasks.filter(t => t['(B)種類'] === '習慣' && !t._isRoutine);
+    const habitTasks = todayTasks.filter(t => isRoutineKind(t) && !t._isRoutine);
     if (habitTasks.length === 0) return;
     const doneHabits = habitTasks.filter(t => t['(A)done']);
     const total = habitTasks.length;
@@ -7323,7 +7326,7 @@
     if (typeof templateId === 'string' && templateId.startsWith('pseudo_')) {
       const name = templateId.slice('pseudo_'.length);
       return tasks.find(t =>
-        t['(B)種類'] === '習慣' &&
+        isRoutineKind(t) &&
         t._type !== 'repeat' &&
         !t._habitTemplateId &&
         (t.name || '(無題)').trim() === name &&
@@ -7341,7 +7344,7 @@
   // テンプレートから個別インスタンスを生成（不足分のみ追加）
   // 戻り値: 新規生成したインスタンス配列
   function expandHabitTemplate(template) {
-    if (!template || template['(B)種類'] !== '習慣' || template._type !== 'repeat') return [];
+    if (!template || !isRoutineKind(template) || template._type !== 'repeat') return [];
     const rc = template._repeatConfig || {};
     const today = new Date(); today.setHours(0,0,0,0);
     const startD = new Date(today); startD.setDate(today.getDate() - HABIT_PAST_DAYS);
@@ -7362,7 +7365,7 @@
         );
         if (!existsByHabitDate && !existsByDisplayDate) {
           // 時刻つきか終日かをテンプレートに合わせる
-          const allDay = rc.allDay;
+          const allDay = rc.allDay || template._allDay;
           const time = rc.time || '07:00';
           let jisseki;
           if (allDay) {
@@ -7387,7 +7390,7 @@
             name: template.name,
             '(A)done': false,
             '(A)実行日': jisseki,
-            '(B)種類': '習慣',
+            '(B)種類': (template['(B)種類'] || '習慣'),
             '(B)実行期間': template['(B)実行期間'] || null,
             '(C)見込み/h': template['(C)見込み/h'] || 0,
             '(e)memo': template['(e)memo'] || '',
@@ -7413,7 +7416,7 @@
 
   // 全テンプレートを展開（起動時の補充用）し、新規分をNotionへPush
   function expandAllHabitsAndSync() {
-    const templates = getHabitTasks();
+    const templates = getHabitTasks(false, ROUTINE_KINDS);
     let allCreated = [];
     templates.forEach(tpl => {
       allCreated = allCreated.concat(expandHabitTemplate(tpl));
@@ -7428,7 +7431,7 @@
       const createdIds = new Set(allCreated.map(i => i.id));
       tasks.forEach(t => {
         if (createdIds.has(t.id)) return;            // 既に(1)で処理
-        if (t['(B)種類'] !== '習慣') return;          // 習慣のみ
+        if (!isRoutineKind(t)) return;          // 習慣のみ
         if (t._type === 'repeat' || t._type === 'repeat_ended') return; // テンプレ本体は送らない
         if (t._notionId || t._notionPushing) return; // 既に登録済み/中
         const j = t['(A)実行日'];
@@ -7476,7 +7479,7 @@
     window._habitSyncErrors = [];
     const today = new Date(); today.setHours(0,0,0,0);
     const targets = tasks.filter(t => {
-      if (t['(B)種類'] !== '習慣') return false;
+      if (!isRoutineKind(t)) return false;
       if (t._type === 'repeat' || t._type === 'repeat_ended') return false;
       if (t._notionId || t._notionPushing) return false;
       const j = t['(A)実行日']; if (!j || !j.start) return false;
@@ -7485,10 +7488,10 @@
       return diff >= -HABIT_PAST_DAYS && diff <= HABIT_FUTURE_DAYS;
     });
 
-    const habitKindCount = tasks.filter(t => t['(B)種類'] === '習慣').length;
-    const tplCount = tasks.filter(t => t['(B)種類']==='習慣' && (t._type==='repeat'||t._type==='repeat_ended')).length;
-    const instWithTplId = tasks.filter(t => t['(B)種類']==='習慣' && t._habitTemplateId).length;
-    const alreadySynced = tasks.filter(t => t['(B)種類']==='習慣' && t._notionId).length;
+    const habitKindCount = tasks.filter(t => isRoutineKind(t)).length;
+    const tplCount = tasks.filter(t => isRoutineKind(t) && (t._type==='repeat'||t._type==='repeat_ended')).length;
+    const instWithTplId = tasks.filter(t => isRoutineKind(t) && t._habitTemplateId).length;
+    const alreadySynced = tasks.filter(t => isRoutineKind(t) && t._notionId).length;
 
     let msg = `【診断結果】\n`;
     msg += `習慣タスク総数: ${habitKindCount}\n`;
@@ -7512,7 +7515,7 @@
 
     setTimeout(() => {
       const errs = window._habitSyncErrors || [];
-      const nowSynced = tasks.filter(t => t['(B)種類']==='習慣' && t._notionId).length;
+      const nowSynced = tasks.filter(t => isRoutineKind(t) && t._notionId).length;
       let r = `【登録結果】\n`;
       r += `登録を試みた件数: ${targets.length}\n`;
       r += `Notion登録済み（実行後）: ${nowSynced}\n`;
@@ -7838,7 +7841,7 @@
       const newTask = {
         id: 'pseudo_inst_' + templateId + '_' + dateStr,
         name: template.name,
-        '(B)種類': '習慣',
+        '(B)種類': (template['(B)種類'] || '習慣'),
         '(B)実行期間': rc['(B)実行期間'] || null,
         '(C)見込み/h': rc['(C)見込み/h'] || 0,
         '(A)done': false,
@@ -9703,11 +9706,11 @@
     task._localLastEdited = new Date().toISOString();
     localStorage.setItem('tasks', JSON.stringify(tasks));
     { // <span class="coin-ico"></span> コイン＆完了ログ
-      const _k = (task['(B)種類'] === '習慣') ? (task._habitTemplateId || id) : id;
-      const _ds = (task['(B)種類'] === '習慣') ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
+      const _k = (isRoutineKind(task)) ? (task._habitTemplateId || id) : id;
+      const _ds = (isRoutineKind(task)) ? (task._habitDate || ymd(currentDate)) : ymd(new Date());
       if (task['(A)done']) awardCompletion(_k, task.name, _ds, taskCoins(task)); else revokeCompletion(_k, _ds);
     }
-    if (task['(B)種類'] === '習慣') {
+    if (isRoutineKind(task)) {
       const h = getHabitHistory();
       // インスタンスはテンプレートID+_habitDate、それ以外は自身のid+表示日付
       const histId = task._habitTemplateId || id;
@@ -9735,11 +9738,11 @@
 
   // 繰り返し（習慣）インスタンスかどうか
   function isHabitInstance(t) {
-    return t && t['(B)種類'] === '習慣' && !!t._habitTemplateId;
+    return t && isRoutineKind(t) && !!t._habitTemplateId;
   }
   // 繰り返しテンプレート本体か
   function isHabitTemplate(t) {
-    return t && t['(B)種類'] === '習慣' && t._type === 'repeat';
+    return t && isRoutineKind(t) && t._type === 'repeat';
   }
 
   // 「この日だけ / この日以降」を尋ねる（繰り返しタスク用）。
@@ -13237,7 +13240,7 @@
     return arr.filter(function(t){
       if(!t) return false;
       if(t._type==='time'){ var dd=t['(A)実行日']; if(!dd||!dd.start) return false; return dateStrOf(t)===dayStr; }
-      if(t._type==='repeat' && t['(B)種類']!=='習慣'){ return repeatOccursOn(t,d); }
+      if(t._type==='repeat' && !isRoutineKind(t)){ return repeatOccursOn(t,d); }
       return false;
     });
   }
@@ -13255,7 +13258,7 @@
     var est=t['(C)見込み/h']; if(est){ var m=Math.round(est*60); out.push(m<60?(m+'分'):(m%60===0?(m/60+'h'):(Math.floor(m/60)+'h'+m%60))); }
     return out;
   }
-  function isRep(t){ return t['(B)種類']==='習慣' || !!t._habitTemplateId || t._type==='repeat'; }
+  function isRep(t){ return isRoutineKind(t) || !!t._habitTemplateId || t._type==='repeat'; }
 
   var SECT=[
     {key:'morning',label:'朝',ic:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M17 18a5 5 0 0 0-10 0'/><path d='M12 2v7M4.2 10.2l1.4 1.4M1 18h2M21 18h2M18.4 11.6l1.4-1.4M22 18H2'/></svg>"},
@@ -13599,13 +13602,15 @@
       totalSec=L.totalSec||st.focus*60; endAt=L.endAt||0; secondsLeft=L.secondsLeft||0;
       _pendingNext=L.pendingNext||null; task=L.task||null;
       if(task){ try{ var s=$('mzSelect'); if(s && task.localId){ s.value=task.localId; } }catch(e){} if($('mzTaskSub')) $('mzTaskSub').textContent='選択中: '+(task.name||''); }
-      renderSteppers(); updateRecBtn();
+      try{ renderSteppers(); updateRecBtn(); }catch(e){}
       if(phase==='ready'){ running=false; paint(); showAlert(_pendingNext); return; }
       if(L.running){
         if(endAt <= Date.now()){
-          // 閉じている間にタイムアウト → 自動で完了/記録にしない。停止状態で復元し、完了/記録ボタンで確定してもらう。
-          running=false; secondsLeft=0; paint(); updateRecBtn();
-          try{ setStatus('ok','前回のタイマーが終了。完了 or 記録ボタンで確定できます'); }catch(e){}
+          // 閉じている間にタイムアウト → 「切れた」ではなく落ち着いた完了画面に。自動記録・自動完了はしない。
+          running=false; phase='done'; secondsLeft=0; paint(); updateRecBtn();
+          mzPushCancelAll(); // 残っている終了通知を消す（新セッションとの競合防止）
+          clearLive();       // 一度出したら保存は消す（毎回タイムアウト画面が出て続けるのを防ぐ。記録は今の画面のボタンから可能）
+          try{ setStatus('ok','🎉 '+(window.__randomPraise?window.__randomPraise():'集中おつかれさま！')+' 記録は下のボタンから'); }catch(e){}
         } else {
           // まだ時間内 → そのまま継続
           running=true; reqWake();
@@ -13674,8 +13679,9 @@
           st.reps  = Math.max(1, Math.min(9, Math.ceil(totalMin/25)));
           if(st.brk<1) st.brk=5;
         } else {
-          st.focus = Math.min(1440, totalMin);
-          st.reps  = 1;
+          // 通し: 自分の集中・休憩の長さはそのまま。回数だけ見込みに合わせる
+          var _fb = (st.focus && st.focus>0) ? st.focus : 25;
+          st.reps = Math.max(1, Math.min(9, Math.ceil(totalMin/_fb)));
         }
         save('mineeTimer:settings', st);
         if(phase==='idle'){ secondsLeft=st.focus*60; totalSec=st.focus*60; }
@@ -13739,7 +13745,7 @@
     el.innerHTML=(state==='saving')?'<span class="mz-spin"></span>':msg;
   }
   function updateRecBtn(){
-    $('mzRecNow').style.display=(task&&(phase==='focus'||phase==='break'))?'inline-block':'none';
+    $('mzRecNow').style.display=(task&&(phase==='focus'||phase==='break'||phase==='done'))?'inline-block':'none';
     $('mzDone').style.display=task?'inline-block':'none';
     var mb=$('mzManual'); if(mb) mb.style.display=task?'inline-block':'none';
   }
@@ -13829,7 +13835,7 @@
         if(alertPause){ enterReady('focus'); return; }
         currentRep++; begin('focus',st.focus*60);
       } else {
-        alarmSound(); secondsLeft=0; phase='done'; running=false; relWake(); clearLive(); notify('🎉 '+(window.__randomPraise?window.__randomPraise():'完了！'),'全セット完了！おつかれさまでした'); try{ if(typeof showToast==='function') showToast('<div style=\"font-size:14px;font-weight:700;text-align:center;\">🎉 '+(window.__randomPraise?window.__randomPraise():'完了！')+'</div>'); }catch(e){}
+        alarmSound(); secondsLeft=0; phase='done'; running=false; relWake(); clearLive(); mzPushCancelAll(); notify('🎉 '+(window.__randomPraise?window.__randomPraise():'完了！'),'全セット完了！おつかれさまでした'); try{ if(typeof showToast==='function') showToast('<div style=\"font-size:14px;font-weight:700;text-align:center;\">🎉 '+(window.__randomPraise?window.__randomPraise():'完了！')+'</div>'); }catch(e){}
       }
     }
     updateRecBtn(); paint(); mzPushSync();
@@ -13861,14 +13867,17 @@
     notify($('mzAlertTitle').textContent, $('mzAlertSub').textContent);
   }
   function hideAlert(){ var ov=$('mzAlert'); if(ov) ov.classList.remove('show'); }
+  var _lastLiveSave=0;
   function tick(){
     if(!running) return;
     var rem=(endAt-Date.now())/1000;
     if(rem<=0){ onEnd(); if(running){ raf=requestAnimationFrame(tick);} return; }
     secondsLeft=rem; paint(); raf=requestAnimationFrame(tick);
+    if(Date.now()-_lastLiveSave>8000){ _lastLiveSave=Date.now(); saveLive(); } // 定期保存（強制終了に備える）
   }
   function startTimer(){
     ensureAudio();
+    mzPushCancelAll(); // 前回の予約通知が残っていれば消す（競合防止）
     try{ if(alertPause && window.Notification && Notification.permission==='default'){ Notification.requestPermission(); } }catch(e){}
     if(phase==='ready'){ startPending(); return; }
     if(phase==='idle'||phase==='done'){
@@ -14006,7 +14015,7 @@
     var h={'Content-Type':'application/json'}; if(c.token) h['X-Auth']=c.token;
     return fetch(c.url+path,{method:'POST',headers:h,body:JSON.stringify(payload)}).catch(function(){});
   }
-  // 開くまで鳴らし続ける（近似）。Cronが1分間隔なので、30秒刻みにすると1回のCronで複数まとめて届く。
+  // 開くまで鳴らし続ける。Cronが1分間隔なので30秒刻みで1回のCronに複数まとまって届く。競合は各所のキャンセルで対策。
   var MZ_NAG_COUNT = 8;      // 最大何回鳴らすか
   var MZ_NAG_GAP   = 30000;  // 繰り返し間隔(ms)：30秒
   function mzPushSync(){
@@ -14052,8 +14061,12 @@
     if($('mzPushUrl')) $('mzPushUrl').onchange=function(){ var c=mzPushCfg(); c.url=(this.value||'').trim().replace(/\/+$/,''); mzPushSaveCfg(c); };
     $('mzAlertGo').onclick=startPending;
     $('mzAlertExt').onclick=function(){ extendFocus(5); };
-    document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible' && running){ reqWake(); cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); } });
+    document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='hidden'){ if(running||phase==='ready'){ saveLive(); } } // 閉じる直前に保存
+      else if(document.visibilityState==='visible' && running){ reqWake(); cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); }
+    });
     [].forEach.call(document.querySelectorAll('.mz-sb'),function(b){ b.onclick=function(){ setField(b.dataset.f, parseInt(b.dataset.d,10)); }; });
+    window.addEventListener('pagehide',function(){ if(running||phase==='ready'){ saveLive(); } });
     restoreLive();  // 前回のセッションが残っていれば復元（経過ぶんを記録・継続）
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
