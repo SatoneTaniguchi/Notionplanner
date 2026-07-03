@@ -3530,7 +3530,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v26';
+  const APP_VERSION = '2026-06-30-v29';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -13671,7 +13671,7 @@
       taskTotalH=(L.taskTotalH!=null?L.taskTotalH:null);
       totalSec=L.totalSec||st.focus*60; endAt=L.endAt||0; secondsLeft=L.secondsLeft||0;
       _pendingNext=L.pendingNext||null; task=L.task||null; _quick=!!L.quick;
-      if(task){ try{ var s=$('mzSelect'); if(s && task.localId){ s.value=task.localId; } }catch(e){} if($('mzTaskSub')) $('mzTaskSub').textContent='選択中: '+(task.name||''); }
+      if(task){ try{ var s=$('mzSelect'); if(s && task.localId){ s.value=task.localId; } }catch(e){} if($('mzTaskSub')) $('mzTaskSub').textContent='選択中: '+(task.name||''); try{ if(typeof loadTaskTotal==='function') loadTaskTotal(); }catch(e){} }
       try{ renderSteppers(); updateRecBtn(); }catch(e){}
       if(phase==='ready'){ running=false; paint(); showAlert(_pendingNext); return; }
       if(L.running){
@@ -13824,9 +13824,10 @@
     el.innerHTML=(state==='saving')?'<span class="mz-spin"></span>':msg;
   }
   function updateRecBtn(){
-    $('mzRecNow').style.display=(task&&(phase==='focus'||phase==='break'||phase==='done'))?'inline-block':'none';
+    var hasSession=(phase==='focus'||phase==='break'||phase==='done');
+    $('mzRecNow').style.display=hasSession?'inline-block':'none';
     $('mzDone').style.display=task?'inline-block':'none';
-    var mb=$('mzManual'); if(mb) mb.style.display=task?'inline-block':'none';
+    var mb=$('mzManual'); if(mb) mb.style.display=(task||hasSession)?'inline-block':'none';
     var b5=$('mz5btn'); if(b5) b5.style.display=(!running && (phase==='idle'||phase==='done'))?'block':'none';
   }
 
@@ -13921,7 +13922,7 @@
   }
   // 現在のフォーカスブロックの「未記録分」を書き出す（中断・一時停止でも実時間を保存）
   function flushFocus(){
-    if(phase!=='focus') return;
+    if(phase!=='focus' && phase!=='done') return;
     var elapsed=totalSec-secondsLeft; var add=elapsed-accounted;
     if(add>=1){
       accounted+=add;
@@ -14006,7 +14007,14 @@
   function pauseTimer(){ flushFocus(); running=false; cancelAnimationFrame(raf); relWake(); paint(); mzPushCancelAll(); saveLive(); }
   function toggle(){ running?pauseTimer():startTimer(); }
   function reset(){ flushFocus(); hideAlert(); _pendingNext=null; _quick=false; running=false; cancelAnimationFrame(raf); relWake(); phase='idle'; currentRep=1; sessionPomos=0; accounted=0; secondsLeft=st.focus*60; totalSec=st.focus*60; updateRecBtn(); paint(); mzPushCancelAll(); clearLive(); }
-  function recordNow(){ flushFocus(); }
+  function recordNow(){
+    var before=accounted;
+    flushFocus();
+    if(running){ running=false; cancelAnimationFrame(raf); relWake(); mzPushCancelAll(); } // 記録＝ここで停止（走り続けてタイムアウトするのを防ぐ）
+    saveLive(); updateTotalLabel(); updateRecBtn(); paint();
+    var rec=Math.round((accounted-before)/60);
+    try{ setStatus('ok', rec>=1 ? ('+'+rec+'分 記録して停止しました') : '記録済み（停止）'); }catch(e){}
+  }
   // とりあえず5分だけ：始める壁を下げるワンタップ。単発5分で終わり（設定は変えない）。
   function mz5min(){
     ensureAudio(); mzPushCancelAll();
