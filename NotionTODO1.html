@@ -3518,7 +3518,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v22';
+  const APP_VERSION = '2026-06-30-v23';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -13474,6 +13474,7 @@
         <button type="button" class="mz-fill on" data-fill="whole" onclick="window.__mzFill&&window.__mzFill('whole')">通し</button>
         <button type="button" class="mz-fill" data-fill="pomo" onclick="window.__mzFill&&window.__mzFill('pomo')">25分×N</button>
       </div>
+      <button type="button" id="mz5btn" onclick="window.__mz5&&window.__mz5()" style="display:block;width:100%;margin-top:10px;padding:12px;border:none;border-radius:14px;background:#6c5ce7;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 12px rgba(108,92,231,.3);">▶ とりあえず5分だけ</button>
     </div>
 
     <div class="mz-phase" id="mzPhase">·</div>
@@ -13574,7 +13575,7 @@
   var mzTaskMap={};         // 局所id -> taskオブジェクト
   var mzWriteChain=Promise.resolve(); // Notion書き込みを直列化（合算の取りこぼし防止）
   var alertPause=load('mineeTimer:alertPause',true); // 集中/休憩の切れ目で一時停止して知らせる
-  var _pendingNext=null, _extending=false, mzWake=null, mzAudio=null;
+  var _pendingNext=null, _extending=false, mzWake=null, mzAudio=null, _quick=false;
 
   // ---- 実行中セッションの保存/復元（iOSがPWAを終了しても記録が消えないように）----
   function saveLive(){
@@ -13584,7 +13585,7 @@
         running:running, phase:phase, endAt:endAt, totalSec:totalSec, secondsLeft:secondsLeft,
         currentRep:currentRep, sessionPomos:sessionPomos, accounted:accounted,
         sessionLoggedSec:sessionLoggedSec, sessionStart:sessionStart, startStamped:startStamped,
-        taskTotalH:taskTotalH, pendingNext:_pendingNext,
+        taskTotalH:taskTotalH, pendingNext:_pendingNext, quick:_quick,
         task:task, st:{focus:st.focus,brk:st.brk,reps:st.reps}, savedAt:Date.now()
       }));
     }catch(e){}
@@ -13600,7 +13601,7 @@
       sessionStart=L.sessionStart||0; startStamped=!!L.startStamped;
       taskTotalH=(L.taskTotalH!=null?L.taskTotalH:null);
       totalSec=L.totalSec||st.focus*60; endAt=L.endAt||0; secondsLeft=L.secondsLeft||0;
-      _pendingNext=L.pendingNext||null; task=L.task||null;
+      _pendingNext=L.pendingNext||null; task=L.task||null; _quick=!!L.quick;
       if(task){ try{ var s=$('mzSelect'); if(s && task.localId){ s.value=task.localId; } }catch(e){} if($('mzTaskSub')) $('mzTaskSub').textContent='選択中: '+(task.name||''); }
       try{ renderSteppers(); updateRecBtn(); }catch(e){}
       if(phase==='ready'){ running=false; paint(); showAlert(_pendingNext); return; }
@@ -13674,7 +13675,7 @@
     var sel=$('mzSelect'); var lid=sel.value;
     if(!lid || !mzTaskMap[lid]){ task=null; sessionLoggedSec=0; taskTotalH=null; $('mzTaskSub').textContent=''; updateTotalLabel(); updateRecBtn(); return; }
     var t=mzTaskMap[lid];
-    task={ localId:t.id, pageId:(t._notionId||t.id), name:t.name||'(無題)' };
+    task={ localId:t.id, pageId:(t._notionId||t.id), name:t.name||'(無題)', estH:(parseFloat(t['(C)見込み/h'])||null) };
     sessionLoggedSec=0; taskTotalH=null;
     $('mzTaskSub').textContent='選択中: '+task.name;
     setStatus('','');
@@ -13757,6 +13758,7 @@
     $('mzRecNow').style.display=(task&&(phase==='focus'||phase==='break'||phase==='done'))?'inline-block':'none';
     $('mzDone').style.display=task?'inline-block':'none';
     var mb=$('mzManual'); if(mb) mb.style.display=task?'inline-block':'none';
+    var b5=$('mz5btn'); if(b5) b5.style.display=(!running && (phase==='idle'||phase==='done'))?'block':'none';
   }
 
   // ---- 音（共有AudioContextでiOSでも鳴りやすく） ----
@@ -13781,7 +13783,14 @@
     var el=$('mzTotal'); if(!el) return;
     if(!task){ el.textContent=''; return; }
     var parts=[];
-    if(taskTotalH!=null) parts.push('実績合計 '+taskTotalH+'h');
+    var est=(task&&task.estH)?task.estH:null;
+    if(est) parts.push('見込み '+est+'h');
+    if(taskTotalH!=null) parts.push('実績 '+taskTotalH+'h');
+    if(est && taskTotalH!=null){
+      var d=r2(taskTotalH-est);
+      if(d>0.05) parts.push('ズレ +'+d+'h（次の見込みに活かそう）');
+      else if(taskTotalH>0) parts.push('🎯見込み内！');
+    }
     if(sessionLoggedSec>0) parts.push('今回 +'+fmtDur(sessionLoggedSec));
     el.textContent=parts.join('　/　');
   }
@@ -13836,6 +13845,11 @@
       secondsLeft=0; flushFocus(); accounted=0;   // このブロックの実時間を記録
       if(!_extending) sessionPomos++; _extending=false;
       alarmSound();
+      if(_quick){ // とりあえず5分：休憩に行かず終了
+        _quick=false; phase='done'; running=false; relWake(); clearLive(); mzPushCancelAll();
+        notify('🎉 '+(window.__randomPraise?window.__randomPraise():'5分できた！'),'5分やれた自分、えらい');
+        updateRecBtn(); paint(); return;
+      }
       if(alertPause){ enterReady('break'); return; }
       begin('break',st.brk*60);
     } else if(phase==='break'){
@@ -13899,8 +13913,20 @@
   }
   function pauseTimer(){ flushFocus(); running=false; cancelAnimationFrame(raf); relWake(); paint(); mzPushCancelAll(); saveLive(); }
   function toggle(){ running?pauseTimer():startTimer(); }
-  function reset(){ flushFocus(); hideAlert(); _pendingNext=null; running=false; cancelAnimationFrame(raf); relWake(); phase='idle'; currentRep=1; sessionPomos=0; accounted=0; secondsLeft=st.focus*60; totalSec=st.focus*60; updateRecBtn(); paint(); mzPushCancelAll(); clearLive(); }
+  function reset(){ flushFocus(); hideAlert(); _pendingNext=null; _quick=false; running=false; cancelAnimationFrame(raf); relWake(); phase='idle'; currentRep=1; sessionPomos=0; accounted=0; secondsLeft=st.focus*60; totalSec=st.focus*60; updateRecBtn(); paint(); mzPushCancelAll(); clearLive(); }
   function recordNow(){ flushFocus(); }
+  // とりあえず5分だけ：始める壁を下げるワンタップ。単発5分で終わり（設定は変えない）。
+  function mz5min(){
+    ensureAudio(); mzPushCancelAll();
+    currentRep=1; sessionPomos=0; accounted=0; sessionLoggedSec=0; startStamped=false; sessionStart=Date.now();
+    _quick=true; _extending=false;
+    begin('focus', 5*60); running=true;
+    updateRecBtn(); updateTotalLabel();
+    saveLive(); reqWake();
+    cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint(); mzPushSync();
+    try{ setStatus('ok','まず5分だけ。始めた時点で勝ち'); }catch(e){}
+  }
+  window.__mz5 = mz5min;
   function mzManualRecord(){
     var m = prompt('記録する集中時間（分）を入力', '25');
     if(m===null) return;
