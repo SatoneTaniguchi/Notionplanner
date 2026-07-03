@@ -3518,7 +3518,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v21';
+  const APP_VERSION = '2026-06-30-v22';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -13615,10 +13615,12 @@
           // まだ時間内 → そのまま継続
           running=true; reqWake();
           cancelAnimationFrame(raf); raf=requestAnimationFrame(tick); paint();
+          try{ setStatus('',''); }catch(e){}
         }
       } else {
         // 一時停止中だった → そのまま復元（再開待ち）
         running=false; paint();
+        try{ setStatus('',''); }catch(e){}
       }
     }catch(e){}
   }
@@ -13650,7 +13652,14 @@
       html+='<option value="'+t.id+'">'+lbl.replace(/</g,'&lt;')+'</option>';
     });
     sel.innerHTML=html;
-    if(cur && mzTaskMap[cur]) sel.value=cur;
+    if(cur && mzTaskMap[cur]){ sel.value=cur; }
+    else if(task && cur){
+      // 選択中のタスクが今日の一覧に無い場合でも、ドロップダウンに出して表示を一致させる
+      var o=document.createElement('option'); o.value=cur; o.textContent=(task.name||'(無題)');
+      sel.insertBefore(o, sel.firstChild.nextSibling);
+      sel.value=cur;
+      if(!mzTaskMap[cur]) mzTaskMap[cur]={ id:cur, name:(task.name||'(無題)'), '(C)見込み/h':'', _notionId:(task.pageId||cur) };
+    }
     if(!items.length){ $('mzTaskSub').textContent='この日に未完了タスクがありません（アプリで同期してね）'; }
     else if(!task){ $('mzTaskSub').textContent=items.length+'件'; }
   }
