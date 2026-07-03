@@ -3530,7 +3530,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v25';
+  const APP_VERSION = '2026-06-30-v26';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -6915,18 +6915,18 @@
     if((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId){ empty('Notionに接続すると表示されます'); return; }
     el.innerHTML='<div style="font-size:12px;color:#b0adc0;text-align:center;padding:20px 0;">読み込み中…</div>';
     try{
-      const res=await notionApiCall(`/databases/${notionSettings.dbId}/query`,'POST',{
-        sorts:[{ timestamp:'last_edited_time', direction:'descending' }], page_size:100
-      });
+      const res=await notionApiCall(`/databases/${notionSettings.dbId}/query`,'POST',{ page_size:100 });
+      const numP=(p)=>{ if(!p) return 0; if(typeof p.number==='number') return p.number; if(p.formula&&typeof p.formula.number==='number') return p.formula.number; if(p.rollup&&typeof p.rollup.number==='number') return p.rollup.number; return 0; };
       const rows=[];
       (res.results||[]).forEach(p=>{
         const pr=p.properties||{};
-        const est=(pr['(C)見込み/h']&&typeof pr['(C)見込み/h'].number==='number')?pr['(C)見込み/h'].number:0;
-        const act=(pr['(C)手入力実績時間_out']&&typeof pr['(C)手入力実績時間_out'].number==='number')?pr['(C)手入力実績時間_out'].number:0;
+        const est=numP(pr['(C)見込み/h']);
+        const act=numP(pr['(C)手入力実績時間_out']);
         let name='(無題)'; const tp=pr['タスク名']; if(tp&&Array.isArray(tp.title)) name=tp.title.map(r=>r.plain_text).join('')||'(無題)';
-        if(est>0 && act>0) rows.push({name, est:r2(est), act:r2(act)});
+        if(est>0 && act>0) rows.push({name, est:r2(est), act:r2(act), t:(p.last_edited_time||'')});
       });
-      const pick=rows.slice(0,6).reverse(); // 取得は新しい順 → 左が古い/右が新しい
+      rows.sort((a,b)=> (a.t<b.t?1:(a.t>b.t?-1:0))); // 最終更新が新しい順
+      const pick=rows.slice(0,6).reverse(); // 左が古い/右が新しい
       if(!pick.length){ empty('見込みと実績が両方あるタスクがまだありません'); return; }
       el.innerHTML=svgGroupedBars(pick.map(x=>x.name), pick.map(x=>Math.round(x.est*60)), pick.map(x=>Math.round(x.act*60)));
       const ratios=pick.filter(x=>x.est>0).map(x=>x.act/x.est);
