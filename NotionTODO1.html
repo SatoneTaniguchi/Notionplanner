@@ -2896,6 +2896,18 @@
   <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
     <div id="graphFocus"></div>
   </div>
+
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:18px 2px 8px;">
+    <div style="font-size:15px;font-weight:700;color:#2d2b3a;">🎯 見込み vs 実績</div>
+    <div id="graphEstActSum" style="font-size:12px;color:#9a97ad;"></div>
+  </div>
+  <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
+    <div id="graphEstAct"><div style="font-size:12px;color:#b0adc0;text-align:center;padding:20px 0;">—</div></div>
+    <div style="display:flex;gap:14px;justify-content:center;font-size:11px;color:#9a97ad;margin-top:2px;">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#6c5ce7;border-radius:2px;vertical-align:middle;"></span> 見込み</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#ff9500;border-radius:2px;vertical-align:middle;"></span> 実績</span>
+    </div>
+  </div>
   <div style="font-size:11px;color:#b0adc0;margin-top:10px;line-height:1.5;">集中時間は、タイムラインや編集画面のタイマー（開始→終了）で計測した実働時間から集計しています。</div>
 </div>
 
@@ -3518,7 +3530,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v23';
+  const APP_VERSION = '2026-06-30-v25';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -6870,6 +6882,59 @@
     return m ? `${h}h${m}m` : `${h}h`;
   }
 
+  // 2系列グループ棒グラフ（見込み/実績）。値は分。
+  function svgGroupedBars(labels, estMins, actMins){
+    const W=340,H=200,padL=30,padR=10,padT=14,padB=46;
+    const n=Math.max(1,labels.length);
+    const maxV=Math.max(1, ...estMins, ...actMins);
+    const cw=(W-padL-padR)/n;
+    const gap=3;
+    const bw=Math.min((cw-gap*3)/2, 16);
+    const chartH=H-padT-padB;
+    let bars='', xlabels='';
+    for(let i=0;i<n;i++){
+      const e=estMins[i]||0, a=actMins[i]||0;
+      const he=(e/maxV)*chartH, ha=(a/maxV)*chartH;
+      const xe=padL+i*cw+(cw/2-gap/2-bw);
+      const xa=padL+i*cw+(cw/2+gap/2);
+      bars+=`<rect x="${xe.toFixed(1)}" y="${(padT+chartH-he).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,he).toFixed(1)}" rx="3" fill="#6c5ce7"></rect>`;
+      bars+=`<rect x="${xa.toFixed(1)}" y="${(padT+chartH-ha).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,ha).toFixed(1)}" rx="3" fill="#ff9500"></rect>`;
+      let lab=(labels[i]||'').replace(/</g,'&lt;'); if(lab.length>5) lab=lab.slice(0,5)+'…';
+      xlabels+=`<text transform="translate(${(padL+i*cw+cw/2).toFixed(1)},${H-30}) rotate(30)" font-size="9" text-anchor="start" fill="#9a97ad">${lab}</text>`;
+    }
+    const baseY=padT+chartH;
+    const baseline=`<line x1="${padL}" y1="${baseY}" x2="${W-padR}" y2="${baseY}" stroke="#e5e3f0" stroke-width="1"/>`;
+    const yTop=`<text x="3" y="${padT+8}" font-size="9" fill="#c4c1d4">${fmtMinShort(maxV)}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${baseline}${bars}${xlabels}${yTop}</svg>`;
+  }
+
+  async function renderEstActGraph(){
+    const el=document.getElementById('graphEstAct'); if(!el) return;
+    const sum=document.getElementById('graphEstActSum');
+    const empty=(m)=>{ el.innerHTML='<div style="font-size:12px;color:#b0adc0;text-align:center;padding:20px 0;">'+m+'</div>'; if(sum)sum.textContent=''; };
+    if((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId){ empty('Notionに接続すると表示されます'); return; }
+    el.innerHTML='<div style="font-size:12px;color:#b0adc0;text-align:center;padding:20px 0;">読み込み中…</div>';
+    try{
+      const res=await notionApiCall(`/databases/${notionSettings.dbId}/query`,'POST',{
+        sorts:[{ timestamp:'last_edited_time', direction:'descending' }], page_size:100
+      });
+      const rows=[];
+      (res.results||[]).forEach(p=>{
+        const pr=p.properties||{};
+        const est=(pr['(C)見込み/h']&&typeof pr['(C)見込み/h'].number==='number')?pr['(C)見込み/h'].number:0;
+        const act=(pr['(C)手入力実績時間_out']&&typeof pr['(C)手入力実績時間_out'].number==='number')?pr['(C)手入力実績時間_out'].number:0;
+        let name='(無題)'; const tp=pr['タスク名']; if(tp&&Array.isArray(tp.title)) name=tp.title.map(r=>r.plain_text).join('')||'(無題)';
+        if(est>0 && act>0) rows.push({name, est:r2(est), act:r2(act)});
+      });
+      const pick=rows.slice(0,6).reverse(); // 取得は新しい順 → 左が古い/右が新しい
+      if(!pick.length){ empty('見込みと実績が両方あるタスクがまだありません'); return; }
+      el.innerHTML=svgGroupedBars(pick.map(x=>x.name), pick.map(x=>Math.round(x.est*60)), pick.map(x=>Math.round(x.act*60)));
+      const ratios=pick.filter(x=>x.est>0).map(x=>x.act/x.est);
+      const avg=ratios.length?ratios.reduce((a,b)=>a+b,0)/ratios.length:0;
+      if(sum) sum.textContent = avg? ('実績は見込みの約'+(Math.round(avg*10)/10)+'倍') : '';
+    }catch(e){ empty('読み込みに失敗しました'); }
+  }
+
   function renderGraphScreen() {
     const store = getRewardStore();
     document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = getCoinBalance(); });
@@ -6905,6 +6970,9 @@
     if (elF) elF.innerHTML = svgBarChart(fLabels, fMins, { color: '#6c5ce7', showVal: true, valFmt: v => fmtMinShort(v), yFmt: v => fmtMinShort(v) });
     const elFsum = document.getElementById('graphFocusSum');
     if (elFsum) elFsum.textContent = `今週 合計 ${fmtMinShort(totalFocus)}`;
+
+    // ③ 見込み vs 実績（Notionから集計）
+    try{ renderEstActGraph(); }catch(e){}
   }
 
   // ============================================================
@@ -13510,6 +13578,7 @@
       <button class="mz-btn done" id="mzDone" style="display:none">✓ タスク完了</button>
     </div>
     <div class="mz-total" id="mzTotal"></div>
+    <div id="mzEstActChart"></div>
 
     <div class="mz-swatches" id="mzSwatches"></div>
 
@@ -13793,6 +13862,29 @@
     }
     if(sessionLoggedSec>0) parts.push('今回 +'+fmtDur(sessionLoggedSec));
     el.textContent=parts.join('　/　');
+    // 見込み vs 実績 の棒グラフ
+    var chart=$('mzEstActChart');
+    if(chart){
+      if(est && taskTotalH!=null && (est>0||taskTotalH>0)){ chart.innerHTML=mzEstActSvg(est, taskTotalH); }
+      else chart.innerHTML='';
+    }
+  }
+  function mzEstActSvg(estH, actH){
+    estH=Math.max(0,estH||0); actH=Math.max(0,actH||0);
+    var W=200,H=76,padT=8,padB=18,base=H-padB;
+    var maxV=Math.max(estH,actH,0.1);
+    var bw=46, gap=36;
+    var x1=W/2-gap/2-bw, x2=W/2+gap/2;
+    var h1=(estH/maxV)*(base-padT), h2=(actH/maxV)*(base-padT);
+    function bar(x,h,color,label,val){
+      return '<rect x="'+x+'" y="'+(base-h).toFixed(1)+'" width="'+bw+'" height="'+Math.max(1,h).toFixed(1)+'" rx="4" fill="'+color+'"/>'
+        +'<text x="'+(x+bw/2)+'" y="'+(base-h-3).toFixed(1)+'" font-size="10" text-anchor="middle" fill="#8e8e93">'+val+'h</text>'
+        +'<text x="'+(x+bw/2)+'" y="'+(H-4)+'" font-size="10" text-anchor="middle" fill="#9a97ad">'+label+'</text>';
+    }
+    return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;max-width:220px;margin:8px auto 0;">'
+      + bar(x1,h1,'#6c5ce7','見込み',estH)
+      + bar(x2,h2,'#ff9500','実績',actH)
+      + '</svg>';
   }
   function loadTaskTotal(){
     if(!task) return;
