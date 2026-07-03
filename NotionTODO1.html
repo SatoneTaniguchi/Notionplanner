@@ -3530,7 +3530,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v29';
+  const APP_VERSION = '2026-06-30-v30';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -6932,7 +6932,7 @@
       const ratios=pick.filter(x=>x.est>0).map(x=>x.act/x.est);
       const avg=ratios.length?ratios.reduce((a,b)=>a+b,0)/ratios.length:0;
       if(sum) sum.textContent = avg? ('実績は見込みの約'+(Math.round(avg*10)/10)+'倍') : '';
-    }catch(e){ empty('読み込みに失敗しました'); }
+    }catch(e){ empty('失敗: '+((e&&e.message)?e.message:String(e))); }
   }
 
   function renderGraphScreen() {
