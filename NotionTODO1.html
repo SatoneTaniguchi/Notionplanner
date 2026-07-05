@@ -3530,7 +3530,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v30';
+  const APP_VERSION = '2026-06-30-v31';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -6917,13 +6917,14 @@
     try{
       const res=await notionApiCall(`/databases/${notionSettings.dbId}/query`,'POST',{ page_size:100 });
       const numP=(p)=>{ if(!p) return 0; if(typeof p.number==='number') return p.number; if(p.formula&&typeof p.formula.number==='number') return p.formula.number; if(p.rollup&&typeof p.rollup.number==='number') return p.rollup.number; return 0; };
+      const rnd=(v)=>Math.round(v*100)/100;
       const rows=[];
       (res.results||[]).forEach(p=>{
         const pr=p.properties||{};
         const est=numP(pr['(C)見込み/h']);
         const act=numP(pr['(C)手入力実績時間_out']);
         let name='(無題)'; const tp=pr['タスク名']; if(tp&&Array.isArray(tp.title)) name=tp.title.map(r=>r.plain_text).join('')||'(無題)';
-        if(est>0 && act>0) rows.push({name, est:r2(est), act:r2(act), t:(p.last_edited_time||'')});
+        if(est>0 && act>0) rows.push({name, est:rnd(est), act:rnd(act), t:(p.last_edited_time||'')});
       });
       rows.sort((a,b)=> (a.t<b.t?1:(a.t>b.t?-1:0))); // 最終更新が新しい順
       const pick=rows.slice(0,6).reverse(); // 左が古い/右が新しい
