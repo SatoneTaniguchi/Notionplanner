@@ -3530,7 +3530,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v31';
+  const APP_VERSION = '2026-06-30-v32';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -6904,7 +6904,8 @@
     }
     const baseY=padT+chartH;
     const baseline=`<line x1="${padL}" y1="${baseY}" x2="${W-padR}" y2="${baseY}" stroke="#e5e3f0" stroke-width="1"/>`;
-    const yTop=`<text x="3" y="${padT+8}" font-size="9" fill="#c4c1d4">${fmtMinShort(maxV)}</text>`;
+    const fmtM=(m)=>{ m=Math.round(m); return m>=60 ? (Math.floor(m/60)+'h'+(m%60?(' '+(m%60)+'m'):'')) : (m+'m'); };
+    const yTop=`<text x="3" y="${padT+8}" font-size="9" fill="#c4c1d4">${fmtM(maxV)}</text>`;
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${baseline}${bars}${xlabels}${yTop}</svg>`;
   }
 
@@ -8831,6 +8832,7 @@
       });
       s += '\n';
     }
+    if (projectId) s += '※ 変更対象は★のプロジェクトのタスクに限定。ユーザーが他プロジェクトを明示しない限り、他プロジェクトのタスクはupdatesに含めないこと。「開始日を〇〇から」と言われたら、そのプロジェクトの全タスクを開始日を起点に前詰めで日付を割り当て直す（作業可能時間と締切を尊重）。\n\n';
     // ステータス等の選択肢は、変更・計画系のときだけ（毎回は載せない）
     if (notionSettings.projectDbId && includeDetail) {
       const stOpts = (notionProjectStatusOptions||[]).map(o=>o.name).filter(Boolean);
@@ -9060,9 +9062,26 @@
       const planKw = /(組み直|計画|スケジュール|優先|期限|締切|締め切|章|プロジェクト|割り当て|まとめて|配分|逆算)/;
       const mentionsProject = (notionProjects||[]).some(p => p.name && text.indexOf(p.name) >= 0);
       const isPlanning = mentionsProject || planKw.test(text);
-      // 単純な依頼は軽量モデル（消費・速度優先）、計画系は設定モデル
-      const model = isPlanning ? (aiSettings.model || 'gemini-2.5-flash') : 'gemini-2.5-flash-lite';
-      const sys = aiSystemPrompt() + '\n\n' + aiBuildContext('', text);
+      // ② 対象プロジェクトを会話中ロック：今回のメッセージで指定があれば更新、なければ前回の対象を維持
+      {
+        const txt2 = String(text||'').replace(/\s/g,'');
+        let best=null, bestScore=0;
+        (notionProjects||[]).forEach(p => {
+          if(!p.name) return;
+          const nm=String(p.name).replace(/\s/g,'');
+          let score=0;
+          if(nm.length>=2 && txt2.indexOf(nm)>=0) score=nm.length+100;
+          else for(let len=Math.min(nm.length,12); len>=3; len--){ if(txt2.indexOf(nm.slice(0,len))>=0){ score=len; break; } }
+          if(score>bestScore){ bestScore=score; best=p; }
+        });
+        if(best) setAiActiveProject(best.id);
+      }
+      // ③ 重い指示（逆算・組み直し等）は賢いモデルを使う
+      const heavyKw = /(組み直|組みなお|逆算|再計画|全タスク|割り当て|日程|期限内|までに(終わ|やり|完了)|スケジュール.*組|前詰め|後ろ倒し|開始日)/;
+      const isHeavy = heavyKw.test(text);
+      const model = isHeavy ? 'gemini-2.5-pro'
+                  : (isPlanning ? (aiSettings.model || 'gemini-2.5-flash') : 'gemini-2.5-flash-lite');
+      const sys = aiSystemPrompt() + '\n\n' + aiBuildContext(aiActiveProjectId, text);
       // 履歴は直近6件のみ。過去のAI応答からは巨大なJSONを除いて送る（消費削減）
       const msgs = aiMessages
         .filter(m => m.role === 'user' || m.role === 'assistant')
