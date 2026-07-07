@@ -2903,9 +2903,10 @@
   </div>
   <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
     <div id="graphEstAct"><div style="font-size:12px;color:#b0adc0;text-align:center;padding:20px 0;">—</div></div>
-    <div style="display:flex;gap:14px;justify-content:center;font-size:11px;color:#9a97ad;margin-top:2px;">
-      <span><span style="display:inline-block;width:10px;height:10px;background:#6c5ce7;border-radius:2px;vertical-align:middle;"></span> 見込み</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#ff9500;border-radius:2px;vertical-align:middle;"></span> 実績</span>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;font-size:11px;color:#9a97ad;margin-top:2px;">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#ff9500;border-radius:50%;vertical-align:middle;"></span> 見込みオーバー</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#2e9e6b;border-radius:50%;vertical-align:middle;"></span> 見込み内で完了</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#6c5ce7;border-radius:50%;vertical-align:middle;"></span> ほぼ見込み通り</span>
     </div>
   </div>
   <div style="font-size:11px;color:#b0adc0;margin-top:10px;line-height:1.5;">集中時間は、タイムラインや編集画面のタイマー（開始→終了）で計測した実働時間から集計しています。</div>
@@ -3530,7 +3531,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v33';
+  const APP_VERSION = '2026-06-30-v36';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -6909,6 +6910,41 @@
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${baseline}${bars}${xlabels}${yTop}</svg>`;
   }
 
+  // 倍率の推移（折れ線・1.0基準）
+  function svgRatioTrend(ratios){
+    const W=340,H=92,padL=8,padR=30,padT=10,padB=14;
+    const n=ratios.length;
+    const maxR=Math.max(2, Math.ceil(Math.max.apply(null,ratios.concat([1.5]))));
+    const chartH=H-padT-padB, chartW=W-padL-padR;
+    const y=(r)=> padT + chartH - (Math.min(r,maxR)/maxR)*chartH;
+    const x=(i)=> n<=1 ? padL+chartW/2 : padL + (i/(n-1))*chartW;
+    const y1=y(1);
+    let s=`<line x1="${padL}" y1="${y1.toFixed(1)}" x2="${padL+chartW}" y2="${y1.toFixed(1)}" stroke="#d8d2f5" stroke-width="1" stroke-dasharray="3 3"/>`;
+    s+=`<text x="${W-padR+3}" y="${(y1+3).toFixed(1)}" font-size="9" fill="#c4c1d4">1.0</text>`;
+    let path='',dots='';
+    ratios.forEach((r,i)=>{ const px=x(i),py=y(r); path+=(i?'L':'M')+px.toFixed(1)+' '+py.toFixed(1)+' '; dots+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3" fill="#6c5ce7"/>`; });
+    if(n>1) s+=`<path d="${path}" fill="none" stroke="#6c5ce7" stroke-width="2"/>`;
+    s+=dots;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${s}</svg>`;
+  }
+  // 散布図（見込み×実績・対角線＝見込み通り）
+  function svgScatterEstAct(pts){
+    const W=340,H=210,padL=30,padR=12,padT=12,padB=26;
+    let maxV=0.5; pts.forEach(p=>{ maxV=Math.max(maxV,p.e,p.a); });
+    const chartW=W-padL-padR, chartH=H-padT-padB;
+    const X=(v)=> padL + (v/maxV)*chartW;
+    const Y=(v)=> padT + chartH - (v/maxV)*chartH;
+    let s=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+chartH}" stroke="#e5e3f0"/>`;
+    s+=`<line x1="${padL}" y1="${padT+chartH}" x2="${W-padR}" y2="${padT+chartH}" stroke="#e5e3f0"/>`;
+    s+=`<line x1="${X(0)}" y1="${Y(0)}" x2="${X(maxV)}" y2="${Y(maxV)}" stroke="#b0adc0" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+    pts.forEach(p=>{ const over=p.a>p.e*1.05; const col=over?'#ff9500':(p.a<p.e*0.95?'#2e9e6b':'#6c5ce7'); s+=`<circle cx="${X(p.e).toFixed(1)}" cy="${Y(p.a).toFixed(1)}" r="5" fill="${col}" fill-opacity="0.82"/>`; });
+    const fmtH=(v)=>{ return v>=1?(Math.round(v*10)/10+'h'):(Math.round(v*60)+'m'); };
+    s+=`<text x="${padL}" y="${padT+chartH+16}" font-size="9" fill="#9a97ad">0</text>`;
+    s+=`<text x="${W-padR}" y="${padT+chartH+16}" font-size="9" text-anchor="end" fill="#9a97ad">見込み ${fmtH(maxV)}</text>`;
+    s+=`<text x="3" y="${padT+7}" font-size="9" fill="#9a97ad">実績</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${s}</svg>`;
+  }
+
   async function renderEstActGraph(){
     const el=document.getElementById('graphEstAct'); if(!el) return;
     const sum=document.getElementById('graphEstActSum');
@@ -6927,13 +6963,29 @@
         let name='(無題)'; const tp=pr['タスク名']; if(tp&&Array.isArray(tp.title)) name=tp.title.map(r=>r.plain_text).join('')||'(無題)';
         if(est>0 && act>0) rows.push({name, est:rnd(est), act:rnd(act), t:(p.last_edited_time||'')});
       });
-      rows.sort((a,b)=> (a.t<b.t?1:(a.t>b.t?-1:0))); // 最終更新が新しい順
-      const pick=rows.slice(0,6).reverse(); // 左が古い/右が新しい
-      if(!pick.length){ empty('見込みと実績が両方あるタスクがまだありません'); return; }
-      el.innerHTML=svgGroupedBars(pick.map(x=>x.name), pick.map(x=>Math.round(x.est*60)), pick.map(x=>Math.round(x.act*60)));
-      const ratios=pick.filter(x=>x.est>0).map(x=>x.act/x.est);
+      rows.sort((a,b)=> (a.t<b.t?1:(a.t>b.t?-1:0))); // 新しい順
+      if(!rows.length){ empty('見込みと実績が両方あるタスクがまだありません'); return; }
+      const recent=rows.slice(0,12);               // 統計は直近12件
+      const chrono=recent.slice().reverse();       // 推移は古い→新しい
+      const ratios=recent.filter(x=>x.est>0).map(x=>x.act/x.est);
       const avg=ratios.length?ratios.reduce((a,b)=>a+b,0)/ratios.length:0;
-      if(sum) sum.textContent = avg? ('実績は見込みの約'+(Math.round(avg*10)/10)+'倍') : '';
+      const mul=Math.round(avg*10)/10;
+      // A: 精度サマリー
+      let html='<div style="text-align:center;padding:4px 0 2px;">';
+      html+='<div style="font-size:13px;color:#9a97ad;">実績は見込みの平均</div>';
+      html+='<div style="font-size:34px;font-weight:800;color:#6c5ce7;line-height:1.1;">'+mul+'<span style="font-size:18px;font-weight:700;">倍</span></div>';
+      if(avg>1.15) html+='<div style="font-size:12px;color:#8e8b9e;margin-top:2px;">👉 見込みを約'+mul+'倍で立てると当たりやすいかも</div>';
+      else if(avg<0.85) html+='<div style="font-size:12px;color:#8e8b9e;margin-top:2px;">👉 見込みより早く終わる傾向。もう少し攻めてOK</div>';
+      else html+='<div style="font-size:12px;color:#2e9e6b;margin-top:2px;">🎯 見込みがかなり正確です！</div>';
+      html+='</div>';
+      // A: 倍率の推移
+      html+='<div style="font-size:11px;color:#9a97ad;margin:12px 2px 0;">最近の倍率の推移（1.0＝見込み通り）</div>';
+      html+=svgRatioTrend(chrono.map(x=>x.act/x.est));
+      // B: 散布図
+      html+='<div style="font-size:11px;color:#9a97ad;margin:14px 2px 0;">見込み(横) × 実績(縦)　斜め線＝見込み通り</div>';
+      html+=svgScatterEstAct(recent.map(x=>({e:x.est,a:x.act})));
+      el.innerHTML=html;
+      if(sum) sum.textContent='直近'+recent.length+'件';
     }catch(e){ empty('失敗: '+((e&&e.message)?e.message:String(e))); }
   }
 
@@ -13472,7 +13524,7 @@
 .mz-stage{position:relative;width:min(74vw,288px);aspect-ratio:1/1;margin-top:14px;display:flex;align-items:center;justify-content:center}
 .mz-glow{position:absolute;z-index:0;width:72%;height:42%;left:14%;bottom:-2%;border-radius:50%;filter:blur(36px);opacity:.34}
 .mz-device{position:relative;z-index:1;width:100%;height:100%;border-radius:50%;
-  background:radial-gradient(118% 118% at 50% 36%, #FCFCFB 0%, #F1F1EE 78%, #E9E9E5 100%);
+  background:radial-gradient(118% 118% at 50% 36%, #FFFFFF 0%, #F4F4F7 78%, #EAEAEF 100%);
   box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 24px 42px -22px rgba(38,46,48,.45),0 6px 14px -10px rgba(38,46,48,.3);
   display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .25s ease}
 .mz-device:active{transform:scale(.99)}
@@ -13574,10 +13626,11 @@
         <div class="mz-facebox">
           <svg class="mz-svg" viewBox="0 0 240 240">
             <defs><filter id="mzHub" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.5" stdDeviation="2.6" flood-color="#000" flood-opacity="0.14"/></filter></defs>
-            <circle cx="120" cy="120" r="116" fill="#EBE9E3"/>
-            <circle cx="120" cy="120" r="116" fill="none" stroke="rgba(0,0,0,.05)" stroke-width="2"/>
+            <circle cx="120" cy="120" r="116" fill="#F3F3F6"/>
+            <circle cx="120" cy="120" r="116" fill="none" stroke="rgba(0,0,0,.04)" stroke-width="2"/>
+            <circle cx="120" cy="120" r="78" fill="none" stroke="#E7E7EC" stroke-width="52"/>
             <g id="mzRingG"><circle id="mzRing" cx="120" cy="120" r="78" fill="none" stroke="#6E8FC0" stroke-width="52" stroke-linecap="butt"/></g>
-            <circle cx="120" cy="120" r="44" fill="#FBFBF9" filter="url(#mzHub)"/>
+            <circle cx="120" cy="120" r="46" fill="#FFFFFF" filter="url(#mzHub)"/>
             <g transform="rotate(28 120 120)"><circle cx="120" cy="120" r="10" fill="none" stroke="#BFC0BA" stroke-width="4.6" stroke-linecap="round" stroke-dasharray="45 63"/></g>
           </svg>
         </div>
@@ -13809,7 +13862,12 @@
   function paint(){
     var frac = (phase==='done')?0:((phase==='idle'||phase==='ready')?1:Math.max(0,Math.min(1,secondsLeft/(totalSec||1))));
     var gap=(1-frac)*360;
-    $('mzRingG').setAttribute('transform','rotate('+(-90+gap)+' 120 120)');
+    if(phase==='break'){
+      // 休憩中は逆回転（反時計回り）：水平ミラーで向きを反転
+      $('mzRingG').setAttribute('transform','translate(240,0) scale(-1,1) rotate('+(-90+gap)+' 120 120)');
+    } else {
+      $('mzRingG').setAttribute('transform','rotate('+(-90+gap)+' 120 120)');
+    }
     $('mzRing').setAttribute('stroke-dasharray',(frac*Cir)+' '+Cir);
     // launcher mini arc mirrors
     var la=$('mzLaunchArc'); var lf=frac; var lcx=15,lcy=15,lr=12;
