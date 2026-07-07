@@ -3530,7 +3530,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v32';
+  const APP_VERSION = '2026-06-30-v33';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7491,7 +7491,7 @@
     templates.forEach(tpl => {
       allCreated = allCreated.concat(expandHabitTemplate(tpl));
     });
-    if (notionSettings.token && notionSettings.dbId) {
+    if ((notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
       // (1) 今回新規作成したインスタンス
       allCreated.forEach(inst => pushHabitInstanceToNotion(inst));
       // (2) 既存でもNotion未登録の習慣タスクを拾って登録する。
