@@ -3531,7 +3531,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v36';
+  const APP_VERSION = '2026-06-30-v38';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -13860,14 +13860,10 @@
   function fmt(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+pad(s%60); }
   var Rmid=78, Cir=2*Math.PI*Rmid;
   function paint(){
-    var frac = (phase==='done')?0:((phase==='idle'||phase==='ready')?1:Math.max(0,Math.min(1,secondsLeft/(totalSec||1))));
+    var raw = (phase==='done')?0:((phase==='idle'||phase==='ready')?1:Math.max(0,Math.min(1,secondsLeft/(totalSec||1))));
+    var frac = (phase==='break') ? (1-raw) : raw;  // 休憩は逆戻りで満ちる＝集中とは反対向き（反時計回り）
     var gap=(1-frac)*360;
-    if(phase==='break'){
-      // 休憩中は逆回転（反時計回り）：水平ミラーで向きを反転
-      $('mzRingG').setAttribute('transform','translate(240,0) scale(-1,1) rotate('+(-90+gap)+' 120 120)');
-    } else {
-      $('mzRingG').setAttribute('transform','rotate('+(-90+gap)+' 120 120)');
-    }
+    $('mzRingG').setAttribute('transform','rotate('+(-90+gap)+' 120 120)');
     $('mzRing').setAttribute('stroke-dasharray',(frac*Cir)+' '+Cir);
     // launcher mini arc mirrors
     var la=$('mzLaunchArc'); var lf=frac; var lcx=15,lcy=15,lr=12;
