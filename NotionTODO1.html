@@ -2017,8 +2017,6 @@
   .bottom-nav-item .nav-label { font-size: 10px; font-weight: 600; }
   .bottom-nav-item.active { color: #6c5ce7; }
 
-  .bottom-nav-item.nav-timer .nav-ico { color:#6c5ce7; }
-  .bottom-nav-item.nav-timer .nav-label { color:#6c5ce7; font-weight:700; }
 
 
   /* ルーチン画面ラッパー */
@@ -2602,14 +2600,14 @@
 
       <!-- 時間指定 -->
       <div id="gcalEditTimedRow">
-        <div style="display:flex;gap:10px;">
-          <div style="flex:1;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始</label>
-            <input id="gcalEditStart" type="datetime-local" style="width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
+            <input id="gcalEditStart" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;">
           </div>
-          <div style="flex:1;">
+          <div style="min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了</label>
-            <input id="gcalEditEnd" type="datetime-local" style="width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
+            <input id="gcalEditEnd" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;">
           </div>
         </div>
       </div>
@@ -2617,13 +2615,13 @@
       <!-- 終日（日付指定） -->
       <div id="gcalEditAllDayRow" style="display:none;">
         <div style="display:flex;gap:10px;">
-          <div style="flex:1;">
+          <div style="flex:1;min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始日</label>
-            <input id="gcalEditStartDate" type="date" style="width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
+            <input id="gcalEditStartDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
           </div>
-          <div style="flex:1;">
+          <div style="flex:1;min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了日（含む）</label>
-            <input id="gcalEditEndDate" type="date" style="width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
+            <input id="gcalEditEndDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
           </div>
         </div>
       </div>
@@ -3059,7 +3057,7 @@
     </span>
     <span class="nav-label">TODO</span>
   </button>
-  <button class="bottom-nav-item nav-timer" id="navTimer" onclick="openTimerScreen()">
+  <button class="bottom-nav-item" id="navTimer" onclick="openTimerScreen()">
     <span class="nav-ico">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/>
@@ -3131,6 +3129,7 @@
         <button class="modal-tab active" onclick="switchTab('later', this)">あとで</button>
         <button class="modal-tab" onclick="switchTab('time', this)">時間指定</button>
         <button class="modal-tab" onclick="switchTab('repeat', this)">繰り返し</button>
+        <button class="modal-tab" onclick="switchTab('google', this)">Google</button>
       </div>
     </div>
 
@@ -3312,6 +3311,51 @@
       </div>
 
       <!-- 繰り返しタブ -->
+      <div id="tabGoogle" style="display:none;flex-direction:column;">
+        <div class="modal-section">
+          <div id="gtabNeedAuth" style="display:none;background:#fff4e5;border:1px solid #ffd8a8;border-radius:12px;padding:12px;font-size:12.5px;color:#a15c00;line-height:1.6;">
+            Googleカレンダーへの書き込みが未許可です。
+            <button type="button" onclick="gcalRequestWriteScope()" style="display:block;margin-top:8px;background:#ff9500;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;">編集を有効化（再認証）</button>
+          </div>
+          <div id="gtabForm">
+            <label style="display:flex;align-items:center;justify-content:space-between;font-size:14px;color:#1c1c1e;cursor:pointer;margin-bottom:12px;">
+              <span>終日</span>
+              <input id="gtabAllDay" type="checkbox" onchange="gtabToggleAllDay()" style="width:20px;height:20px;accent-color:#34c759;">
+            </label>
+
+            <div id="gtabTimedRow" style="display:flex;flex-direction:column;gap:10px;">
+              <div style="min-width:0;">
+                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始</label>
+                <input id="gtabStart" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
+              </div>
+              <div style="min-width:0;">
+                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了</label>
+                <input id="gtabEnd" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
+              </div>
+            </div>
+
+            <div id="gtabAllDayRow" style="display:none;gap:10px;">
+              <div style="flex:1;min-width:0;">
+                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始日</label>
+                <input id="gtabStartDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
+              </div>
+              <div style="flex:1;min-width:0;">
+                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了日（含む）</label>
+                <input id="gtabEndDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
+              </div>
+            </div>
+
+            <div style="margin-top:14px;">
+              <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">カレンダー</label>
+              <div id="gtabCalArea"></div>
+            </div>
+            <div style="font-size:11px;color:#a9a6b8;margin-top:10px;line-height:1.6;">
+              上のタスク名がそのまま予定のタイトルになります。保存するとGoogleカレンダーに予定だけを作成します（Notionのタスクは作りません）。
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="tabRepeat" style="display:none;">
         <div class="modal-section">
           <textarea class="modal-memo" placeholder="メモを追加..."></textarea>
@@ -3601,7 +3645,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v50';
+  const APP_VERSION = '2026-06-30-v53';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -5557,7 +5601,10 @@
     document.getElementById('tabLater').style.display = tab === 'later' ? 'flex' : 'none';
     document.getElementById('tabTime').style.display = tab === 'time' ? 'flex' : 'none';
     document.getElementById('tabRepeat').style.display = tab === 'repeat' ? 'flex' : 'none';
-    const subtitles = { later: '・あとで', time: '・時間指定', repeat: '・繰り返し' };
+    const gt = document.getElementById('tabGoogle');
+    if (gt) gt.style.display = tab === 'google' ? 'flex' : 'none';
+    if (tab === 'google') gtabInit();
+    const subtitles = { later: '・あとで', time: '・時間指定', repeat: '・繰り返し', google: '・Googleカレンダー' };
     document.getElementById('modalSubtitle').textContent = subtitles[tab];
     if (tab === 'time') initTimeSelects(null, null);
   }
@@ -5693,6 +5740,15 @@
   async function saveTask() {
     const name = document.getElementById('taskNameInput').value.trim();
     if (!name) { document.getElementById('taskNameInput').focus(); return; }
+
+    // Googleタブ：Notionのタスクではなく、Googleカレンダーの予定として作成
+    if (currentTab === 'google' && !editingTaskId) {
+      const ok = await gtabCreateEvent(name);
+      if (!ok) return;
+      closeModal();
+      renderTimeline();
+      return;
+    }
 
     // 編集対象が「繰り返しインスタンス」なら、変更範囲（この日だけ/この日以降）を尋ねる
     let _repeatScope = null; // 'single' | 'future' | null
@@ -13076,6 +13132,80 @@
   }
 
   // 保存（新規=insert / 編集=patch）
+  // ── タスク追加モーダルの「Google」タブ ──
+  function gtabInit() {
+    const need = document.getElementById('gtabNeedAuth');
+    const form = document.getElementById('gtabForm');
+    const canWrite = (typeof gcalHasWriteScope !== 'undefined') && gcalHasWriteScope;
+    if (need) need.style.display = canWrite ? 'none' : 'block';
+    if (form) form.style.display = canWrite ? 'block' : 'none';
+    if (!canWrite) return;
+
+    // 初期値：TODOで選択中の日付の12:00〜13:00
+    const base = new Date(currentDate); base.setHours(12, 0, 0, 0);
+    const end = new Date(base); end.setHours(13, 0, 0, 0);
+    const st = document.getElementById('gtabStart');
+    const en = document.getElementById('gtabEnd');
+    if (st && !st.value) st.value = gcalLocalInputStr(base);
+    if (en && !en.value) en.value = gcalLocalInputStr(end);
+    const sd = document.getElementById('gtabStartDate');
+    const ed = document.getElementById('gtabEndDate');
+    if (sd && !sd.value) sd.value = gcalDateInputStr(base);
+    if (ed && !ed.value) ed.value = gcalDateInputStr(base);
+    gtabToggleAllDay();
+    gtabRenderCals();
+  }
+  function gtabToggleAllDay() {
+    const on = !!(document.getElementById('gtabAllDay') || {}).checked;
+    const t = document.getElementById('gtabTimedRow');
+    const a = document.getElementById('gtabAllDayRow');
+    if (t) t.style.display = on ? 'none' : 'flex';
+    if (a) a.style.display = on ? 'flex' : 'none';
+  }
+  function gtabRenderCals() {
+    const area = document.getElementById('gtabCalArea');
+    if (!area) return;
+    const writable = gcalGetWritableCalendars();
+    if (!writable.length) { area.innerHTML = '<div style="color:#ff3b30;font-size:13px;">書き込み可能なカレンダーがありません。</div>'; return; }
+    area.innerHTML = writable.map((c, i) => `
+      <label style="display:flex;align-items:center;gap:8px;padding:7px 0;font-size:14px;color:#1c1c1e;cursor:pointer;">
+        <input type="checkbox" data-gtab-cal="${c.id}" ${i === 0 ? 'checked' : ''} style="width:18px;height:18px;accent-color:#6c5ce7;">
+        <span style="width:11px;height:11px;border-radius:50%;background:${c.color || '#4285f4'};flex-shrink:0;"></span>${c.name || c.id}
+      </label>`).join('');
+  }
+  // Googleタブから予定を作成（Googleカレンダーと同じ仕様）
+  async function gtabCreateEvent(title) {
+    if (!gcalHasWriteScope) { gcalRequestWriteScope(); return false; }
+    const body = { summary: (title || '').trim() || '(タイトルなし)' };
+    const allDay = !!(document.getElementById('gtabAllDay') || {}).checked;
+    if (allDay) {
+      const sd = (document.getElementById('gtabStartDate') || {}).value;
+      const ed = (document.getElementById('gtabEndDate') || {}).value;
+      if (!sd || !ed) { alert('日付を入力してください。'); return false; }
+      if (ed < sd) { alert('終了日は開始日以降にしてください。'); return false; }
+      body.start = { date: sd };
+      body.end   = { date: gcalAddDaysStr(ed, 1) };  // Googleの終日endは排他的
+    } else {
+      const st = (document.getElementById('gtabStart') || {}).value;
+      const en = (document.getElementById('gtabEnd') || {}).value;
+      if (!st || !en) { alert('開始/終了時刻を入力してください。'); return false; }
+      if (new Date(en) <= new Date(st)) { alert('終了は開始より後にしてください。'); return false; }
+      const tz = gcalTzName();
+      body.start = { dateTime: gcalLocalToRFC3339(st), timeZone: tz };
+      body.end   = { dateTime: gcalLocalToRFC3339(en), timeZone: tz };
+    }
+    const calIds = Array.from(document.querySelectorAll('[data-gtab-cal]:checked')).map(i => i.dataset.gtabCal);
+    if (!calIds.length) { alert('追加先カレンダーを選択してください。'); return false; }
+    try {
+      for (const cid of calIds) { await gcalApiInsert(cid, body); }
+      await gcalAfterWrite();
+      return true;
+    } catch (err) {
+      alert('保存に失敗しました: ' + (err.message || err));
+      return false;
+    }
+  }
+
   async function gcalSaveEdit() {
     if (gcalEditState.locked) { gcalCloseEdit(); return; }
     const title = (gcalEditEl('gcalEditTitleInput').value || '').trim() || '(タイトルなし)';
