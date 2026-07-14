@@ -17,6 +17,7 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   
+  html { background: #e5e5ea; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
     background: #f2f2f7;
@@ -27,6 +28,9 @@
     max-width: 430px;
     margin: 0 auto;
     position: relative;
+  }
+  @media (min-width: 480px) {
+    body { box-shadow: 0 0 48px rgba(0,0,0,0.10); }
   }
 
   /* ヘッダー */
@@ -2789,6 +2793,13 @@
         🔄 今すぐ同期
       </button>
 
+      <!-- タイトル＋期間で一括削除 -->
+      <button onclick="bulkDeleteByTitle()" style="
+        width:100%;background:#fff;color:#e0483c;border:1.5px solid #f0c3be;border-radius:14px;
+        padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:12px;">
+        🗑 タイトル＋期間でまとめて削除
+      </button>
+
       <!-- 習慣タスクをNotionへ強制登録（デバッグ/救済用） -->
       <button onclick="debugSyncHabitsToNotion()" style="
         width:100%;background:#6c5ce7;color:#fff;border:none;border-radius:14px;
@@ -3531,7 +3542,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v38';
+  const APP_VERSION = '2026-06-30-v42';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -5964,7 +5975,7 @@
     localStorage.setItem('tasks', JSON.stringify(tasks));
 
     // Notion側もアーカイブ（削除）
-    if (notionSettings.token) {
+    if (notionSettings.token || notionSettings.managed) {
       notionArchiveIds.forEach(nid => {
         notionApiCall(`/pages/${nid}`, 'PATCH', { archived: true })
           .catch(e => console.error('Notion削除失敗', e));
@@ -7590,6 +7601,58 @@
   }
 
   // デバッグ: 未登録の習慣タスクを数え、強制的にNotion登録を試みる。結果を画面に表示。
+  // タイトル（部分一致）＋期間で、まとめて削除（ローカル＋Notionアーカイブ）
+  async function bulkDeleteByTitle() {
+    const kw = prompt('削除するタスクのタイトル（部分一致）\n例: そうじ');
+    if (kw === null) return;
+    const key = String(kw).trim();
+    if (!key) { alert('タイトルを入力してください'); return; }
+
+    const todayStr = ymd(new Date());
+    const from = prompt('開始日（YYYY-MM-DD）\n※空欄なら期間の指定なし（全期間）', todayStr);
+    if (from === null) return;
+    const to = prompt('終了日（YYYY-MM-DD）\n※空欄なら期間の指定なし（全期間）', todayStr);
+    if (to === null) return;
+    const f = String(from).trim(), t2 = String(to).trim();
+
+    const dayOf = (t) => {
+      const d = t['(A)実行日'];
+      if (!d || !d.start) return null;
+      return String(d.start).substring(0, 10);
+    };
+    const hit = tasks.filter(t => {
+      const nm = (t.name || '');
+      if (nm.indexOf(key) < 0) return false;
+      if (!f && !t2) return true;         // 期間指定なし＝全部
+      const ds = dayOf(t);
+      if (!ds) return false;              // 日付なし（あとで等）は期間指定時は対象外
+      if (f && ds < f) return false;
+      if (t2 && ds > t2) return false;
+      return true;
+    });
+
+    if (!hit.length) { alert('該当するタスクはありませんでした'); return; }
+    const sample = hit.slice(0, 8).map(t => '・' + (t.name || '(無題)') + (dayOf(t) ? ' / ' + dayOf(t) : '')).join('\n');
+    const range = (f || t2) ? `${f || '最初'} 〜 ${t2 || '最後'}` : '全期間';
+    if (!confirm(`「${key}」を含むタスク ${hit.length}件（${range}）を削除します。\n\n${sample}${hit.length > 8 ? '\n…ほか' + (hit.length - 8) + '件' : ''}\n\nNotion側もアーカイブされます。よろしいですか？`)) return;
+
+    const archiveIds = hit.filter(t => t._notionId).map(t => t._notionId);
+    const removeIds = new Set(hit.map(t => t.id));
+    tasks = tasks.filter(t => !removeIds.has(t.id));
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+
+    let ng = 0;
+    if ((notionSettings.token || notionSettings.managed) && archiveIds.length) {
+      for (const nid of archiveIds) {
+        try { await notionApiCall(`/pages/${nid}`, 'PATCH', { archived: true }); }
+        catch (e) { ng++; console.error('一括削除:Notionアーカイブ失敗', e); }
+      }
+    }
+    renderTimeline(); renderLater();
+    if (currentScreen === 'routine') renderRoutineScreen();
+    alert(`${hit.length}件を削除しました。\nNotionアーカイブ: ${archiveIds.length - ng}件成功${ng ? ' / ' + ng + '件失敗' : ''}`);
+  }
+
   function debugSyncHabitsToNotion() {
     const logEl = document.getElementById('habitSyncDebugLog');
     const setLog = (s) => { if (logEl) logEl.textContent = s; };
@@ -7979,7 +8042,7 @@
       tasks.push(newTask);
       localStorage.setItem('tasks', JSON.stringify(tasks));
       // Notionに登録
-      if (notionSettings.token && notionSettings.dbId) {
+      if ((notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
         pushNewTaskToNotion(newTask);
       }
       inst = newTask;
@@ -8006,7 +8069,7 @@
       inst._localLastEdited = new Date().toISOString();
       localStorage.setItem('tasks', JSON.stringify(tasks));
       // Notion同期: 登録済みなら完了状態を更新
-      if (notionSettings.token && notionSettings.dbId) {
+      if ((notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
         if (inst._notionId) {
           notionUpdateDone(inst._notionId, newState).catch(e => console.error('Notion完了同期失敗', e));
         } else if (!inst._notionPushing) {
@@ -9302,7 +9365,7 @@
       _localLastEdited: new Date().toISOString(),
     };
     tasks.push(task);
-    if (notionSettings.token && notionSettings.dbId) {
+    if ((notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
       try { if (proj) pushNewProjectTaskToNotion(task, proj.id); else pushNewTaskToNotion(task); } catch(e) {}
     }
     return task;
@@ -9482,7 +9545,7 @@
       t['(A)実行日'] = { start: dateStr, end: dateStr }; t._type = 'time';
     }
     t._localLastEdited = new Date().toISOString();
-    if (notionSettings.token) {
+    if (notionSettings.token || notionSettings.managed) {
       try { if (t._notionId) notionUpdateTask(t._notionId, t); else if (notionSettings.dbId) pushNewTaskToNotion(t); } catch(e) {}
     }
     return true;
@@ -9834,7 +9897,7 @@
     localStorage.setItem('tasks', JSON.stringify(tasks));
     renderProjectScreen();
     renderLater();
-    if (notionSettings.token && notionSettings.dbId) {
+    if ((notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
       pushNewProjectTaskToNotion(task, realId);
     }
   }
@@ -13993,6 +14056,14 @@
     await mzApi('/pages/'+pid,'PATCH',{properties:props});
     startStamped=true; taskTotalH=next; sessionLoggedSec+=Math.round(addH*3600);
     setStatus('ok','記録 '+next+'h'); updateTotalLabel();
+    // 実績をリアルタイム反映：ローカルのタスクを更新してタイムラインを再描画
+    try{
+      if(typeof tasks!=='undefined' && Array.isArray(tasks)){
+        var _lt=tasks.find(function(x){ return x && (x._notionId===task.pageId || x.id===task.localId); });
+        if(_lt) _lt['(C)手入力実績時間_out']=next;
+      }
+      if(typeof renderTimeline==='function') renderTimeline();
+    }catch(e){}
   }
   // 現在のフォーカスブロックの「未記録分」を書き出す（中断・一時停止でも実時間を保存）
   function flushFocus(){
