@@ -2955,6 +2955,40 @@
 </div>
 
 <!-- <span class="coin-ico"></span> コイン獲得トースト -->
+<div id="bulkDelOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9600;align-items:center;justify-content:center;padding:24px;" onclick="if(event.target===this)bulkDelClose()">
+  <div style="background:#fff;border-radius:20px;padding:20px;width:100%;max-width:360px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">
+    <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">🗑 まとめて削除</div>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:14px;">タイトルが完全一致するタスクを、指定期間ぶん削除します。</div>
+
+    <label style="font-size:12px;font-weight:600;color:#6b6880;">タイトル（完全一致）</label>
+    <input id="bulkDelTitle" type="text" placeholder="例: そうじ" style="width:100%;box-sizing:border-box;margin:4px 0 12px;padding:11px 12px;border:1.5px solid #e5e3f0;border-radius:12px;font-size:15px;font-family:inherit;">
+
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label style="font-size:12px;font-weight:600;color:#6b6880;">開始日</label>
+        <input id="bulkDelFrom" type="date" style="width:100%;box-sizing:border-box;margin-top:4px;padding:10px;border:1.5px solid #e5e3f0;border-radius:12px;font-size:14px;font-family:inherit;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:12px;font-weight:600;color:#6b6880;">終了日</label>
+        <input id="bulkDelTo" type="date" style="width:100%;box-sizing:border-box;margin-top:4px;padding:10px;border:1.5px solid #e5e3f0;border-radius:12px;font-size:14px;font-family:inherit;">
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px;">
+      <button onclick="bulkDelPreset('all')" style="background:#f2f2f7;border:none;border-radius:14px;padding:6px 12px;font-size:12px;font-weight:600;color:#6c5ce7;font-family:inherit;cursor:pointer;">全期間</button>
+      <button onclick="bulkDelPreset('past')" style="background:#f2f2f7;border:none;border-radius:14px;padding:6px 12px;font-size:12px;font-weight:600;color:#6c5ce7;font-family:inherit;cursor:pointer;">今日まで</button>
+      <button onclick="bulkDelPreset('future')" style="background:#f2f2f7;border:none;border-radius:14px;padding:6px 12px;font-size:12px;font-weight:600;color:#6c5ce7;font-family:inherit;cursor:pointer;">今日以降</button>
+    </div>
+    <div style="font-size:11px;color:#a9a6b8;margin-bottom:14px;">※ 日付を空にすると、その側は無制限（両方空＝全期間）</div>
+
+    <div id="bulkDelInfo" style="font-size:12px;color:#8e8e93;min-height:16px;margin-bottom:12px;"></div>
+
+    <div style="display:flex;gap:8px;">
+      <button onclick="bulkDelClose()" style="flex:1;background:#f2f2f7;color:#1c1c1e;border:none;border-radius:14px;padding:13px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;">キャンセル</button>
+      <button onclick="bulkDelRun()" style="flex:1;background:#e0483c;color:#fff;border:none;border-radius:14px;padding:13px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;">削除する</button>
+    </div>
+  </div>
+</div>
+
 <div id="coinToast" style="display:none;position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:4000;background:#1c1c1e;color:#fff;border-radius:24px;padding:10px 18px;align-items:center;gap:8px;font-size:14px;font-weight:700;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
   <span style="font-size:18px;"><span class="coin-ico"></span></span> +1 コイン！
 </div>
@@ -3542,7 +3576,7 @@
 
 
 <script>
-  const APP_VERSION = '2026-06-30-v42';
+  const APP_VERSION = '2026-06-30-v44';
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -7601,41 +7635,57 @@
   }
 
   // デバッグ: 未登録の習慣タスクを数え、強制的にNotion登録を試みる。結果を画面に表示。
-  // タイトル（部分一致）＋期間で、まとめて削除（ローカル＋Notionアーカイブ）
-  async function bulkDeleteByTitle() {
-    const kw = prompt('削除するタスクのタイトル（部分一致）\n例: そうじ');
-    if (kw === null) return;
-    const key = String(kw).trim();
-    if (!key) { alert('タイトルを入力してください'); return; }
+  // タイトル（完全一致）＋期間で、まとめて削除（ローカル＋Notionアーカイブ）
+  function bulkDeleteByTitle() {
+    const ov = document.getElementById('bulkDelOverlay');
+    if (!ov) return;
+    document.getElementById('bulkDelTitle').value = '';
+    document.getElementById('bulkDelFrom').value = '';
+    document.getElementById('bulkDelTo').value = '';
+    document.getElementById('bulkDelInfo').textContent = '';
+    ov.style.display = 'flex';
+    setTimeout(() => { try { document.getElementById('bulkDelTitle').focus(); } catch (e) {} }, 50);
+  }
+  function bulkDelClose() {
+    const ov = document.getElementById('bulkDelOverlay');
+    if (ov) ov.style.display = 'none';
+  }
+  function bulkDelPreset(kind) {
+    const today = ymd(new Date());
+    const f = document.getElementById('bulkDelFrom');
+    const t = document.getElementById('bulkDelTo');
+    if (kind === 'all') { f.value = ''; t.value = ''; }
+    else if (kind === 'past') { f.value = ''; t.value = today; }
+    else if (kind === 'future') { f.value = today; t.value = ''; }
+  }
+  function _bulkDelDayOf(t) {
+    const d = t['(A)実行日'];
+    if (!d || !d.start) return null;
+    return String(d.start).substring(0, 10);
+  }
+  async function bulkDelRun() {
+    const key = (document.getElementById('bulkDelTitle').value || '').trim();
+    const info = document.getElementById('bulkDelInfo');
+    if (!key) { info.textContent = 'タイトルを入力してください'; return; }
+    const f = (document.getElementById('bulkDelFrom').value || '').trim();
+    const t2 = (document.getElementById('bulkDelTo').value || '').trim();
 
-    const todayStr = ymd(new Date());
-    const from = prompt('開始日（YYYY-MM-DD）\n※空欄なら期間の指定なし（全期間）', todayStr);
-    if (from === null) return;
-    const to = prompt('終了日（YYYY-MM-DD）\n※空欄なら期間の指定なし（全期間）', todayStr);
-    if (to === null) return;
-    const f = String(from).trim(), t2 = String(to).trim();
-
-    const dayOf = (t) => {
-      const d = t['(A)実行日'];
-      if (!d || !d.start) return null;
-      return String(d.start).substring(0, 10);
-    };
     const hit = tasks.filter(t => {
-      const nm = (t.name || '');
-      if (nm.indexOf(key) < 0) return false;
-      if (!f && !t2) return true;         // 期間指定なし＝全部
-      const ds = dayOf(t);
-      if (!ds) return false;              // 日付なし（あとで等）は期間指定時は対象外
+      if ((t.name || '').trim() !== key) return false;   // 完全一致
+      if (!f && !t2) return true;                        // 期間指定なし＝全部
+      const ds = _bulkDelDayOf(t);
+      if (!ds) return false;
       if (f && ds < f) return false;
       if (t2 && ds > t2) return false;
       return true;
     });
 
-    if (!hit.length) { alert('該当するタスクはありませんでした'); return; }
-    const sample = hit.slice(0, 8).map(t => '・' + (t.name || '(無題)') + (dayOf(t) ? ' / ' + dayOf(t) : '')).join('\n');
+    if (!hit.length) { info.textContent = '該当するタスクはありませんでした'; return; }
+    const sample = hit.slice(0, 8).map(t => '・' + (t.name || '(無題)') + (_bulkDelDayOf(t) ? ' / ' + _bulkDelDayOf(t) : ' / 日付なし')).join('\n');
     const range = (f || t2) ? `${f || '最初'} 〜 ${t2 || '最後'}` : '全期間';
-    if (!confirm(`「${key}」を含むタスク ${hit.length}件（${range}）を削除します。\n\n${sample}${hit.length > 8 ? '\n…ほか' + (hit.length - 8) + '件' : ''}\n\nNotion側もアーカイブされます。よろしいですか？`)) return;
+    if (!confirm(`タイトルが「${key}」のタスク ${hit.length}件（${range}）を削除します。\n\n${sample}${hit.length > 8 ? '\n…ほか' + (hit.length - 8) + '件' : ''}\n\nNotion側もアーカイブされます。よろしいですか？`)) return;
 
+    info.textContent = '削除中…';
     const archiveIds = hit.filter(t => t._notionId).map(t => t._notionId);
     const removeIds = new Set(hit.map(t => t.id));
     tasks = tasks.filter(t => !removeIds.has(t.id));
@@ -7650,6 +7700,7 @@
     }
     renderTimeline(); renderLater();
     if (currentScreen === 'routine') renderRoutineScreen();
+    bulkDelClose();
     alert(`${hit.length}件を削除しました。\nNotionアーカイブ: ${archiveIds.length - ng}件成功${ng ? ' / ' + ng + '件失敗' : ''}`);
   }
 
