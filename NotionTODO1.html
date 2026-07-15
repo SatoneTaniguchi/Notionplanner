@@ -12921,10 +12921,10 @@
     if (fields.date)   props[dateProp] = { date: { start: fields.date } };
     if (fields.goalId) props[goalProp] = { relation: [{ id: fields.goalId }] };
     try {
-      await notionApiCall('/pages', 'POST', { parent: { database_id: notionSettings.projectDbId }, properties: props });
+      const page = await notionApiCall('/pages', 'POST', { parent: { database_id: notionSettings.projectDbId }, properties: props });
       notionSyncLog('📁 プロジェクト作成: ' + name);
       await notionFetchProjects();
-      return true;
+      return page || true;   // 呼び出し元は真偽判定なのでページを返しても互換。GTDはIDを使う
     } catch(e) {
       alert('プロジェクト作成に失敗しました: ' + e.message);
       return false;
@@ -14760,6 +14760,8 @@
 .tdy-edit{width:34px;height:34px;flex:none;border:none;background:#f3f3f4;border-radius:50%;color:#b7bbc1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .tdy-edit svg{width:15px;height:15px}
 .tdy-add{width:100%;border:2px dashed #d9dade;border-radius:16px;background:transparent;color:#c4c7cc;font-size:21px;padding:14px 0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tdy-gtd{display:block;width:100%;margin:14px 0 0;padding:14px;border:1px solid #e3e0ee;border-radius:14px;background:#fff;color:#6c5ce7;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
+.tdy-gtd:active{background:#f4f2fe}
 .tdy-foot{text-align:center;color:#c3c6cb;font-size:11px;margin-top:28px}
 </style>
 
@@ -14779,6 +14781,7 @@
     </div>
     <div id="tdySections"></div>
     <div class="tdy-foot">雲をタップで完了 / 名前をタップで編集</div>
+    <button class="tdy-gtd" onclick="openGtdScreen()">GTD ワークフロー →</button>
   </div>
 </div>
 
@@ -15752,6 +15755,344 @@
 })();
 </script>
 <!-- =================== end minee timer =================== -->
+
+
+<style>
+/* ===== GTDワークフロー ページ ===== */
+#gtdOverlay{position:fixed;inset:0 0 var(--navh,60px) 0;background:#f7f7fb;z-index:900;display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#gtdOverlay.open{display:block}
+.gtd-wrap{max-width:430px;margin:0 auto;padding:10px 16px 40px}
+.gtd-head{display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px;position:sticky;top:0;background:#f7f7fb;z-index:5}
+.gtd-title{font-size:18px;font-weight:800;color:#2d2b3a}
+.gtd-close{width:36px;height:36px;border:none;border-radius:50%;background:#eceaf5;color:#5a5768;font-size:20px;line-height:1;cursor:pointer;font-family:inherit}
+.gtd-sec{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px}
+.gtd-sec h3{margin:0;font-size:15px;font-weight:800;color:#2d2b3a;display:flex;align-items:center;gap:8px}
+.gtd-cnt{font-size:11px;font-weight:700;color:#8e8b9e;background:#f2f1f7;border-radius:9px;padding:2px 8px}
+.gtd-sub{font-size:11.5px;color:#8e8b9e;margin:4px 0 10px;line-height:1.6}
+.gtd-list{display:flex;flex-direction:column;gap:6px}
+.gtd-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:11px;background:#fafafd;border:1px solid #eeecf6}
+.gtd-item .nm{flex:1;min-width:0;font-size:13.5px;color:#2d2b3a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gtd-item .dt{font-size:11px;color:#8e8b9e;flex:none}
+.gtd-item .ico{width:20px;flex:none;color:#8e8b9e;display:flex;align-items:center}
+.gtd-item .ico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.gtd-item.due .dt{color:#e5484d;font-weight:700}
+.gtd-item.overdue{background:#fff5f5;border-color:#ffd9da}
+.gtd-empty{font-size:12px;color:#b3b0c2;padding:10px 2px}
+/* ③ 見極める */
+.gtd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.gtd-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:8px 12px;border-radius:12px;border:1px solid #e3e0ee;background:#fff;color:#2d2b3a;font-size:13px;font-family:inherit;cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent}
+.gtd-chip .cn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+.gtd-chip.on{background:#6c5ce7;border-color:#6c5ce7;color:#fff}
+.gtd-chip.dragging{opacity:.35}
+.gtd-ghost{position:fixed;z-index:1200;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.gtd-grid{display:grid;grid-template-columns:56px 1fr 1fr;gap:6px;align-items:stretch}
+.gtd-gh{font-size:11px;font-weight:700;color:#8e8b9e;display:flex;align-items:center;justify-content:center;padding:2px 0}
+.gtd-rl{font-size:12px;font-weight:700;color:#5a5768;display:flex;align-items:center}
+.gtd-cell{min-height:46px;border:1.5px dashed #ddd9ee;border-radius:12px;background:#fbfaff;display:flex;align-items:center;justify-content:center;font-size:11px;color:#c3bfd6;cursor:pointer;font-family:inherit;transition:background .12s,border-color .12s}
+.gtd-cell.armed{border-color:#b9aef5;background:#f4f2fe;color:#6c5ce7}
+.gtd-cell.over{border-color:#6c5ce7;background:#e9e5fd;color:#6c5ce7;border-style:solid}
+.gtd-cell.someday{border-style:solid;border-color:#e3e0ee;background:#fff}
+/* ④ 週次レビュー */
+.gtd-pj{border:none;border-radius:10px;background:#6c5ce7;color:#fff;font-size:11.5px;font-weight:700;padding:7px 10px;cursor:pointer;font-family:inherit;flex:none}
+.gtd-pj:disabled{background:#c9c4e8}
+</style>
+
+<div id="gtdOverlay">
+  <div class="gtd-wrap">
+    <div class="gtd-head">
+      <div class="gtd-title">GTD ワークフロー</div>
+      <button class="gtd-close" id="gtdClose">×</button>
+    </div>
+
+    <section class="gtd-sec">
+      <h3>① 把握する <span class="gtd-cnt" id="gtdWeekCnt">0</span></h3>
+      <div class="gtd-sub">今週のタスク</div>
+      <div class="gtd-list" id="gtdWeek"></div>
+    </section>
+
+    <section class="gtd-sec">
+      <h3>② 締切 <span class="gtd-cnt" id="gtdDueCnt">0</span></h3>
+      <div class="gtd-sub">「締め切り」タグのタスク・期日が近い順</div>
+      <div class="gtd-list" id="gtdDue"></div>
+    </section>
+
+    <section class="gtd-sec">
+      <h3>③ 見極める <span class="gtd-cnt" id="gtdLaterCnt">0</span></h3>
+      <div class="gtd-sub" id="gtdHint">あとでのタスクをタップ → マスをタップ（ドラッグでもOK）</div>
+      <div class="gtd-chips" id="gtdLater"></div>
+      <div class="gtd-grid" id="gtdGrid"></div>
+    </section>
+
+    <section class="gtd-sec">
+      <h3>◇ 週次レビュー <span class="gtd-cnt" id="gtdLongCnt">0</span></h3>
+      <div class="gtd-sub">長期タスクをプロジェクトに育てる。プロジェクト化すると元のタスクは完了になります。</div>
+      <div class="gtd-list" id="gtdLong"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var sel = null;   // 選択中のタスクid
+
+  function arr(){
+    try { if (typeof tasks !== 'undefined' && Array.isArray(tasks)) return tasks; } catch(e){}
+    try { return JSON.parse(localStorage.getItem('tasks') || '[]'); } catch(e){ return []; }
+  }
+  function save(){ try { localStorage.setItem('tasks', JSON.stringify(arr())); } catch(e){} }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+  function midnight(d){ var x = new Date(d); x.setHours(0,0,0,0); return x; }
+  function dateOf(t){
+    var d = t && t['(A)実行日'];
+    if (!d || !d.start) return null;
+    var x = new Date(String(d.start).length > 10 ? d.start : d.start + 'T00:00:00');
+    return isNaN(x) ? null : x;
+  }
+  // 実行期間の値は本体の定義から取る（表記ゆれで壊れないように）
+  function KIK(i){ try { return KIKAN_OPTIONS[i].value; } catch(e){ return null; } }
+
+  // 所要時間が30分未満か（=「短」）。見込みが無ければタイトルから推測
+  function isShort(t){
+    var h = t['(C)見込み/h'];
+    if (typeof h === 'number' && h > 0) return h < 0.5;
+    try {
+      if (typeof guessTaskMeta === 'function') {
+        var g = guessTaskMeta(t.name || '');
+        if (g && g.min != null) return g.min < 30;
+      }
+    } catch(e){}
+    return true;
+  }
+
+  // マス目の行（日付）
+  var ROWS = [
+    { key:'today',    label:'今日'   },
+    { key:'tomorrow', label:'明日'   },
+    { key:'weekend',  label:'今週末' },
+    { key:'nextweek', label:'来週'   },
+    { key:'someday',  label:'いつか' },
+  ];
+  function rowDate(key){
+    var t = midnight(new Date());
+    if (key === 'today')    return t;
+    if (key === 'tomorrow') { t.setDate(t.getDate()+1); return t; }
+    if (key === 'weekend')  { // 次の土曜（今日が土日ならそのまま）
+      var w = t.getDay();
+      if (w === 0 || w === 6) return t;
+      t.setDate(t.getDate() + (6 - w)); return t;
+    }
+    if (key === 'nextweek') { // 次の月曜
+      var w2 = t.getDay();
+      t.setDate(t.getDate() + ((8 - w2) % 7 || 7)); return t;
+    }
+    return null;  // いつか
+  }
+
+  // ── 振り分け実行 ──
+  function assign(id, rowKey, hi){
+    var t = arr().find(function(x){ return x.id === id; });
+    if (!t) return;
+    if (rowKey === 'someday'){
+      t['(B)実行期間'] = KIK(4);              // 5.長期スパン
+      delete t['(A)実行日'];
+      t._type = 'later'; t._allDay = false;
+    } else {
+      var s = ymd(rowDate(rowKey));
+      t['(A)実行日'] = { start: s, end: s };   // 時刻なし＝終日
+      t._allDay = true; t._type = 'time';
+      var sh = isShort(t);
+      t['(B)実行期間'] = hi ? (sh ? KIK(0) : KIK(1)) : (sh ? KIK(2) : KIK(3));
+    }
+    t._localLastEdited = new Date().toISOString();
+    save();
+    try { if (t._notionId && typeof notionUpdateTask === 'function') notionUpdateTask(t._notionId, t); } catch(e){}
+    try { if (typeof renderTimeline === 'function') renderTimeline(); } catch(e){}
+    try { if (typeof renderLater === 'function') renderLater(); } catch(e){}
+    sel = null;
+    render();
+  }
+
+  // ── プロジェクト化 ──
+  async function makeProject(id, btn){
+    var t = arr().find(function(x){ return x.id === id; });
+    if (!t) return;
+    var name = prompt('プロジェクト名', t.name || '');
+    if (name === null) return;
+    name = String(name).trim();
+    if (!name) return;
+    if (typeof notionCreateProject !== 'function'){ alert('Notion設定が必要です'); return; }
+    if (btn){ btn.disabled = true; btn.textContent = '作成中…'; }
+    var page = null;
+    try { page = await notionCreateProject({ name: name }); }
+    catch(e){ alert('プロジェクト作成に失敗しました: ' + (e.message || e)); }
+    if (page && page.id && t._notionId){
+      try {
+        var pj = (typeof notionSettings !== 'undefined' && notionSettings.props && notionSettings.props.project) || '(d)プロジェクト/目標';
+        var props = {}; props[pj] = { relation: [{ id: page.id }] };
+        await notionApiCall('/pages/' + t._notionId, 'PATCH', { properties: props });
+      } catch(e){ console.error('プロジェクト紐付けに失敗', e); }
+    }
+    if (page){
+      // プロジェクトに化けたので元のタスクは完了に
+      try { if (!t['(A)done'] && typeof toggleTaskDone === 'function') toggleTaskDone(t.id); } catch(e){}
+    }
+    render();
+  }
+
+  // ── 描画 ──
+  function itemHTML(t, cls, right){
+    var ic = '';
+    try { if (typeof taskIconSVG === 'function') ic = taskIconSVG(t); } catch(e){}
+    return '<div class="gtd-item ' + (cls||'') + '">'
+      + '<span class="ico">' + ic + '</span>'
+      + '<span class="nm">' + esc(t.name || '(無題)') + '</span>'
+      + (right || '') + '</div>';
+  }
+  function fmtDate(d){
+    if (!d) return '';
+    var w = ['日','月','火','水','木','金','土'][d.getDay()];
+    return (d.getMonth()+1) + '/' + d.getDate() + '(' + w + ')';
+  }
+
+  function render(){
+    var all = arr().filter(function(t){ return t && !t['(A)done']; });
+    var today = midnight(new Date());
+
+    // ① 今週のタスク（月〜日）
+    var mon = midnight(new Date());
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    var sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+    var week = all.filter(function(t){
+      if (t._type !== 'time') return false;
+      var d = dateOf(t); if (!d) return false;
+      var m = midnight(d);
+      return m >= mon && m <= sun;
+    }).sort(function(a,b){ return dateOf(a) - dateOf(b); });
+    $('gtdWeekCnt').textContent = week.length;
+    $('gtdWeek').innerHTML = week.length
+      ? week.map(function(t){ return itemHTML(t, '', '<span class="dt">' + fmtDate(dateOf(t)) + '</span>'); }).join('')
+      : '<div class="gtd-empty">今週のタスクはありません</div>';
+
+    // ② 締切
+    var due = all.filter(function(t){ return t['(B)実行期間'] === KIK(5); })
+      .sort(function(a,b){ var x = dateOf(a), y = dateOf(b); return (x ? x.getTime() : 9e15) - (y ? y.getTime() : 9e15); });
+    $('gtdDueCnt').textContent = due.length;
+    $('gtdDue').innerHTML = due.length
+      ? due.map(function(t){
+          var d = dateOf(t);
+          var over = d && midnight(d) < today;
+          return itemHTML(t, 'due' + (over ? ' overdue' : ''), '<span class="dt">' + (d ? fmtDate(d) : '日付なし') + '</span>');
+        }).join('')
+      : '<div class="gtd-empty">締め切りタグのタスクはありません</div>';
+
+    // ③ 見極める（長期スパンは仕分け済みなので④に任せて除外）
+    var later = all.filter(function(t){ return t._type === 'later' && t['(B)実行期間'] !== KIK(4); });
+    $('gtdLaterCnt').textContent = later.length;
+    $('gtdLater').innerHTML = later.length
+      ? later.map(function(t){
+          return '<button class="gtd-chip' + (sel === t.id ? ' on' : '') + '" data-gid="' + esc(t.id) + '">'
+               + '<span class="cn">' + esc(t.name || '(無題)') + '</span></button>';
+        }).join('')
+      : '<div class="gtd-empty">あとでのタスクはありません</div>';
+
+    var g = '<div class="gtd-gh"></div><div class="gtd-gh">🔥 優先</div><div class="gtd-gh">🧊 あとで</div>';
+    ROWS.forEach(function(r){
+      g += '<div class="gtd-rl">' + r.label + '</div>';
+      if (r.key === 'someday'){
+        g += '<div class="gtd-cell someday' + (sel ? ' armed' : '') + '" data-row="someday" data-hi="0" style="grid-column:2/4">長期スパンへ</div>';
+      } else {
+        g += '<div class="gtd-cell' + (sel ? ' armed' : '') + '" data-row="' + r.key + '" data-hi="1"></div>'
+           + '<div class="gtd-cell' + (sel ? ' armed' : '') + '" data-row="' + r.key + '" data-hi="0"></div>';
+      }
+    });
+    $('gtdGrid').innerHTML = g;
+    $('gtdHint').textContent = sel
+      ? '入れたいマスをタップ（もう一度タスクを押すと取り消し）'
+      : 'あとでのタスクをタップ → マスをタップ（ドラッグでもOK）';
+
+    // ④ 週次レビュー
+    var long = all.filter(function(t){ return t['(B)実行期間'] === KIK(4); });
+    $('gtdLongCnt').textContent = long.length;
+    $('gtdLong').innerHTML = long.length
+      ? long.map(function(t){
+          return itemHTML(t, '', '<button class="gtd-pj" data-pj="' + esc(t.id) + '">プロジェクト化</button>');
+        }).join('')
+      : '<div class="gtd-empty">長期スパンのタスクはありません</div>';
+  }
+
+  // ── 操作: タップ2回 ──
+  function onClick(e){
+    var chip = e.target.closest('.gtd-chip');
+    if (chip){ var id = chip.dataset.gid; sel = (sel === id) ? null : id; render(); return; }
+    var cell = e.target.closest('.gtd-cell');
+    if (cell && sel){ assign(sel, cell.dataset.row, cell.dataset.hi === '1'); return; }
+    var pj = e.target.closest('[data-pj]');
+    if (pj){ makeProject(pj.dataset.pj, pj); return; }
+  }
+
+  // ── 操作: ドラッグ（ポインタ方式。iOSでも動く） ──
+  var drag = null;
+  function onDown(e){
+    var chip = e.target.closest('.gtd-chip');
+    if (!chip || e.button === 1 || e.button === 2) return;
+    drag = { id: chip.dataset.gid, chip: chip, x0: e.clientX, y0: e.clientY, ghost: null, cell: null };
+  }
+  function onMove(e){
+    if (!drag) return;
+    var dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (!drag.ghost){
+      if (dx*dx + dy*dy < 64) return;           // 8px 動くまではタップ扱い
+      var gh = drag.chip.cloneNode(true);
+      gh.className = 'gtd-chip on gtd-ghost';
+      document.body.appendChild(gh);
+      drag.ghost = gh;
+      drag.chip.classList.add('dragging');
+      sel = drag.id; render();                   // マスを光らせる
+      drag.chip = document.querySelector('.gtd-chip[data-gid="' + drag.id + '"]') || drag.chip;
+    }
+    if (e.cancelable) e.preventDefault();
+    drag.ghost.style.left = e.clientX + 'px';
+    drag.ghost.style.top  = e.clientY + 'px';
+    drag.ghost.style.display = 'none';
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    drag.ghost.style.display = '';
+    var cell = el && el.closest ? el.closest('.gtd-cell') : null;
+    if (drag.cell && drag.cell !== cell) drag.cell.classList.remove('over');
+    if (cell) cell.classList.add('over');
+    drag.cell = cell;
+  }
+  function onUp(){
+    if (!drag) return;
+    var d = drag; drag = null;
+    if (d.ghost){
+      d.ghost.remove();
+      if (d.cell){ d.cell.classList.remove('over'); assign(d.id, d.cell.dataset.row, d.cell.dataset.hi === '1'); }
+      else { sel = null; render(); }
+    }
+  }
+
+  function open(){ $('gtdOverlay').classList.add('open'); sel = null; render(); }
+  function close(){ $('gtdOverlay').classList.remove('open'); }
+  window.openGtdScreen = function(){
+    try { var t = document.getElementById('tdyOverlay'); if (t) t.classList.remove('open'); } catch(e){}
+    open();
+  };
+
+  function init(){
+    if (!$('gtdOverlay')) return;
+    $('gtdClose').onclick = close;
+    $('gtdOverlay').addEventListener('click', onClick);
+    $('gtdOverlay').addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove, { passive:false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
 
 </body>
 </html>
