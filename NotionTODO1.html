@@ -3347,8 +3347,6 @@
           #tabGoogle .gt-link:hover{color:#0b57d0;}
           #tabGoogle .gt-btn{background:#f1f3f4;border:none;color:#0b57d0;font-size:13px;font-weight:600;font-family:inherit;border-radius:8px;padding:8px 12px;cursor:pointer;flex:0 0 auto;}
           /* カレンダーチップ */
-          #tabGoogle .gt-acct{display:flex;align-items:center;gap:12px;padding:2px 0 8px;}
-          #tabGoogle .gt-avatar{width:30px;height:30px;border-radius:50%;background:#3c4043;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:0 0 30px;}
           #tabGoogle .gt-cals{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
           #tabGoogle .gt-cals::-webkit-scrollbar{display:none;}
           #tabGoogle .gt-cal{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border:1px solid #dadce0;background:#fff;border-radius:20px;padding:8px 15px;font-size:13.5px;color:#3c4043;font-family:inherit;cursor:pointer;flex:0 0 auto;}
@@ -3376,15 +3374,13 @@
             <!-- 予定 / タスク / 誕生日 -->
             <div class="gt-seg" id="gtabKindSeg">
               <button type="button" class="on" data-gtab-kind="event"    onclick="gtabSetKind('event')">予定</button>
-              <button type="button"            data-gtab-kind="task"     onclick="gtabSetKind('task')">タスク</button>
               <button type="button"            data-gtab-kind="birthday" onclick="gtabSetKind('birthday')">誕生日</button>
             </div>
 
-            <!-- タスク種別（Google Tasks は未対応） -->
-            <div id="gtabTaskNote" style="display:none;" class="gt-card">
-              <div style="font-size:13px;color:#3c4043;line-height:1.7;">
-                Googleタスクの作成には対応していません（Google Tasks API の権限が別途必要です）。<br>
-                タスクとして追加する場合は <b>「あとで」</b> または <b>「時間指定」</b> タブをご利用ください。
+            <div id="gtabBdNote" class="gt-card" style="display:none;">
+              <div style="font-size:12.5px;color:#3c4043;line-height:1.7;">
+                Googleカレンダーの「誕生日」として登録します（毎年繰り返し・終日・非公開）。<br>
+                仕様上、誕生日には<b>タイトル・日付・通知</b>のみ設定できます。
               </div>
             </div>
 
@@ -3477,11 +3473,7 @@
 
               <div class="gt-div"></div>
 
-              <!-- アカウント & カレンダー -->
-              <div class="gt-acct">
-                <span class="gt-avatar" id="gtabAvatar">?</span>
-                <span class="gt-lab gt-grow" id="gtabAccount" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</span>
-              </div>
+              <!-- カレンダー（TODOアプリで有効にしているものだけ） -->
               <div class="gt-cals" id="gtabCalArea"></div>
 
               <div class="gt-div"></div>
@@ -3497,14 +3489,14 @@
               </div>
 
               <!-- ビデオ会議 -->
-              <div class="gt-row">
+              <div class="gt-row" id="gtabMeetRow">
                 <span class="gt-ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="13" height="12" rx="2"/><path d="M15 10.5l7-3.5v10l-7-3.5z"/></svg></span>
                 <span class="gt-lab gt-grow" id="gtabMeetLabel" style="color:#80868b;">ビデオ会議を追加</span>
                 <button type="button" class="gt-btn" id="gtabMeetBtn" onclick="gtabToggleMeet()">追加</button>
               </div>
 
               <!-- 場所 -->
-              <div class="gt-row">
+              <div class="gt-row" id="gtabLocRow">
                 <span class="gt-ico"><svg viewBox="0 0 24 24"><path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
                 <input id="gtabLocation" class="gt-in gt-grow" type="text" placeholder="場所を追加">
               </div>
@@ -3523,7 +3515,7 @@
               <div class="gt-div"></div>
 
               <!-- 説明 -->
-              <div class="gt-row top">
+              <div class="gt-row top" id="gtabDescRow">
                 <span class="gt-ico" style="margin-top:12px;"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 11h16M4 16h10"/></svg></span>
                 <textarea id="gtabDesc" class="gt-in gt-grow" rows="2" placeholder="説明を追加"></textarea>
               </div>
@@ -13320,7 +13312,7 @@
   const gtabState = {
     inited: false,
     needsReset: false,
-    kind: 'event',        // 'event' | 'task' | 'birthday'
+    kind: 'event',        // 'event' | 'birthday'
     calId: null,
     guests: [],           // ['a@example.com', ...]
     meet: false,
@@ -13357,7 +13349,6 @@
     if (form) form.style.display = canWrite ? 'block' : 'none';
     if (!canWrite) return;
     if (!gtabState.inited || gtabState.needsReset) gtabReset();
-    gtabRenderAccount();
     gtabRenderCals();
   }
 
@@ -13421,23 +13412,27 @@
     document.querySelectorAll('#gtabKindSeg [data-gtab-kind]').forEach(b => {
       b.classList.toggle('on', b.dataset.gtabKind === kind);
     });
-    const body = gtabEl('gtabEventBody');
-    const note = gtabEl('gtabTaskNote');
-    if (body) body.style.display = kind === 'task' ? 'none' : 'block';
-    if (note) note.style.display = kind === 'task' ? 'block' : 'none';
-
-    const isBd = kind === 'birthday';
-    // 誕生日：終日固定・終了日なし・毎年繰り返し・ゲスト/会議は非表示
+    const isBd = (kind === 'birthday');
+    // 誕生日イベントは summary / colorId / reminders 以外のプロパティを持てない（Google API仕様）
+    // → 終日固定・1日のみ・毎年繰り返し。場所/説明/ゲスト/会議/繰り返し設定は隠す
+    const hide = (id, on) => { const e = gtabEl(id); if (e) e.style.display = on ? 'none' : ''; };
     const adRow = gtabEl('gtabAllDayRow');
     if (adRow) adRow.style.display = isBd ? 'none' : 'flex';
     const gsec = gtabEl('gtabGuestSection');
     if (gsec) gsec.style.display = isBd ? 'none' : 'block';
+    hide('gtabMeetRow', isBd);
+    hide('gtabLocRow', isBd);
+    hide('gtabDescRow', isBd);
+    hide('gtabAdvBtn', isBd);
     if (isBd) {
       const ed = gtabEl('gtabEndDate'), sd = gtabEl('gtabStartDate');
       if (ed && sd) ed.value = sd.value;
       gtabState.meet = false;
       gtabRenderMeet();
+      gtabShowAdv(false);
     }
+    const bdNote = gtabEl('gtabBdNote');
+    if (bdNote) bdNote.style.display = isBd ? 'block' : 'none';
     gtabToggleAllDay();
     gtabOnRepeatChange();
     gtabRenderReminders();
@@ -13574,28 +13569,39 @@
     return ['RRULE:' + r];
   }
 
-  // ---- アカウント / カレンダー ----
-  function gtabRenderAccount() {
-    let email = '';
-    try { email = (gtabEl('gcalUserInfo') || {}).textContent || localStorage.getItem('gcalUser') || ''; } catch (e) {}
-    const a = gtabEl('gtabAccount'), av = gtabEl('gtabAvatar');
-    if (a) a.textContent = email || '(アカウント不明)';
-    if (av) av.textContent = (email || '?').trim().charAt(0).toUpperCase() || '?';
+  // ---- カレンダー ----
+  // 並び順：先頭の数字（1.仕事 / 2.プライベート …）の昇順 → 数字なしをその下に名前順
+  function gtabCalRank(c) {
+    const m = String(c.name || '').match(/^\s*(\d+)/);
+    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+  }
+  function gtabCalSort(list) {
+    return list.slice().sort((a, b) => {
+      const ra = gtabCalRank(a), rb = gtabCalRank(b);
+      if (ra !== rb) return ra - rb;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+    });
+  }
+  // TODOアプリ（Googleカレンダーパネル）で有効にしているカレンダーだけを候補にする
+  function gtabPickableCals() {
+    return gtabCalSort(gcalGetWritableCalendars().filter(c => {
+      try { if (gcalCalendarPrefs[c.id] === false) return false; } catch (e) {}
+      return c.enabled !== false;
+    }));
   }
   function gtabRenderCals() {
     const area = gtabEl('gtabCalArea');
     if (!area) return;
-    const writable = gcalGetWritableCalendars();
-    if (!writable.length) {
-      area.innerHTML = '<div style="color:#d93025;font-size:13px;padding:6px 0;">書き込み可能なカレンダーがありません。</div>';
+    const list = gtabPickableCals();
+    if (!list.length) {
+      area.innerHTML = '<div style="color:#d93025;font-size:13px;padding:6px 0;">選択できるカレンダーがありません（Googleカレンダーパネルで表示をONにしてください）。</div>';
       gtabState.calId = null;
       return;
     }
-    if (!gtabState.calId || !writable.some(c => c.id === gtabState.calId)) {
-      const pri = writable.find(c => c.primary);
-      gtabState.calId = (pri || writable[0]).id;
+    if (!gtabState.calId || !list.some(c => c.id === gtabState.calId)) {
+      gtabState.calId = list[0].id;
     }
-    area.innerHTML = writable.map(c => `
+    area.innerHTML = list.map(c => `
       <button type="button" class="gt-cal${c.id === gtabState.calId ? ' on' : ''}" data-gtab-cal="${c.id}" onclick="gtabSelectCal('${String(c.id).replace(/'/g, "\\'")}')">
         <i style="background:${c.color || '#4285f4'};"></i>${(c.name || c.id)}
       </button>`).join('');
@@ -13715,17 +13721,41 @@
   // Googleタブから予定を作成（Googleカレンダーと同じ項目を反映）
   async function gtabCreateEvent(title) {
     if (!gcalHasWriteScope) { gcalRequestWriteScope(); return false; }
-    if (gtabState.kind === 'task') {
-      alert('Googleタスクの作成には対応していません。\n「あとで」「時間指定」タブから通常のタスクとして追加してください。');
-      return false;
-    }
     if (!gtabState.calId) { alert('追加先カレンダーを選択してください。'); return false; }
+
+    // ===== 誕生日：Googleの「誕生日」イベント（eventType='birthday'）として作成 =====
+    // 仕様：ちょうど1日の終日 / visibility=private / transparency=transparent /
+    //       RRULE:FREQ=YEARLY（2/29は BYMONTH=2;BYMONTHDAY=-1）/ summary・colorId・reminders のみ可
+    if (gtabState.kind === 'birthday') {
+      const bd = gtabVal('gtabStartDate');
+      if (!bd) { alert('日付を入力してください。'); return false; }
+      const bdBody = {
+        summary: (title || '').trim() || '(タイトルなし)',
+        eventType: 'birthday',
+        start: { date: bd },
+        end:   { date: gcalAddDaysStr(bd, 1) },
+        visibility: 'private',
+        transparency: 'transparent',
+        recurrence: [ (bd.slice(5) === '02-29') ? 'RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1' : 'RRULE:FREQ=YEARLY' ]
+      };
+      if (gtabState.reminders.length) {
+        bdBody.reminders = { useDefault: false, overrides: gtabState.reminders.slice(0, 5).map(r => ({ method: r.method, minutes: r.minutes })) };
+      }
+      try {
+        await gtabApiInsert(gtabState.calId, bdBody, {});
+        await gcalAfterWrite();
+        gtabState.needsReset = true;
+        return true;
+      } catch (err) {
+        alert('保存に失敗しました: ' + (err.message || err));
+        return false;
+      }
+    }
 
     const body = { summary: (title || '').trim() || '(タイトルなし)' };
     const allDay = gtabIsAllDay();
     const sd = gtabVal('gtabStartDate');
-    let   ed = gtabVal('gtabEndDate');
-    if (gtabState.kind === 'birthday') ed = sd;
+    const ed = gtabVal('gtabEndDate');
 
     if (allDay) {
       if (!sd || !ed) { alert('日付を入力してください。'); return false; }
@@ -13753,7 +13783,7 @@
     if (desc) body.description = desc;
 
     // ゲスト
-    if (gtabState.kind !== 'birthday' && gtabState.guests.length) {
+    if (gtabState.guests.length) {
       body.attendees = gtabState.guests.map(email => ({ email }));
     }
 
@@ -13766,7 +13796,7 @@
 
     // ビデオ会議（Google Meet）
     const params = {};
-    if (gtabState.meet && gtabState.kind !== 'birthday') {
+    if (gtabState.meet) {
       body.conferenceData = {
         createRequest: {
           requestId: 'gtab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
