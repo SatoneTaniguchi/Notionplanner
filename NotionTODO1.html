@@ -20,7 +20,7 @@
   html { background: #e5e5ea; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
-    background: #f2f2f7;
+    background: #fff;
     height: 100dvh;
     overflow: hidden;
     display: flex;
@@ -41,7 +41,7 @@
 
   /* ヘッダー */
   .header {
-    background: #f2f2f7;
+    background: #fff;
     padding: 5px 16px 3px;
     flex-shrink: 0;
   }
@@ -191,9 +191,9 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background: white;
-    border-radius: 20px 20px 0 0;
-    margin-top: 8px;
+    background: #fff;      /* ヘッダー（日付エリア）と同色 */
+    border-radius: 0;      /* 角丸・隙間をなくしてヘッダーと完全に繋げる */
+    margin-top: 0;
   }
 
   .timeline-scroll {
@@ -374,7 +374,7 @@
     position: absolute;
     left: 0;
     right: 0;
-    background: #f2f2f7;
+    background: #f1f1f2;   /* 白背景より少し濃い、薄いグレー */
     border-radius: 12px;
     padding: 10px 12px;
     overflow: hidden;
@@ -385,8 +385,8 @@
     position: absolute;
     left: 0;
     right: 0;
-    background: #f8f8f8;
-    border: 1px solid #f0f0f0;
+    background: #f3f1fd;   /* かなり薄い紫（アクセント #6c5ce7 系） */
+    border: 1px solid rgba(108,92,231,0.12);
     border-radius: 11px;
     padding: 6px 10px;
     display: flex;
@@ -479,7 +479,7 @@
   }
 
   .task-card {
-    background: #f8f8f8;
+    background: #fff;
     border-radius: 12px;
     padding: 10px 12px;
     display: flex;
@@ -488,7 +488,7 @@
     margin-bottom: 8px;
     cursor: pointer;
     transition: background 0.1s;
-    border: 1px solid #f0f0f0;
+    border: 1px solid rgba(0,0,0,0.04);
   }
 
   .task-card:active { background: #f0f0f0; }
@@ -575,7 +575,7 @@
 
   /* 空き時間カード */
   .free-time-card {
-    background: #f2f2f7;
+    background: #f1f1f2;
     border-radius: 14px;
     padding: 10px 14px;
     margin-bottom: 8px;
@@ -1134,7 +1134,17 @@
   .modal-header {
     background: #1c1c1e;
     border-radius: 20px 20px 0 0;
-    padding: 16px 20px;
+    padding: 8px 20px 16px;
+  }
+
+  /* スワイプで閉じるためのつまみ */
+  .modal-grabber {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: #5a5a5e;
+    margin: 4px auto 10px;
+    flex-shrink: 0;
   }
 
   .modal-header-top {
@@ -2880,7 +2890,7 @@
 <!-- メインコンテンツ -->
 <div class="main-content" id="todoScreen">
   <!-- 終日エリア（スティッキー固定） -->
-  <div id="alldaySticky" style="position:sticky;top:0;z-index:50;background:#fafafa;"></div>
+  <div id="alldaySticky" style="position:sticky;top:0;z-index:50;background:#fff;"></div>
   <div class="timeline-scroll" id="timelineScroll">
     <div class="timeline" id="timeline">
       <div class="timeline-line"></div>
@@ -3147,27 +3157,27 @@
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
   <div class="modal">
     <div class="modal-header">
+      <div class="modal-grabber"></div>
       <div class="modal-header-top">
         <button class="modal-close" onclick="closeModal()">✕</button>
         <button class="modal-save" onclick="saveTask()">保存</button>
       </div>
       <div class="modal-task-input-row">
-        <div class="modal-checkbox">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <rect x="2" y="2" width="16" height="16" rx="4" stroke="#3a3a3c" stroke-width="2"/>
-          </svg>
+        <div class="modal-checkbox" id="modalActualBtn" onclick="openActualPop()" title="実績時間を手入力" style="cursor:pointer;position:relative;">
+          <span id="modalActualIcon" style="color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;"></span>
+          <span id="modalActualBadge" style="display:none;position:absolute;right:-3px;bottom:-3px;background:#6c5ce7;color:#fff;font-size:9px;font-weight:700;border-radius:7px;padding:1px 4px;line-height:1.4;white-space:nowrap;box-shadow:0 0 0 2px #1c1c1e;"></span>
         </div>
         <div class="modal-input-block">
           <div class="modal-subtitle" id="modalSubtitle">・あとで</div>
-          <input class="modal-task-input" id="taskNameInput" placeholder="タスク名を入力..." autofocus onkeydown="if(event.key==='Enter'){event.preventDefault();saveTask();}">
+          <input class="modal-task-input" id="taskNameInput" placeholder="タスク名を入力..." autofocus oninput="onTaskNameInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();saveTask();}">
         </div>
         <div id="modalCheckbox" onclick="toggleModalDone()" style="
-          width:20px;height:20px;border-radius:50%;border:2px solid #6a6a6c;
+          width:26px;height:26px;border-radius:50%;border:2px solid #6a6a6c;
           background:transparent;flex-shrink:0;cursor:pointer;
           display:flex;align-items:center;justify-content:center;
           transition:all 0.2s;touch-action:manipulation;
         ">
-          <svg id="modalCheckIcon" width="10" height="10" viewBox="0 0 20 20" fill="none">
+          <svg id="modalCheckIcon" width="13" height="13" viewBox="0 0 20 20" fill="none">
             <path d="M4 10l5 5 7-8" stroke="#6a6a6c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
@@ -3582,7 +3592,6 @@
           </div>
         </div>
       </div>
-      </div>
 
       <div id="tabRepeat" style="display:none;">
         <div class="modal-section">
@@ -3822,6 +3831,30 @@
 </div>
 
 <!-- ドラムロール所要時間ピッカー -->
+<!-- 実績時間の手入力ポップアップ -->
+<div class="time-pop-overlay" id="actualPopOverlay" style="display:none;" onclick="if(event.target===this)closeActualPop()">
+  <div class="time-pop-card">
+    <div style="padding:18px 20px 4px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:16px;font-weight:700;color:#1c1c1e;">実績時間</span>
+      <span id="actualPopTotal" style="font-size:12px;color:#8e8e93;"></span>
+    </div>
+    <div style="padding:6px 20px 0;display:flex;align-items:center;gap:8px;">
+      <input id="actualPopH" type="number" min="0" max="99" inputmode="numeric" placeholder="0"
+        style="width:70px;text-align:center;font-size:22px;font-weight:700;color:#6c5ce7;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px 4px;font-family:inherit;outline:none;background:#fff;">
+      <span style="font-size:14px;color:#3c3c43;">時間</span>
+      <input id="actualPopM" type="number" min="0" max="59" step="5" inputmode="numeric" placeholder="0"
+        style="width:70px;text-align:center;font-size:22px;font-weight:700;color:#6c5ce7;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px 4px;font-family:inherit;outline:none;background:#fff;">
+      <span style="font-size:14px;color:#3c3c43;">分</span>
+    </div>
+    <div style="padding:10px 20px 0;display:flex;gap:6px;flex-wrap:wrap;" id="actualPopQuick"></div>
+    <div id="actualPopNote" style="padding:10px 20px 0;font-size:11px;color:#8e8e93;line-height:1.6;"></div>
+    <div style="padding:14px 20px 18px;display:flex;gap:8px;">
+      <button type="button" onclick="closeActualPop()" style="flex:1;background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">キャンセル</button>
+      <button type="button" onclick="saveActualPop()" style="flex:1;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">保存</button>
+    </div>
+  </div>
+</div>
+
 <div class="drum-overlay" id="drumOverlay" style="display:none;">
   <div class="drum-sheet">
     <div class="drum-header">
@@ -4116,6 +4149,7 @@
     const mIdx = Math.round(mCol.scrollTop / 44);
     drumSelectedMin = h * 60 + mIdx * 5;
 
+    autoGuessLock.duration = true;   // ドラムロールで決めたら以降は推測しない
     syncDurationUI();
     document.getElementById('drumOverlay').style.display = 'none';
     updateStartTimeDisplay();
@@ -4197,6 +4231,7 @@
         const btn = e.target.closest('.duration-btn');
         if (!btn) return;
         drumSelectedMin = parseInt(btn.dataset.min) || 0;
+        autoGuessLock.duration = true;   // 手動で選んだら以降は推測しない
         syncDurationUI();
         updateStartTimeDisplay();
       });
@@ -4743,6 +4778,14 @@
       const colW = Math.floor(totalW / ev._totalCols);
       const cardLeft = 100 + ev._col * colW;
       const cardWidth = colW - 4;
+      // アイコン（col=0のみ）— GCal予定もタイトルから絵柄を自動判定。色はカレンダー色に合わせる
+      if (ev._col === 0) {
+        const evIcon = document.createElement('div');
+        evIcon.style.cssText = `position:absolute;left:60px;top:${y}px;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:${color}1f;color:${color};display:flex;align-items:center;justify-content:center;font-size:14px;z-index:3;${isPast?'opacity:0.4;':''}`;
+        evIcon.innerHTML = taskIconSVG({ name: ev.title }, 'calendar');
+        timeline.appendChild(evIcon);
+      }
+
       const isNarrow = ev._totalCols > 1;
       const durMin = ev.endMin - ev.startMin;
       const durLabel = durMin >= 60
@@ -4831,7 +4874,7 @@
       if (item._col === 0) {
         const icon = document.createElement('div');
         icon.style.cssText = `position:absolute;left:60px;top:${y}px;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:#f2f2f7;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:3;${(isPast||_done)?'opacity:0.4;':''}`;
-        icon.innerHTML = '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+        icon.innerHTML = taskIconSVG(t);   // タイトルから絵柄を自動判定
         timeline.appendChild(icon);
       }
 
@@ -4889,7 +4932,6 @@
       }
       card.appendChild(info);
       card.appendChild(checkEl);
-      if (!_done) card.appendChild(buildTlTimerControl(t)); // 完了ボタンの横に計測ボタン
       checkEl.addEventListener('click', e => { e.stopPropagation(); if (isHabit && !t['(A)done']) spawnSparkles(checkEl); toggleTaskDone(t.id, checkEl); });
       card.addEventListener('click', () => editTask(t.id));
       timeline.appendChild(card);
@@ -5679,6 +5721,10 @@
     const _editT = editingTaskId ? tasks.find(t=>t.id===editingTaskId) : null;
     currentShurui = _editT ? (_editT['(B)種類'] || null) : null;
     currentKikan  = _editT ? (_editT['(B)実行期間'] || null) : null;
+    // 自動推測のロック: 既に値が入っている項目は推測で上書きしない
+    autoGuessLock.shurui   = !!currentShurui;
+    autoGuessLock.kikan    = !!currentKikan;
+    autoGuessLock.duration = !!(_editT && _editT['(C)見込み/h']);
     ['later','time','repeat'].forEach(s => updateSelectorDisplay(s));
     closeSelectorPanels();   // 前回開いたままのパネルを畳んでおく
     const overlay = document.getElementById('modalOverlay');
@@ -5690,6 +5736,8 @@
       document.getElementById('taskNameInput').value = task.name;
       document.getElementById('editActions').style.display = 'flex';
       timerRenderForTask(editingTaskId);
+      updateActualBadge();
+      updateModalIcon();
       renderSubtasksForTask(task);
       // 完了状態をUIに反映
       updateModalDoneUI(task['(A)done'] || false);
@@ -5815,6 +5863,355 @@
     if (doneBtn) doneBtn.innerHTML = done ? '↩ 未完了に戻す' : '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg> 完了にする';
   }
 
+
+  // ── タイトルから 種類 / 所要時間 / 実行期間 を推測 ──────────────
+  // アイコン判定(taskIconKey)をそのまま分類器として使い、絵柄ごとに既定値を持たせる。
+  // kind: (B)種類 / min: 所要時間の目安(分)
+  const TASK_GUESS_BY_ICON = {
+    brush:     { kind: '掃除',      min: 30 },
+    shirt:     { kind: '掃除',      min: 15 },
+    trash:     { kind: '雑務',      min: 5  },
+    droplet:   { kind: '習慣',      min: 30 },
+    sparkle:   { kind: '美容',      min: 60 },
+    bed:       { kind: '習慣',      min: 30 },
+    sun:       { kind: '習慣',      min: 5  },
+    moon:      { kind: '習慣',      min: 15 },
+    dumbbell:  { kind: '習慣',      min: 60 },
+    walk:      { kind: '習慣',      min: 30 },
+    heart:     { kind: '習慣',      min: 15 },
+    medkit:    { kind: '雑務',      min: 60 },
+    food:      { kind: '習慣',      min: 30 },
+    coffee:    { kind: '習慣',      min: 15 },
+    cart:      { kind: '雑務',      min: 45 },
+    video:     { kind: '仕事',      min: 60 },
+    mail:      { kind: '仕事',      min: 10 },
+    phone:     { kind: '仕事',      min: 10 },
+    chat:      { kind: '雑務',      min: 5  },
+    people:    { kind: 'Wish_list', min: 120 },
+    book:      { kind: '勉強',      min: 60 },
+    grad:      { kind: '課題',      min: 60 },
+    briefcase: { kind: '仕事',      min: 60 },
+    monitor:   { kind: '仕事',      min: 30 },
+    doc:       { kind: '仕事',      min: 45 },
+    chart:     { kind: '仕事',      min: 30 },
+    bulb:      { kind: '仕事',      min: 30 },
+    clipboard: { kind: '雑務',      min: 15 },
+    money:     { kind: '雑務',      min: 15 },
+    pen:       { kind: '雑務',      min: 15 },
+    search:    { kind: '雑務',      min: 15 },
+    flag:      { kind: '仕事',      min: 30 },
+    target:    { kind: 'Wish_list', min: 30 },
+    train:     { kind: '雑務',      min: 30 },
+    bus:       { kind: '雑務',      min: 30 },
+    car:       { kind: '雑務',      min: 30 },
+    bike:      { kind: '雑務',      min: 20 },
+    plane:     { kind: 'Wish_list', min: 120 },
+    map:       { kind: '雑務',      min: 15 },
+    pin:       { kind: '雑務',      min: 15 },
+    music:     { kind: 'Wish_list', min: 30 },
+    game:      { kind: 'Wish_list', min: 60 },
+    camera:    { kind: 'Wish_list', min: 30 },
+    film:      { kind: 'Wish_list', min: 120 },
+    gift:      { kind: '雑務',      min: 30 },
+    paw:       { kind: '習慣',      min: 30 },
+    home:      { kind: '雑務',      min: 15 },
+    key:       { kind: '雑務',      min: 5  },
+    bolt:      { kind: '雑務',      min: 5  },
+    repeat:    { kind: '習慣',      min: 15 },
+    alarm:     { kind: '習慣',      min: 5  },
+    calendar:  { kind: '雑務',      min: 30 },
+    // clock は「判定できなかった」印なので既定値を持たせない
+  };
+
+  // 実行期間の判定に使うキーワード
+  const KIKAN_RE = {
+    deadline: /締[め]?切|期限|納期|デッドライン|提出|申告|〆/,
+    // 依頼 = 自分が忙しいので「誰かに投げて手放す」枠
+    requestOut: /依頼|頼む|頼める|お願いする|お願いしたい|任せ|丸投げ|投げる|振る|委託|外注|発注|代行|手配|やってもらう|してもらう|聞いてもらう/,
+    // 逆に「自分が頼まれた側」は依頼枠ではないので除外する
+    requestIn:  /から(の)?依頼|依頼を?受け|依頼され|頼まれ|お願いされ|振られ|来た依頼/,
+    longterm: /長期|いつか|そのうち|将来|構想|検討|目標|やりたい|欲しい|ほしい/,
+    urgent:   /至急|急ぎ|今日中|明日まで|重要|必須|すぐ|忘れ(ず|ない)|ASAP/,
+  };
+
+  // タイトルから 種類 / 所要時間(分) / 実行期間 をまとめて推測する
+  // 推測できない項目は null を返す（＝触らない）
+  function guessTaskMeta(name) {
+    const n = (name || '').trim();
+    if (!n) return { shurui: null, min: null, kikan: null };
+
+    const icon = taskIconKey({ name: n });
+    const base = TASK_GUESS_BY_ICON[icon] || null;
+    const shurui = base ? base.kind : null;
+    const min = base ? base.min : null;
+
+    // ── 実行期間 ──
+    let kikan = null;
+    const K = (typeof KIKAN_OPTIONS !== 'undefined') ? KIKAN_OPTIONS : [];
+    const V = i => (K[i] && K[i].value) || null;
+    // 誰かに投げる予定のものは、締め切りより先に「依頼」枠へ
+    if (KIKAN_RE.requestOut.test(n) && !KIKAN_RE.requestIn.test(n)) kikan = V(6);  // 依頼
+    else if (KIKAN_RE.deadline.test(n)) kikan = V(5);   // 締め切り
+    else if (KIKAN_RE.longterm.test(n)) kikan = V(4);   // 長期スパン
+    else if (min !== null) {
+      // 優先度: 急ぎ語 or 仕事/課題 → 優 / それ以外 → 低
+      const hi = KIKAN_RE.urgent.test(n) || shurui === '仕事' || shurui === '課題';
+      const short = min < 30;
+      kikan = hi ? (short ? V(0) : V(1)) : (short ? V(2) : V(3));
+    }
+    return { shurui, min, kikan };
+  }
+
+  // 手動で選び直したら、その項目の自動推測は止める
+  const autoGuessLock = { shurui: false, kikan: false, duration: false };
+
+  // タスク名を打つたびに走る
+  function onTaskNameInput() {
+    updateModalIcon();
+    if (autoGuessLock.shurui && autoGuessLock.kikan && autoGuessLock.duration) return;
+    const nameEl = document.getElementById('taskNameInput');
+    const g = guessTaskMeta(nameEl ? nameEl.value : '');
+    if (!autoGuessLock.shurui) currentShurui = g.shurui;
+    if (!autoGuessLock.kikan)  currentKikan  = g.kikan;
+    if (!autoGuessLock.duration && g.min !== null && typeof syncDurationUI === 'function') {
+      drumSelectedMin = g.min;
+      syncDurationUI();
+      if (typeof updateStartTimeDisplay === 'function') updateStartTimeDisplay();
+    }
+    ['later', 'time', 'repeat'].forEach(x => updateSelectorDisplay(x));
+  }
+
+  // ── タスクのアイコン自動判定 ──────────────────────────────
+  // タイトルのキーワードから絵柄を推測する。当たらなければ「(B)種類」→ 時計 の順でフォールバック。
+  const TASK_ICONS = {
+    clock:     '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    calendar:  '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    alarm:     '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/>',
+    repeat:    '<path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/>',
+    sun:       '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/>',
+    moon:      '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    bed:       '<path d="M2 18v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4M2 18v2M22 18v2M2 16h20M6 12V8.5h6V12"/>',
+    home:      '<path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5"/>',
+    food:      '<path d="M5 3v6a2 2 0 0 0 4 0V3M7 9v12M17 21V3c2 0 3 2.2 3 5.5S18.6 13 17 13"/>',
+    coffee:    '<path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8zM17 9h2a2.5 2.5 0 0 1 0 5h-2M7 3v2M11 3v2M15 3v2"/>',
+    cart:      '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.5 12h11L21 7H6"/>',
+    droplet:   '<path d="M12 3s6 6.5 6 10.5a6 6 0 0 1-12 0C6 9.5 12 3 12 3z"/>',
+    shirt:     '<path d="M16 3 20 5.5 18.5 9 17 8.5V21H7V8.5L5.5 9 4 5.5 8 3a4 4 0 0 0 8 0z"/>',
+    brush:     '<path d="m9.1 11.9 8-8.1a2.85 2.85 0 1 1 4.1 4.1l-8.1 8"/><path d="M7.1 14.9c-1.7 0-3 1.4-3 3 0 1.3-2.5 1.5-2 2 1.1 1.1 2.5 2 4 2 2.2 0 4-1.8 4-4a3 3 0 0 0-3-3z"/>',
+    trash:     '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7M10 11v6M14 11v6"/>',
+    key:       '<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2M17 6l3 3M14.5 8.5l3 3"/>',
+    gift:      '<path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8S9.5 8 8.4 6.9 8.6 3.3 10 3.9 12 8 12 8zM12 8s2.5 0 3.6-1.1S15.4 3.3 14 3.9 12 8 12 8z"/>',
+    paw:       '<circle cx="7" cy="9" r="1.8"/><circle cx="11.5" cy="6.3" r="1.8"/><circle cx="16.5" cy="9" r="1.8"/><path d="M12 12c-3 0-5 2.2-5 4.5S9 20 12 20s5-1.2 5-3.5S15 12 12 12z"/>',
+    bolt:      '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',
+    monitor:   '<rect x="2.5" y="4" width="19" height="12" rx="2"/><path d="M9 20h6M12 16v4"/>',
+    book:      '<path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V4zM20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7V4z"/>',
+    grad:      '<path d="M12 4 2 9l10 5 10-5-10-5zM6 11.5V17c0 1.5 3 3 6 3s6-1.5 6-3v-5.5"/>',
+    money:     '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+    chart:     '<path d="M5 20v-6M10 20V7M15 20v-9M20 20V4"/>',
+    bulb:      '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2h5c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>',
+    pen:       '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    doc:       '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M9 13h6M9 17h6"/>',
+    clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="3.5" rx="1"/>',
+    search:    '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+    flag:      '<path d="M5 21V4M5 4h13l-2.5 4L18 12H5"/>',
+    star:      '<path d="M12 3.2l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.4 20.4l1.1-6.2L3 9.8l6.2-.9L12 3.2z"/>',
+    target:    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/>',
+    heart:     '<path d="M12 20s-7-4.6-7-9.5A4 4 0 0 1 12 7a4 4 0 0 1 7 3.5C19 15.4 12 20 12 20z"/>',
+    dumbbell:  '<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>',
+    medkit:    '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M12 11v5M9.5 13.5h5"/>',
+    mail:      '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    phone:     '<path d="M6 3h4l2 5-2.5 1.5a12 12 0 0 0 5 5L16 12l5 2v4a2 2 0 0 1-2.2 2A17 17 0 0 1 4 5.2 2 2 0 0 1 6 3z"/>',
+    chat:      '<path d="M20 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>',
+    video:     '<rect x="2" y="6" width="13" height="12" rx="2"/><path d="M15 10.5l7-3.5v10l-7-3.5z"/>',
+    people:    '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M16 8.2a3 3 0 0 1 0 5.6M17.5 14.8c2.1.6 3.5 2.4 3.5 5.2"/>',
+    car:       '<path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11M4 11h16v5H4zM5 16v2M19 16v2"/><circle cx="7.5" cy="13.5" r="1"/><circle cx="16.5" cy="13.5" r="1"/>',
+    bus:       '<rect x="4" y="4" width="16" height="13" rx="2"/><path d="M4 10h16M7 17v2M17 17v2"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/>',
+    train:     '<rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14M9 16l-3 5M15 16l3 5"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/>',
+    bike:      '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h3M11.5 17.5 14 10l-3-3H8M14 10h4.5"/>',
+    plane:     '<path d="M22 3 11 14M22 3l-7 19-4-8-8-4 19-7z"/>',
+    walk:      '<circle cx="13" cy="4" r="1.7"/><path d="M11.5 21l1.5-6-3-3 1-4.5 3 3 2.5 1M9.5 12 8 16"/>',
+    map:       '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>',
+    pin:       '<path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+    sparkle:   '<path d="M12 3l1.7 4.6L18.3 9.3 13.7 11 12 15.6 10.3 11 5.7 9.3l4.6-1.7L12 3zM19 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
+    music:     '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    game:      '<rect x="2" y="7" width="20" height="10" rx="4"/><path d="M7 10v4M5 12h4M16 11h.01M18.5 13.5h.01"/>',
+    camera:    '<rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M9 7l1.5-3h3L15 7"/><circle cx="12" cy="13.5" r="3.5"/>',
+    film:      '<rect x="2.5" y="4" width="19" height="16" rx="2"/><path d="M7 4v16M17 4v16M2.5 12h19M2.5 8h4.5M17 8h4.5M2.5 16h4.5M17 16h4.5"/>',
+  };
+
+  // 上から順に判定するので、限定的なものほど先に置く
+  const TASK_ICON_RULES = [
+    [/掃除|そうじ|清掃|片[づ付]け|拭き|掃く|整理整頓/, 'brush'],
+    [/洗濯|干す|取り込み|アイロン/,                    'shirt'],
+    [/ゴミ|ごみ|資源|不燃|可燃/,                       'trash'],
+    [/風呂|ふろ|シャワー|入浴|洗顔|歯磨き|歯みがき/,     'droplet'],
+    [/美容|髪|美容院|美容室|カット|スキンケア|化粧|ネイル|まつ/, 'sparkle'],
+    [/就寝|寝る|睡眠|おやすみ|仮眠|昼寝/,               'bed'],
+    [/起床|起きる|朝活|モーニング/,                     'sun'],
+    [/筋トレ|ジム|運動|トレーニング|ヨガ|ストレッチ|ランニング|走る|マラソン|スクワット|水泳/, 'dumbbell'],
+    [/散歩|ウォーキング|歩く/,                          'walk'],
+    [/病院|通院|医者|クリニック|歯医者|薬|診察|検査|ワクチン/, 'medkit'],
+    [/健康|体重|血圧|瞑想|メンタル/,                    'heart'],
+    [/料理|自炊|ご飯|ごはん|食事|朝食|昼食|夕食|晩ご飯|晩飯|ランチ|ディナー|弁当|外食/, 'food'],
+    [/コーヒー|カフェ|お茶|休憩|ティー/,                'coffee'],
+    [/買い物|買う|購入|スーパー|コンビニ|注文|ポチ/,     'cart'],
+    [/会議|ミーティング|MTG|mtg|打ち合わせ|打合せ|面談|zoom|Zoom|オンライン/, 'video'],
+    [/メール|mail|Mail|返信|連絡|問い合わせ|問合せ/,     'mail'],
+    [/電話|TEL|tel|架電|コール/,                        'phone'],
+    [/LINE|ライン|チャット|メッセージ|slack|Slack|返事/, 'chat'],
+    [/テスト|試験|模試|受験|課題|レポート/,             'grad'],
+    [/勉強|学習|復習|予習|宿題|講義|授業|受講|資格|英語|英会話|レッスン|講座|単語/, 'book'],
+    [/読書|読む|本を/,                                  'book'],
+    [/仕事|作業|業務|タスク|案件|対応|開発|コーディング|実装|バグ/, 'briefcase'],
+    [/PC|パソコン|入力|デスク|メンテ/,                  'monitor'],
+    [/資料|書類|ドキュメント|議事録|作成|まとめ|提出|記入|申請/, 'doc'],
+    [/予約|申[し]?込|手続|登録|契約|更新/,              'clipboard'],
+    [/支払|振込|家賃|請求|銀行|税|お金|給料|経費|家計|貯金/, 'money'],
+    [/集計|分析|数字|グラフ|レビュー|振り返り/,          'chart'],
+    [/企画|アイデア|考える|検討|構想/,                  'bulb'],
+    [/メモ|書く|日記|ノート|ブログ|執筆/,               'pen'],
+    [/探す|調べ|検索|リサーチ|下調べ/,                  'search'],
+    [/締[め]?切|期限|デッドライン|納期/,                'flag'],
+    [/目標|計画|プラン|振替/,                           'target'],
+    [/電車|通勤|通学|移動|駅/,                          'train'],
+    [/バス/,                                           'bus'],
+    [/自転車|チャリ/,                                   'bike'],
+    [/車|運転|ドライブ|給油/,                           'car'],
+    [/飛行機|空港|フライト|旅行|出張/,                  'plane'],
+    [/地図|下見|ルート/,                                'map'],
+    [/場所|集合|現地/,                                  'pin'],
+    [/音楽|ギター|ピアノ|楽器|カラオケ/,                'music'],
+    [/ゲーム|switch|Switch|プレイ/,                     'game'],
+    [/写真|カメラ|撮影/,                                'camera'],
+    [/動画|映画|ドラマ|アニメ|YouTube|youtube|配信/,    'film'],
+    [/友達|家族|会う|飲み|ランチ会|パーティ/,            'people'],
+    [/誕生日|プレゼント|ギフト|お祝い/,                 'gift'],
+    [/ペット|犬|猫|散歩犬/,                            'paw'],
+    [/家|自宅|帰宅|部屋/,                              'home'],
+    [/鍵|カギ/,                                        'key'],
+    [/充電|電気|コンセント/,                            'bolt'],
+    [/毎日|ルーチン|ルーティン|習慣/,                   'repeat'],
+    [/アラーム|起こす|目覚/,                            'alarm'],
+    [/夜更かし|ナイトルーティン|夜の/,                  'moon'],
+    [/予定|日程|スケジュール|カレンダー/,               'calendar'],
+  ];
+
+  // 「(B)種類」でのフォールバック
+  const TASK_ICON_BY_KIND = {
+    '仕事': 'briefcase', '勉強': 'book', '雑務': 'clipboard', '課題': 'grad',
+    '習慣': 'repeat', '掃除': 'brush', '美容': 'sparkle', 'Wish_list': 'star',
+  };
+
+  // fallback: キーワードにも種類にも当たらなかったときの絵柄（GCal予定は 'calendar'）
+  function taskIconKey(t, fallback) {
+    const name = (t && t.name) || '';
+    for (let i = 0; i < TASK_ICON_RULES.length; i++) {
+      if (TASK_ICON_RULES[i][0].test(name)) return TASK_ICON_RULES[i][1];
+    }
+    return TASK_ICON_BY_KIND[t && t['(B)種類']] || fallback || 'clock';
+  }
+  function taskIconSVG(t, fallback) {
+    const inner = TASK_ICONS[taskIconKey(t, fallback)] || TASK_ICONS.clock;
+    return '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true">' + inner + '</svg>';
+  }
+
+  // ── 実績時間の手入力（タスク名の左のアイコンから）──
+  // 集中タイマーと同じ Notion プロパティ「(C)手入力実績時間_out」に書き込む（単位: 時間）
+  const ACTUAL_PROP = '(C)手入力実績時間_out';
+
+  function actualHoursOf(task) {
+    const v = task ? task[ACTUAL_PROP] : 0;
+    const n = typeof v === 'number' ? v : parseFloat(v);
+    return isFinite(n) && n > 0 ? n : 0;
+  }
+  function fmtActual(h) {
+    const total = Math.round(h * 60);
+    if (!total) return '';
+    const hh = Math.floor(total / 60), mm = total % 60;
+    return (hh ? hh + '時間' : '') + (mm ? mm + '分' : '');
+  }
+  // タスク名の左の四角に、タイトルから判定したアイコンを表示する
+  function updateModalIcon() {
+    const el = document.getElementById('modalActualIcon');
+    if (!el) return;
+    const nameEl = document.getElementById('taskNameInput');
+    el.innerHTML = taskIconSVG({ name: (nameEl && nameEl.value) || '', '(B)種類': currentShurui });
+  }
+
+  // タスク名の左のアイコンに、実績が入っていれば数値を出す
+  function updateActualBadge() {
+    const badge = document.getElementById('modalActualBadge');
+    if (!badge) return;
+    const t = editingTaskId ? tasks.find(x => x.id === editingTaskId) : null;
+    const h = actualHoursOf(t);
+    if (!t || h <= 0) { badge.style.display = 'none'; badge.textContent = ''; return; }
+    const total = Math.round(h * 60);
+    badge.textContent = total >= 60 ? (Math.round(total / 6) / 10) + 'h' : total + 'm';
+    badge.style.display = 'block';
+  }
+
+  function openActualPop() {
+    if (!editingTaskId) { alert('保存済みのタスクを開いてから入力してください。'); return; }
+    const t = tasks.find(x => x.id === editingTaskId);
+    if (!t) return;
+    const total = Math.round(actualHoursOf(t) * 60);
+    document.getElementById('actualPopH').value = total ? Math.floor(total / 60) : '';
+    document.getElementById('actualPopM').value = total ? total % 60 : '';
+    document.getElementById('actualPopTotal').textContent = total ? '現在: ' + fmtActual(total / 60) : '未記録';
+
+    // よく使う値をワンタップで加算
+    document.getElementById('actualPopQuick').innerHTML = [15, 30, 60, 90].map(m =>
+      '<button type="button" onclick="addActualPop(' + m + ')" style="background:#f2f2f7;border:none;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:600;color:#6c5ce7;font-family:inherit;cursor:pointer;">+' + (m === 90 ? '1時間半' : m >= 60 ? (m / 60) + '時間' : m + '分') + '</button>'
+    ).join('');
+
+    const note = document.getElementById('actualPopNote');
+    note.textContent = (t._notionId && notionSettings.token)
+      ? 'Notionの「' + ACTUAL_PROP + '」に保存します（集中タイマーと同じ項目）。'
+      : 'Notion未連携のため、この端末にのみ保存します。';
+    document.getElementById('actualPopOverlay').style.display = 'flex';
+  }
+
+  function addActualPop(min) {
+    const hEl = document.getElementById('actualPopH'), mEl = document.getElementById('actualPopM');
+    let total = (parseInt(hEl.value, 10) || 0) * 60 + (parseInt(mEl.value, 10) || 0) + min;
+    total = Math.max(0, Math.min(99 * 60 + 59, total));
+    hEl.value = Math.floor(total / 60) || '';
+    mEl.value = total % 60;
+  }
+
+  function closeActualPop() {
+    document.getElementById('actualPopOverlay').style.display = 'none';
+  }
+
+  async function saveActualPop() {
+    if (!editingTaskId) return closeActualPop();
+    const t = tasks.find(x => x.id === editingTaskId);
+    if (!t) return closeActualPop();
+    const h = parseInt(document.getElementById('actualPopH').value, 10) || 0;
+    const m = parseInt(document.getElementById('actualPopM').value, 10) || 0;
+    if (h < 0 || m < 0 || m > 59) { alert('分は 0〜59 で入力してください。'); return; }
+    const hours = Math.round((h + m / 60) * 100) / 100;   // 集中タイマーと同じ小数第2位まで
+
+    t[ACTUAL_PROP] = hours;
+    t._localLastEdited = new Date().toISOString();
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    updateActualBadge();
+    closeActualPop();
+    renderTimeline();
+
+    if (t._notionId && notionSettings.token) {
+      try {
+        await notionApiCall('/pages/' + t._notionId, 'PATCH', {
+          properties: { [ACTUAL_PROP]: { number: hours } }
+        });
+      } catch (e) {
+        console.error('実績時間の保存に失敗', e);
+        alert('Notionへの保存に失敗しました: ' + (e.message || e));
+      }
+    }
+  }
+
   function toggleModalDone() {
     if (!editingTaskId) return;
     const task = tasks.find(t => t.id === editingTaskId);
@@ -5845,6 +6242,64 @@
   function closeModalOutside(e) {
     if (e.target === document.getElementById('modalOverlay')) closeModal();
   }
+
+  // ── モーダルを下スワイプで閉じる（あとで/時間指定/繰り返し/Google 共通） ──
+  (function initModalSwipe() {
+    const overlay = document.getElementById('modalOverlay');
+    const modal = overlay && overlay.querySelector('.modal');
+    if (!modal) { setTimeout(initModalSwipe, 300); return; }
+
+    let startY = 0, dy = 0, startT = 0, dragging = false, fromHeader = false;
+
+    const reset = () => {
+      modal.style.transition = '';
+      modal.style.transform = '';
+      overlay.style.background = '';
+    };
+
+    modal.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return;
+      // 入力欄・ボタン・スクロールする要素からのドラッグは無視
+      if (e.target.closest('input,textarea,select,button,[contenteditable],.drum-col,.duration-scroll-wrap,.gt-cals')) return;
+      fromHeader = !!e.target.closest('.modal-header');
+      // ヘッダー以外は、いちばん上までスクロールしているときだけ受け付ける
+      if (!fromHeader && modal.scrollTop > 0) return;
+      startY = e.touches[0].clientY;
+      dy = 0; startT = Date.now(); dragging = true;
+      modal.style.transition = 'none';
+    }, { passive: true });
+
+    modal.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      dy = e.touches[0].clientY - startY;
+      if (dy <= 0) {                       // 上方向は通常スクロールに任せる
+        if (!fromHeader) { dragging = false; reset(); }
+        return;
+      }
+      if (!fromHeader && modal.scrollTop > 0) { dragging = false; reset(); return; }
+      if (e.cancelable) e.preventDefault();
+      modal.style.transform = 'translateY(' + dy + 'px)';
+      overlay.style.background = 'rgba(0,0,0,' + Math.max(0, 0.5 - dy / 700).toFixed(3) + ')';
+    }, { passive: false });
+
+    const finish = () => {
+      if (!dragging) return;
+      dragging = false;
+      const v = dy / Math.max(1, Date.now() - startT);   // px/ms
+      modal.style.transition = 'transform 0.22s ease';
+      overlay.style.background = '';
+      if (dy > 110 || (v > 0.6 && dy > 60)) {             // 一定距離 or 勢いよく振り下ろしたら閉じる（フリックも最低60pxは必要）
+        modal.style.transform = 'translateY(100%)';
+        setTimeout(() => { closeModal(); reset(); }, 200);
+      } else {
+        modal.style.transform = '';                       // 戻す
+        setTimeout(() => { modal.style.transition = ''; }, 240);
+      }
+      dy = 0;
+    };
+    modal.addEventListener('touchend', finish);
+    modal.addEventListener('touchcancel', finish);
+  })();
 
   function switchTab(tab, btn) {
     currentTab = tab;
@@ -10985,8 +11440,10 @@
         const t   = this.dataset.selType;
         if (t === 'shurui') {
           currentShurui = currentShurui === val ? null : val;
+          autoGuessLock.shurui = true;   // 手動で選んだら以降は推測しない
         } else {
           currentKikan = currentKikan === val ? null : val;
+          autoGuessLock.kikan = true;
         }
         // 全suffix分の表示（右側のバッジ）を更新
         ['later','time','repeat'].forEach(s => updateSelectorDisplay(s));
@@ -11010,6 +11467,7 @@
   }
 
   function updateSelectorDisplay(suffix) {
+    if (typeof updateModalIcon === 'function') updateModalIcon();
     const sDisp = document.getElementById(`shurui-display-${suffix}`);
     const kDisp = document.getElementById(`kikan-display-${suffix}`);
     if (sDisp) {
@@ -14291,7 +14749,8 @@
 .tdy-row{display:flex;align-items:center;gap:11px;padding:8px 2px}
 .tdy-ico{width:44px;height:44px;flex:none;border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
 .tdy-ico svg{width:44px;height:44px;display:block}
-.tdy-check{width:44px;height:44px;flex:none;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6c5ce7}
+.tdy-check{width:44px;height:44px;flex:none;border:none;background:transparent;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6c5ce7;-webkit-tap-highlight-color:transparent}
+.tdy-check svg{width:44px;height:44px;display:block}
 .tdy-body{flex:1;min-width:0;cursor:pointer}
 .tdy-rep{display:flex;align-items:center;gap:4px;color:#9aa0c8;font-size:11px;margin-bottom:1px}
 .tdy-rep svg{width:13px;height:13px}
@@ -14358,7 +14817,7 @@
   function cloudSvg(seed){
     return "<svg viewBox='0 0 56 56' xmlns='http://www.w3.org/2000/svg'><path d='"+CLOUD+"' fill='#fff' stroke='#2A3334' stroke-width='2.2'/>"+face(hashStr(seed)%4)+"</svg>";
   }
-  var CHECK="<svg viewBox='0 0 56 56'><circle cx='28' cy='28' r='17' fill='none' stroke='#6c5ce7' stroke-width='2.4' opacity='.32'/><path d='M20 28.5 l5.5 5.5 11-12' fill='none' stroke='#6c5ce7' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+  var CHECK="<svg width='44' height='44' viewBox='0 0 56 56'><circle cx='28' cy='28' r='17' fill='none' stroke='#6c5ce7' stroke-width='2.4' opacity='.32'/><path d='M20 28.5 l5.5 5.5 11-12' fill='none' stroke='#6c5ce7' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>";
   var REPICON="<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M3 12a9 9 0 0 1 15-6.7L21 8'/><path d='M21 3v5h-5'/><path d='M21 12a9 9 0 0 1-15 6.7L3 16'/><path d='M3 21v-5h5'/></svg>";
   var PEN="<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 20h9'/><path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z'/></svg>";
 
