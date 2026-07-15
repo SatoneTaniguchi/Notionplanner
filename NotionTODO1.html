@@ -3310,50 +3310,232 @@
         </div>
       </div>
 
-      <!-- 繰り返しタブ -->
+      <!-- Googleタブ（Googleカレンダー準拠の予定作成UI） -->
       <div id="tabGoogle" style="display:none;flex-direction:column;">
+        <style>
+          /* ===== Googleタブ専用スタイル（#tabGoogle 配下のみに適用） ===== */
+          #tabGoogle .gt-seg{display:flex;gap:10px;margin:0 0 6px;}
+          #tabGoogle .gt-seg button{border:1px solid #dadce0;background:#fff;color:#3c4043;border-radius:20px;padding:8px 22px;font-size:14px;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s;}
+          #tabGoogle .gt-seg button.on{background:#d3e3fd;border-color:#d3e3fd;color:#0b57d0;font-weight:600;}
+          #tabGoogle .gt-row{display:flex;align-items:center;gap:14px;min-height:46px;padding:2px 0;}
+          #tabGoogle .gt-row.top{align-items:flex-start;}
+          #tabGoogle .gt-ico{width:22px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;color:#5f6368;margin-top:0;}
+          #tabGoogle .gt-ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+          #tabGoogle .gt-ind{padding-left:36px;}
+          #tabGoogle .gt-grow{flex:1;min-width:0;}
+          #tabGoogle .gt-lab{font-size:15px;color:#3c4043;}
+          #tabGoogle .gt-sub{font-size:11.5px;color:#80868b;line-height:1.6;}
+          #tabGoogle .gt-div{height:1px;background:#e8eaed;margin:12px 0;}
+          /* トグル */
+          #tabGoogle .gt-sw{position:relative;width:44px;height:24px;flex:0 0 44px;cursor:pointer;}
+          #tabGoogle .gt-sw input{position:absolute;opacity:0;width:0;height:0;}
+          #tabGoogle .gt-sw i{position:absolute;inset:0;background:#e0e0e0;border-radius:12px;transition:background .18s;}
+          #tabGoogle .gt-sw i::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.28);transition:transform .18s;}
+          #tabGoogle .gt-sw input:checked + i{background:#0b57d0;}
+          #tabGoogle .gt-sw input:checked + i::after{transform:translateX(20px);}
+          /* 入力 */
+          #tabGoogle .gt-dt{border:none;background:transparent;font-size:15px;color:#3c4043;font-family:inherit;padding:9px 6px;border-radius:8px;outline:none;min-width:0;}
+          #tabGoogle .gt-dt:focus{background:#f1f3f4;}
+          #tabGoogle .gt-in{width:100%;box-sizing:border-box;border:none;background:transparent;font-size:15px;color:#3c4043;font-family:inherit;padding:12px 0;outline:none;}
+          #tabGoogle .gt-in::placeholder{color:#80868b;}
+          #tabGoogle textarea.gt-in{resize:vertical;min-height:44px;line-height:1.6;}
+          #tabGoogle .gt-sel{border:none;background:transparent;font-size:15px;color:#3c4043;font-family:inherit;padding:9px 22px 9px 4px;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer;border-radius:8px;
+            background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235f6368' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M8 9l4-4 4 4M8 15l4 4 4-4'/></svg>");background-repeat:no-repeat;background-position:right 2px center;}
+          #tabGoogle .gt-sel:focus{background-color:#f1f3f4;}
+          #tabGoogle .gt-num{width:56px;border:1px solid #dadce0;border-radius:8px;padding:7px 8px;font-size:14px;font-family:inherit;color:#3c4043;outline:none;background:#fff;}
+          #tabGoogle .gt-link{background:none;border:none;color:#80868b;font-size:14px;font-family:inherit;padding:8px 0;cursor:pointer;text-align:left;}
+          #tabGoogle .gt-link:hover{color:#0b57d0;}
+          #tabGoogle .gt-btn{background:#f1f3f4;border:none;color:#0b57d0;font-size:13px;font-weight:600;font-family:inherit;border-radius:8px;padding:8px 12px;cursor:pointer;flex:0 0 auto;}
+          /* カレンダーチップ */
+          #tabGoogle .gt-acct{display:flex;align-items:center;gap:12px;padding:2px 0 8px;}
+          #tabGoogle .gt-avatar{width:30px;height:30px;border-radius:50%;background:#3c4043;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:0 0 30px;}
+          #tabGoogle .gt-cals{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+          #tabGoogle .gt-cals::-webkit-scrollbar{display:none;}
+          #tabGoogle .gt-cal{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border:1px solid #dadce0;background:#fff;border-radius:20px;padding:8px 15px;font-size:13.5px;color:#3c4043;font-family:inherit;cursor:pointer;flex:0 0 auto;}
+          #tabGoogle .gt-cal.on{background:#d3e3fd;border-color:#d3e3fd;color:#0b57d0;font-weight:600;}
+          #tabGoogle .gt-cal i{width:10px;height:10px;border-radius:50%;flex:0 0 10px;display:block;}
+          /* ゲスト */
+          #tabGoogle .gt-guest{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:14px;color:#3c4043;}
+          #tabGoogle .gt-guest b{width:28px;height:28px;border-radius:50%;background:#5f6368;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:0 0 28px;}
+          #tabGoogle .gt-x{margin-left:auto;background:none;border:none;color:#80868b;font-size:17px;line-height:1;cursor:pointer;padding:4px 6px;font-family:inherit;flex:0 0 auto;}
+          /* 曜日ピッカー */
+          #tabGoogle .gt-dows{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+          #tabGoogle .gt-dow{width:32px;height:32px;border-radius:50%;border:1px solid #dadce0;background:#fff;color:#3c4043;font-size:12.5px;font-family:inherit;cursor:pointer;padding:0;}
+          #tabGoogle .gt-dow.on{background:#0b57d0;border-color:#0b57d0;color:#fff;font-weight:600;}
+          #tabGoogle .gt-card{background:#f8f9fa;border-radius:12px;padding:12px;margin-top:8px;}
+        </style>
+
         <div class="modal-section">
           <div id="gtabNeedAuth" style="display:none;background:#fff4e5;border:1px solid #ffd8a8;border-radius:12px;padding:12px;font-size:12.5px;color:#a15c00;line-height:1.6;">
             Googleカレンダーへの書き込みが未許可です。
             <button type="button" onclick="gcalRequestWriteScope()" style="display:block;margin-top:8px;background:#ff9500;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;">編集を有効化（再認証）</button>
           </div>
+
           <div id="gtabForm">
-            <label style="display:flex;align-items:center;justify-content:space-between;font-size:14px;color:#1c1c1e;cursor:pointer;margin-bottom:12px;">
-              <span>終日</span>
-              <input id="gtabAllDay" type="checkbox" onchange="gtabToggleAllDay()" style="width:20px;height:20px;accent-color:#34c759;">
-            </label>
 
-            <div id="gtabTimedRow" style="display:flex;flex-direction:column;gap:10px;">
-              <div style="min-width:0;">
-                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始</label>
-                <input id="gtabStart" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
-              </div>
-              <div style="min-width:0;">
-                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了</label>
-                <input id="gtabEnd" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
+            <!-- 予定 / タスク / 誕生日 -->
+            <div class="gt-seg" id="gtabKindSeg">
+              <button type="button" class="on" data-gtab-kind="event"    onclick="gtabSetKind('event')">予定</button>
+              <button type="button"            data-gtab-kind="task"     onclick="gtabSetKind('task')">タスク</button>
+              <button type="button"            data-gtab-kind="birthday" onclick="gtabSetKind('birthday')">誕生日</button>
+            </div>
+
+            <!-- タスク種別（Google Tasks は未対応） -->
+            <div id="gtabTaskNote" style="display:none;" class="gt-card">
+              <div style="font-size:13px;color:#3c4043;line-height:1.7;">
+                Googleタスクの作成には対応していません（Google Tasks API の権限が別途必要です）。<br>
+                タスクとして追加する場合は <b>「あとで」</b> または <b>「時間指定」</b> タブをご利用ください。
               </div>
             </div>
 
-            <div id="gtabAllDayRow" style="display:none;gap:10px;">
-              <div style="flex:1;min-width:0;">
-                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始日</label>
-                <input id="gtabStartDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
+            <div id="gtabEventBody">
+              <div class="gt-div"></div>
+
+              <!-- 終日 -->
+              <div class="gt-row" id="gtabAllDayRow">
+                <span class="gt-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                <span class="gt-lab gt-grow">終日</span>
+                <label class="gt-sw"><input id="gtabAllDay" type="checkbox" onchange="gtabToggleAllDay()"><i></i></label>
               </div>
-              <div style="flex:1;min-width:0;">
-                <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了日（含む）</label>
-                <input id="gtabEndDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;background:#fff;font-family:inherit;">
+
+              <!-- 開始 -->
+              <div class="gt-row gt-ind">
+                <input id="gtabStartDate" class="gt-dt gt-grow" type="date" onchange="gtabOnStartChange()">
+                <input id="gtabStartTime" class="gt-dt gtab-time" type="time" onchange="gtabOnStartChange()">
+              </div>
+              <!-- 終了 -->
+              <div class="gt-row gt-ind" id="gtabEndRow">
+                <input id="gtabEndDate" class="gt-dt gt-grow" type="date">
+                <input id="gtabEndTime" class="gt-dt gtab-time" type="time">
+              </div>
+
+              <!-- 詳細オプション -->
+              <div class="gt-ind">
+                <button type="button" id="gtabAdvBtn" class="gt-link" onclick="gtabToggleAdv()">詳細オプション</button>
+              </div>
+
+              <div id="gtabAdv" style="display:none;">
+                <!-- タイムゾーン -->
+                <div class="gt-row">
+                  <span class="gt-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg></span>
+                  <span class="gt-lab gt-grow" id="gtabTzLabel">-</span>
+                </div>
+                <!-- 繰り返し -->
+                <div class="gt-row">
+                  <span class="gt-ico"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg></span>
+                  <select id="gtabRepeat" class="gt-sel gt-grow" onchange="gtabOnRepeatChange()">
+                    <option value="none">繰り返さない</option>
+                    <option value="daily">毎日</option>
+                    <option value="weekly">毎週</option>
+                    <option value="monthly">毎月</option>
+                    <option value="yearly">毎年</option>
+                    <option value="custom">カスタム...</option>
+                  </select>
+                </div>
+                <!-- カスタム繰り返し -->
+                <div id="gtabCustom" class="gt-card gt-ind" style="display:none;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span class="gt-lab">繰り返す間隔</span>
+                    <input id="gtabCustInt" class="gt-num" type="number" min="1" max="99" value="1" onchange="gtabRenderCustom()">
+                    <select id="gtabCustFreq" class="gt-sel" onchange="gtabRenderCustom()">
+                      <option value="DAILY">日</option>
+                      <option value="WEEKLY" selected>週間</option>
+                      <option value="MONTHLY">か月</option>
+                      <option value="YEARLY">年</option>
+                    </select>
+                  </div>
+                  <div id="gtabCustDowWrap" style="margin-top:10px;">
+                    <div class="gt-sub">繰り返す曜日</div>
+                    <div class="gt-dows" id="gtabCustDows">
+                      <button type="button" class="gt-dow" data-gtab-dow="SU" onclick="gtabToggleDow(this)">日</button>
+                      <button type="button" class="gt-dow" data-gtab-dow="MO" onclick="gtabToggleDow(this)">月</button>
+                      <button type="button" class="gt-dow" data-gtab-dow="TU" onclick="gtabToggleDow(this)">火</button>
+                      <button type="button" class="gt-dow" data-gtab-dow="WE" onclick="gtabToggleDow(this)">水</button>
+                      <button type="button" class="gt-dow" data-gtab-dow="TH" onclick="gtabToggleDow(this)">木</button>
+                      <button type="button" class="gt-dow" data-gtab-dow="FR" onclick="gtabToggleDow(this)">金</button>
+                      <button type="button" class="gt-dow" data-gtab-dow="SA" onclick="gtabToggleDow(this)">土</button>
+                    </div>
+                  </div>
+                  <div style="margin-top:12px;">
+                    <div class="gt-sub">終了日</div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                      <select id="gtabCustEndType" class="gt-sel" onchange="gtabRenderCustom()">
+                        <option value="never">なし</option>
+                        <option value="until">終了日</option>
+                        <option value="count">実行回数</option>
+                      </select>
+                      <input id="gtabCustUntil" class="gt-num" style="width:auto;" type="date">
+                      <span id="gtabCustCountWrap" style="display:none;align-items:center;gap:6px;">
+                        <input id="gtabCustCount" class="gt-num" type="number" min="1" max="730" value="10">
+                        <span class="gt-lab">回</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="gt-sub" id="gtabCustPreview" style="margin-top:10px;"></div>
+                </div>
+              </div>
+
+              <div class="gt-div"></div>
+
+              <!-- アカウント & カレンダー -->
+              <div class="gt-acct">
+                <span class="gt-avatar" id="gtabAvatar">?</span>
+                <span class="gt-lab gt-grow" id="gtabAccount" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">-</span>
+              </div>
+              <div class="gt-cals" id="gtabCalArea"></div>
+
+              <div class="gt-div"></div>
+
+              <!-- ゲスト -->
+              <div id="gtabGuestSection">
+                <div class="gt-row">
+                  <span class="gt-ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 8.2a3 3 0 0 1 0 5.6M17.5 14.8c2.1.6 3.5 2.4 3.5 5.2"/></svg></span>
+                  <input id="gtabGuestInput" class="gt-in gt-grow" type="email" inputmode="email" autocomplete="off" placeholder="ゲストを追加" onkeydown="gtabGuestKey(event)">
+                  <button type="button" class="gt-btn" onclick="gtabAddGuest()">追加</button>
+                </div>
+                <div id="gtabGuestList" class="gt-ind"></div>
+              </div>
+
+              <!-- ビデオ会議 -->
+              <div class="gt-row">
+                <span class="gt-ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="13" height="12" rx="2"/><path d="M15 10.5l7-3.5v10l-7-3.5z"/></svg></span>
+                <span class="gt-lab gt-grow" id="gtabMeetLabel" style="color:#80868b;">ビデオ会議を追加</span>
+                <button type="button" class="gt-btn" id="gtabMeetBtn" onclick="gtabToggleMeet()">追加</button>
+              </div>
+
+              <!-- 場所 -->
+              <div class="gt-row">
+                <span class="gt-ico"><svg viewBox="0 0 24 24"><path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+                <input id="gtabLocation" class="gt-in gt-grow" type="text" placeholder="場所を追加">
+              </div>
+
+              <div class="gt-div"></div>
+
+              <!-- 通知 -->
+              <div class="gt-row top" style="padding-top:8px;">
+                <span class="gt-ico" style="margin-top:10px;"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+                <div class="gt-grow">
+                  <div id="gtabRemArea"></div>
+                  <button type="button" class="gt-link" onclick="gtabAddReminder()">＋ 通知を追加</button>
+                </div>
+              </div>
+
+              <div class="gt-div"></div>
+
+              <!-- 説明 -->
+              <div class="gt-row top">
+                <span class="gt-ico" style="margin-top:12px;"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 11h16M4 16h10"/></svg></span>
+                <textarea id="gtabDesc" class="gt-in gt-grow" rows="2" placeholder="説明を追加"></textarea>
               </div>
             </div>
 
-            <div style="margin-top:14px;">
-              <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">カレンダー</label>
-              <div id="gtabCalArea"></div>
-            </div>
-            <div style="font-size:11px;color:#a9a6b8;margin-top:10px;line-height:1.6;">
-              上のタスク名がそのまま予定のタイトルになります。保存するとGoogleカレンダーに予定だけを作成します（Notionのタスクは作りません）。
+            <div class="gt-sub" style="margin-top:12px;">
+              上のタスク名がそのまま予定のタイトルになります。保存するとGoogleカレンダーに予定だけを作成します（Notionのタスクは作りません）。<br>
+              ゲスト・場所・ビデオ会議・通知・繰り返しも、そのままGoogleカレンダーに反映されます。
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       <div id="tabRepeat" style="display:none;">
@@ -13132,73 +13314,473 @@
   }
 
   // 保存（新規=insert / 編集=patch）
-  // ── タスク追加モーダルの「Google」タブ ──
+  // ── タスク追加モーダルの「Google」タブ（Googleカレンダー準拠UI） ──
+  // 反映される項目：タイトル / 終日・期間 / タイムゾーン / 繰り返し(RRULE) /
+  //                 カレンダー / ゲスト(attendees) / ビデオ会議(Meet) / 場所 / 通知 / 説明
+  const gtabState = {
+    inited: false,
+    needsReset: false,
+    kind: 'event',        // 'event' | 'task' | 'birthday'
+    calId: null,
+    guests: [],           // ['a@example.com', ...]
+    meet: false,
+    reminders: []         // [{ method:'popup'|'email', minutes:Number }]
+  };
+
+  // モーダルが閉じたら、次に開いたときフォームを初期化する
+  (function gtabWatchModal() {
+    const ov = document.getElementById('modalOverlay');
+    if (!ov) { setTimeout(gtabWatchModal, 500); return; }
+    try {
+      new MutationObserver(() => {
+        if (!ov.classList.contains('open')) gtabState.needsReset = true;
+      }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+    } catch (e) {}
+  })();
+
+  function gtabEl(id) { return document.getElementById(id); }
+  function gtabVal(id) { const e = gtabEl(id); return e ? (e.value || '') : ''; }
+  function gtabTimeInputStr(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function gtabIsAllDay() {
+    if (gtabState.kind === 'birthday') return true;
+    return !!(gtabEl('gtabAllDay') || {}).checked;
+  }
+
   function gtabInit() {
-    const need = document.getElementById('gtabNeedAuth');
-    const form = document.getElementById('gtabForm');
+    const need = gtabEl('gtabNeedAuth');
+    const form = gtabEl('gtabForm');
     const canWrite = (typeof gcalHasWriteScope !== 'undefined') && gcalHasWriteScope;
     if (need) need.style.display = canWrite ? 'none' : 'block';
     if (form) form.style.display = canWrite ? 'block' : 'none';
     if (!canWrite) return;
-
-    // 初期値：TODOで選択中の日付の12:00〜13:00
-    const base = new Date(currentDate); base.setHours(12, 0, 0, 0);
-    const end = new Date(base); end.setHours(13, 0, 0, 0);
-    const st = document.getElementById('gtabStart');
-    const en = document.getElementById('gtabEnd');
-    if (st && !st.value) st.value = gcalLocalInputStr(base);
-    if (en && !en.value) en.value = gcalLocalInputStr(end);
-    const sd = document.getElementById('gtabStartDate');
-    const ed = document.getElementById('gtabEndDate');
-    if (sd && !sd.value) sd.value = gcalDateInputStr(base);
-    if (ed && !ed.value) ed.value = gcalDateInputStr(base);
-    gtabToggleAllDay();
+    if (!gtabState.inited || gtabState.needsReset) gtabReset();
+    gtabRenderAccount();
     gtabRenderCals();
   }
+
+  // フォーム全体を初期状態へ（モーダルを開くたびに1回）
+  function gtabReset() {
+    gtabState.inited = true;
+    gtabState.needsReset = false;
+    gtabState.kind = 'event';
+    gtabState.calId = null;
+    gtabState.guests = [];
+    gtabState.meet = false;
+    gtabState.reminders = [{ method: 'popup', minutes: 30 }];
+
+    // 初期日時：選択中の日付が今日なら「次の30分区切り」、それ以外は 8:00（Googleと同じ考え方）
+    const base = new Date(currentDate);
+    const now = new Date();
+    let start;
+    if (base.toDateString() === now.toDateString()) {
+      start = new Date(now);
+      start.setSeconds(0, 0);
+      start.setMinutes(now.getMinutes() < 30 ? 30 : 60);
+    } else {
+      start = new Date(base); start.setHours(8, 0, 0, 0);
+    }
+    const end = new Date(start.getTime() + 60 * 60000);
+
+    if (gtabEl('gtabAllDay')) gtabEl('gtabAllDay').checked = false;
+    if (gtabEl('gtabStartDate')) gtabEl('gtabStartDate').value = gcalDateInputStr(start);
+    if (gtabEl('gtabStartTime')) gtabEl('gtabStartTime').value = gtabTimeInputStr(start);
+    if (gtabEl('gtabEndDate'))   gtabEl('gtabEndDate').value   = gcalDateInputStr(end);
+    if (gtabEl('gtabEndTime'))   gtabEl('gtabEndTime').value   = gtabTimeInputStr(end);
+    if (gtabEl('gtabRepeat'))    gtabEl('gtabRepeat').value    = 'none';
+    if (gtabEl('gtabLocation'))  gtabEl('gtabLocation').value  = '';
+    if (gtabEl('gtabDesc'))      gtabEl('gtabDesc').value      = '';
+    if (gtabEl('gtabGuestInput'))gtabEl('gtabGuestInput').value= '';
+    if (gtabEl('gtabCustInt'))   gtabEl('gtabCustInt').value   = '1';
+    if (gtabEl('gtabCustFreq'))  gtabEl('gtabCustFreq').value  = 'WEEKLY';
+    if (gtabEl('gtabCustEndType')) gtabEl('gtabCustEndType').value = 'never';
+    if (gtabEl('gtabCustCount')) gtabEl('gtabCustCount').value = '10';
+    document.querySelectorAll('#gtabCustDows [data-gtab-dow]').forEach(b => b.classList.remove('on'));
+
+    // 詳細オプションは畳んだ状態
+    if (gtabEl('gtabAdv')) gtabEl('gtabAdv').style.display = 'none';
+    if (gtabEl('gtabAdvBtn')) gtabEl('gtabAdvBtn').textContent = '詳細オプション';
+
+    gtabLastStart = new Date(start);
+    gtabRenderTz();
+    gtabSetKind('event');
+    gtabToggleAllDay();
+    gtabOnRepeatChange();
+    gtabRenderGuests();
+    gtabRenderMeet();
+    gtabRenderReminders();
+  }
+
+  // ---- 種別（予定 / タスク / 誕生日） ----
+  function gtabSetKind(kind) {
+    const wasBirthday = (gtabState.kind === 'birthday');
+    gtabState.kind = kind;
+    if (wasBirthday && kind !== 'birthday' && gtabEl('gtabRepeat')) gtabEl('gtabRepeat').value = 'none';
+    document.querySelectorAll('#gtabKindSeg [data-gtab-kind]').forEach(b => {
+      b.classList.toggle('on', b.dataset.gtabKind === kind);
+    });
+    const body = gtabEl('gtabEventBody');
+    const note = gtabEl('gtabTaskNote');
+    if (body) body.style.display = kind === 'task' ? 'none' : 'block';
+    if (note) note.style.display = kind === 'task' ? 'block' : 'none';
+
+    const isBd = kind === 'birthday';
+    // 誕生日：終日固定・終了日なし・毎年繰り返し・ゲスト/会議は非表示
+    const adRow = gtabEl('gtabAllDayRow');
+    if (adRow) adRow.style.display = isBd ? 'none' : 'flex';
+    const gsec = gtabEl('gtabGuestSection');
+    if (gsec) gsec.style.display = isBd ? 'none' : 'block';
+    if (isBd) {
+      const ed = gtabEl('gtabEndDate'), sd = gtabEl('gtabStartDate');
+      if (ed && sd) ed.value = sd.value;
+      gtabState.meet = false;
+      gtabRenderMeet();
+    }
+    gtabToggleAllDay();
+    gtabOnRepeatChange();
+    gtabRenderReminders();
+  }
+
+  // ---- 終日トグル ----
   function gtabToggleAllDay() {
-    const on = !!(document.getElementById('gtabAllDay') || {}).checked;
-    const t = document.getElementById('gtabTimedRow');
-    const a = document.getElementById('gtabAllDayRow');
-    if (t) t.style.display = on ? 'none' : 'flex';
-    if (a) a.style.display = on ? 'flex' : 'none';
+    const allDay = gtabIsAllDay();
+    document.querySelectorAll('#tabGoogle .gtab-time').forEach(el => {
+      el.style.display = allDay ? 'none' : '';
+    });
+    const endRow = gtabEl('gtabEndRow');
+    if (endRow) endRow.style.display = (gtabState.kind === 'birthday') ? 'none' : 'flex';
+    gtabRenderReminders();
+    gtabRenderCustom();
+  }
+
+  // ---- 開始を動かしたら終了も同じ長さで追従（Googleと同じ挙動） ----
+  let gtabLastStart = null;
+  function gtabOnStartChange() {
+    const sd = gtabVal('gtabStartDate'), st = gtabVal('gtabStartTime');
+    const ed = gtabVal('gtabEndDate'), et = gtabVal('gtabEndTime');
+    if (!sd) return;
+    if (gtabState.kind === 'birthday') { if (gtabEl('gtabEndDate')) gtabEl('gtabEndDate').value = sd; return; }
+    const allDay = gtabIsAllDay();
+    if (allDay) {
+      if (!ed || ed < sd) { if (gtabEl('gtabEndDate')) gtabEl('gtabEndDate').value = sd; }
+    } else {
+      if (!st) return;
+      const newStart = new Date(sd + 'T' + st);
+      let dur = 60 * 60000;
+      if (gtabLastStart && ed && et) {
+        const oldEnd = new Date(ed + 'T' + et);
+        const d = oldEnd - gtabLastStart;
+        if (d > 0) dur = d;
+      }
+      const newEnd = new Date(newStart.getTime() + dur);
+      if (gtabEl('gtabEndDate')) gtabEl('gtabEndDate').value = gcalDateInputStr(newEnd);
+      if (gtabEl('gtabEndTime')) gtabEl('gtabEndTime').value = gtabTimeInputStr(newEnd);
+      gtabLastStart = newStart;
+    }
+    gtabRenderCustom();
+  }
+
+  // ---- 詳細オプション ----
+  function gtabToggleAdv() {
+    const adv = gtabEl('gtabAdv');
+    if (!adv) return;
+    const show = adv.style.display === 'none';
+    gtabShowAdv(show);
+  }
+  function gtabShowAdv(show) {
+    const adv = gtabEl('gtabAdv'), btn = gtabEl('gtabAdvBtn');
+    if (adv) adv.style.display = show ? 'block' : 'none';
+    if (btn) btn.textContent = show ? '詳細オプションを閉じる' : '詳細オプション';
+  }
+  function gtabRenderTz() {
+    const el = gtabEl('gtabTzLabel');
+    if (!el) return;
+    let label = gcalTzName();
+    try {
+      const parts = new Intl.DateTimeFormat('ja-JP', { timeZoneName: 'long' }).formatToParts(new Date());
+      const tn = parts.find(p => p.type === 'timeZoneName');
+      if (tn && tn.value) label = tn.value;
+    } catch (e) {}
+    el.textContent = label;
+  }
+
+  // ---- 繰り返し ----
+  function gtabOnRepeatChange() {
+    const sel = gtabEl('gtabRepeat');
+    const cus = gtabEl('gtabCustom');
+    if (sel) sel.disabled = (gtabState.kind === 'birthday');
+    if (gtabState.kind === 'birthday') {
+      if (sel) sel.value = 'yearly';
+      if (cus) cus.style.display = 'none';
+      return;
+    }
+    if (cus) cus.style.display = (sel && sel.value === 'custom') ? 'block' : 'none';
+    gtabRenderCustom();
+  }
+  function gtabToggleDow(btn) { btn.classList.toggle('on'); gtabRenderCustom(); }
+  function gtabRenderCustom() {
+    const freq = gtabVal('gtabCustFreq');
+    const wrap = gtabEl('gtabCustDowWrap');
+    if (wrap) wrap.style.display = freq === 'WEEKLY' ? 'block' : 'none';
+    const et = gtabVal('gtabCustEndType');
+    const until = gtabEl('gtabCustUntil');
+    const cntW = gtabEl('gtabCustCountWrap');
+    if (until) until.style.display = et === 'until' ? '' : 'none';
+    if (cntW)  cntW.style.display  = et === 'count' ? 'inline-flex' : 'none';
+    const pv = gtabEl('gtabCustPreview');
+    if (pv) {
+      const r = gtabBuildRecurrence(gtabIsAllDay(), gtabVal('gtabStartDate'));
+      pv.textContent = r ? r[0] : '';
+    }
+  }
+  function gtabDowOfDate(ymd) {
+    if (!ymd) return 'MO';
+    const d = new Date(ymd + 'T00:00:00');
+    return ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][d.getDay()];
+  }
+  function gtabUtcStamp(d) {
+    return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  }
+  // → Google Calendar API の recurrence（RRULE配列）を組み立てる
+  function gtabBuildRecurrence(allDay, startYmd) {
+    if (gtabState.kind === 'birthday') return ['RRULE:FREQ=YEARLY'];
+    const v = gtabVal('gtabRepeat') || 'none';
+    if (v === 'none') return null;
+    if (v === 'daily')   return ['RRULE:FREQ=DAILY'];
+    if (v === 'weekly')  return ['RRULE:FREQ=WEEKLY;BYDAY=' + gtabDowOfDate(startYmd)];
+    if (v === 'monthly') return ['RRULE:FREQ=MONTHLY'];
+    if (v === 'yearly')  return ['RRULE:FREQ=YEARLY'];
+    // カスタム
+    const freq = gtabVal('gtabCustFreq') || 'WEEKLY';
+    const iv = Math.max(1, parseInt(gtabVal('gtabCustInt'), 10) || 1);
+    let r = 'FREQ=' + freq;
+    if (iv > 1) r += ';INTERVAL=' + iv;
+    if (freq === 'WEEKLY') {
+      const ds = Array.from(document.querySelectorAll('#gtabCustDows [data-gtab-dow].on')).map(b => b.dataset.gtabDow);
+      r += ';BYDAY=' + (ds.length ? ds.join(',') : gtabDowOfDate(startYmd));
+    }
+    const et = gtabVal('gtabCustEndType');
+    if (et === 'count') {
+      r += ';COUNT=' + Math.max(1, parseInt(gtabVal('gtabCustCount'), 10) || 1);
+    } else if (et === 'until') {
+      const u = gtabVal('gtabCustUntil');
+      if (u) {
+        if (allDay) r += ';UNTIL=' + u.replace(/-/g, '');
+        else r += ';UNTIL=' + gtabUtcStamp(new Date(u + 'T23:59:59'));
+      }
+    }
+    return ['RRULE:' + r];
+  }
+
+  // ---- アカウント / カレンダー ----
+  function gtabRenderAccount() {
+    let email = '';
+    try { email = (gtabEl('gcalUserInfo') || {}).textContent || localStorage.getItem('gcalUser') || ''; } catch (e) {}
+    const a = gtabEl('gtabAccount'), av = gtabEl('gtabAvatar');
+    if (a) a.textContent = email || '(アカウント不明)';
+    if (av) av.textContent = (email || '?').trim().charAt(0).toUpperCase() || '?';
   }
   function gtabRenderCals() {
-    const area = document.getElementById('gtabCalArea');
+    const area = gtabEl('gtabCalArea');
     if (!area) return;
     const writable = gcalGetWritableCalendars();
-    if (!writable.length) { area.innerHTML = '<div style="color:#ff3b30;font-size:13px;">書き込み可能なカレンダーがありません。</div>'; return; }
-    area.innerHTML = writable.map((c, i) => `
-      <label style="display:flex;align-items:center;gap:8px;padding:7px 0;font-size:14px;color:#1c1c1e;cursor:pointer;">
-        <input type="checkbox" data-gtab-cal="${c.id}" ${i === 0 ? 'checked' : ''} style="width:18px;height:18px;accent-color:#6c5ce7;">
-        <span style="width:11px;height:11px;border-radius:50%;background:${c.color || '#4285f4'};flex-shrink:0;"></span>${c.name || c.id}
-      </label>`).join('');
+    if (!writable.length) {
+      area.innerHTML = '<div style="color:#d93025;font-size:13px;padding:6px 0;">書き込み可能なカレンダーがありません。</div>';
+      gtabState.calId = null;
+      return;
+    }
+    if (!gtabState.calId || !writable.some(c => c.id === gtabState.calId)) {
+      const pri = writable.find(c => c.primary);
+      gtabState.calId = (pri || writable[0]).id;
+    }
+    area.innerHTML = writable.map(c => `
+      <button type="button" class="gt-cal${c.id === gtabState.calId ? ' on' : ''}" data-gtab-cal="${c.id}" onclick="gtabSelectCal('${String(c.id).replace(/'/g, "\\'")}')">
+        <i style="background:${c.color || '#4285f4'};"></i>${(c.name || c.id)}
+      </button>`).join('');
   }
-  // Googleタブから予定を作成（Googleカレンダーと同じ仕様）
+  function gtabSelectCal(id) { gtabState.calId = id; gtabRenderCals(); }
+
+  // ---- ゲスト（attendees） ----
+  function gtabGuestKey(e) {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); gtabAddGuest(); }
+  }
+  function gtabAddGuest() {
+    const inp = gtabEl('gtabGuestInput');
+    if (!inp) return;
+    const v = (inp.value || '').trim().replace(/[,;]$/, '');
+    if (!v) return;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { alert('メールアドレスの形式で入力してください。'); return; }
+    if (!gtabState.guests.includes(v)) gtabState.guests.push(v);
+    inp.value = '';
+    gtabRenderGuests();
+  }
+  function gtabRemoveGuest(i) { gtabState.guests.splice(i, 1); gtabRenderGuests(); }
+  function gtabRenderGuests() {
+    const box = gtabEl('gtabGuestList');
+    if (!box) return;
+    box.innerHTML = gtabState.guests.map((g, i) => `
+      <div class="gt-guest">
+        <b>${g.charAt(0).toUpperCase()}</b>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${g}</span>
+        <button type="button" class="gt-x" onclick="gtabRemoveGuest(${i})">×</button>
+      </div>`).join('');
+  }
+
+  // ---- ビデオ会議（Google Meet） ----
+  function gtabToggleMeet() {
+    gtabState.meet = !gtabState.meet;
+    gtabRenderMeet();
+  }
+  function gtabRenderMeet() {
+    const lab = gtabEl('gtabMeetLabel'), btn = gtabEl('gtabMeetBtn');
+    if (lab) {
+      lab.textContent = gtabState.meet ? 'Google Meet の会議を追加します（保存時に発行）' : 'ビデオ会議を追加';
+      lab.style.color = gtabState.meet ? '#3c4043' : '#80868b';
+    }
+    if (btn) {
+      btn.textContent = gtabState.meet ? '削除' : '追加';
+      btn.style.color = gtabState.meet ? '#d93025' : '#0b57d0';
+    }
+  }
+
+  // ---- 通知（reminders.overrides） ----
+  function gtabReminderOptions() {
+    // 終日：開始日 0:00 を基準にした「◯分前」（Google API仕様に合わせて0以上のみ）
+    if (gtabIsAllDay()) {
+      return [[0, '当日 0:00'], [420, '前日 17:00'], [900, '前日 9:00'], [1440, '1日前 0:00'], [2340, '2日前 9:00'], [9540, '1週間前 9:00']];
+    }
+    return [[0, '開始時刻'], [5, '5分前'], [10, '10分前'], [15, '15分前'], [30, '30分前'], [60, '1時間前'], [120, '2時間前'], [1440, '1日前'], [2880, '2日前'], [10080, '1週間前']];
+  }
+  function gtabAddReminder() {
+    if (gtabState.reminders.length >= 5) { alert('通知は5件までです（Googleカレンダーの上限）。'); return; }
+    const def = gtabIsAllDay() ? 900 : 30;
+    gtabState.reminders.push({ method: 'popup', minutes: def });
+    gtabRenderReminders();
+  }
+  function gtabRemoveReminder(i) { gtabState.reminders.splice(i, 1); gtabRenderReminders(); }
+  function gtabSetReminder(i, field, value) {
+    if (!gtabState.reminders[i]) return;
+    gtabState.reminders[i][field] = (field === 'minutes') ? parseInt(value, 10) : value;
+  }
+  function gtabRenderReminders() {
+    const box = gtabEl('gtabRemArea');
+    if (!box) return;
+    const opts = gtabReminderOptions();
+    if (!gtabState.reminders.length) {
+      box.innerHTML = '<div class="gt-sub" style="padding:6px 0;">通知なし（カレンダーの既定の通知を使用）</div>';
+      return;
+    }
+    // 終日⇄時間指定を切り替えたとき、選択肢に無い値を近い値へ寄せる
+    gtabState.reminders.forEach(r => {
+      if (!opts.some(o => o[0] === r.minutes)) {
+        let best = opts[0][0], diff = Infinity;
+        opts.forEach(o => { const d = Math.abs(o[0] - r.minutes); if (d < diff) { diff = d; best = o[0]; } });
+        r.minutes = best;
+      }
+    });
+    box.innerHTML = gtabState.reminders.map((r, i) => `
+      <div style="display:flex;align-items:center;gap:4px;">
+        <select class="gt-sel" onchange="gtabSetReminder(${i},'method',this.value)">
+          <option value="popup"${r.method === 'popup' ? ' selected' : ''}>通知</option>
+          <option value="email"${r.method === 'email' ? ' selected' : ''}>メール</option>
+        </select>
+        <select class="gt-sel" style="flex:1;min-width:0;" onchange="gtabSetReminder(${i},'minutes',this.value)">
+          ${opts.map(o => `<option value="${o[0]}"${o[0] === r.minutes ? ' selected' : ''}>${o[1]}</option>`).join('')}
+        </select>
+        <button type="button" class="gt-x" onclick="gtabRemoveReminder(${i})">×</button>
+      </div>`).join('');
+  }
+
+  // ---- 追加用 insert（conferenceDataVersion / sendUpdates を付けられる版） ----
+  async function gtabApiInsert(calId, body, params) {
+    const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`);
+    Object.keys(params || {}).forEach(k => url.searchParams.set(k, params[k]));
+    const r = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + gcalAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (r.status === 401) { gcalHandleExpired(); throw new Error('認証の有効期限が切れています。再接続してください。'); }
+    if (r.status === 403) { throw new Error('書き込み権限がありません（カレンダーの権限・スコープを確認してください）。'); }
+    if (!r.ok) {
+      let msg = '追加に失敗 (' + r.status + ')';
+      try { const j = await r.json(); if (j.error && j.error.message) msg += ': ' + j.error.message; } catch (e) {}
+      throw new Error(msg);
+    }
+    return r.json();
+  }
+
+  // Googleタブから予定を作成（Googleカレンダーと同じ項目を反映）
   async function gtabCreateEvent(title) {
     if (!gcalHasWriteScope) { gcalRequestWriteScope(); return false; }
+    if (gtabState.kind === 'task') {
+      alert('Googleタスクの作成には対応していません。\n「あとで」「時間指定」タブから通常のタスクとして追加してください。');
+      return false;
+    }
+    if (!gtabState.calId) { alert('追加先カレンダーを選択してください。'); return false; }
+
     const body = { summary: (title || '').trim() || '(タイトルなし)' };
-    const allDay = !!(document.getElementById('gtabAllDay') || {}).checked;
+    const allDay = gtabIsAllDay();
+    const sd = gtabVal('gtabStartDate');
+    let   ed = gtabVal('gtabEndDate');
+    if (gtabState.kind === 'birthday') ed = sd;
+
     if (allDay) {
-      const sd = (document.getElementById('gtabStartDate') || {}).value;
-      const ed = (document.getElementById('gtabEndDate') || {}).value;
       if (!sd || !ed) { alert('日付を入力してください。'); return false; }
       if (ed < sd) { alert('終了日は開始日以降にしてください。'); return false; }
       body.start = { date: sd };
       body.end   = { date: gcalAddDaysStr(ed, 1) };  // Googleの終日endは排他的
     } else {
-      const st = (document.getElementById('gtabStart') || {}).value;
-      const en = (document.getElementById('gtabEnd') || {}).value;
-      if (!st || !en) { alert('開始/終了時刻を入力してください。'); return false; }
-      if (new Date(en) <= new Date(st)) { alert('終了は開始より後にしてください。'); return false; }
+      const st = gtabVal('gtabStartTime'), en = gtabVal('gtabEndTime');
+      if (!sd || !st || !ed || !en) { alert('開始/終了日時を入力してください。'); return false; }
+      const s = sd + 'T' + st, e = ed + 'T' + en;
+      if (new Date(e) <= new Date(s)) { alert('終了は開始より後にしてください。'); return false; }
       const tz = gcalTzName();
-      body.start = { dateTime: gcalLocalToRFC3339(st), timeZone: tz };
-      body.end   = { dateTime: gcalLocalToRFC3339(en), timeZone: tz };
+      body.start = { dateTime: gcalLocalToRFC3339(s), timeZone: tz };
+      body.end   = { dateTime: gcalLocalToRFC3339(e), timeZone: tz };
     }
-    const calIds = Array.from(document.querySelectorAll('[data-gtab-cal]:checked')).map(i => i.dataset.gtabCal);
-    if (!calIds.length) { alert('追加先カレンダーを選択してください。'); return false; }
+
+    // 繰り返し
+    const rec = gtabBuildRecurrence(allDay, sd);
+    if (rec) body.recurrence = rec;
+
+    // 場所 / 説明
+    const loc = gtabVal('gtabLocation').trim();
+    if (loc) body.location = loc;
+    const desc = gtabVal('gtabDesc').trim();
+    if (desc) body.description = desc;
+
+    // ゲスト
+    if (gtabState.kind !== 'birthday' && gtabState.guests.length) {
+      body.attendees = gtabState.guests.map(email => ({ email }));
+    }
+
+    // 通知
+    if (gtabState.reminders.length) {
+      body.reminders = { useDefault: false, overrides: gtabState.reminders.slice(0, 5).map(r => ({ method: r.method, minutes: r.minutes })) };
+    } else {
+      body.reminders = { useDefault: true };
+    }
+
+    // ビデオ会議（Google Meet）
+    const params = {};
+    if (gtabState.meet && gtabState.kind !== 'birthday') {
+      body.conferenceData = {
+        createRequest: {
+          requestId: 'gtab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      };
+      params.conferenceDataVersion = 1;
+    }
+    if (body.attendees) params.sendUpdates = 'all';
+
     try {
-      for (const cid of calIds) { await gcalApiInsert(cid, body); }
+      await gtabApiInsert(gtabState.calId, body, params);
       await gcalAfterWrite();
+      gtabState.needsReset = true;
       return true;
     } catch (err) {
       alert('保存に失敗しました: ' + (err.message || err));
