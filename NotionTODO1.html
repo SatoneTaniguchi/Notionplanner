@@ -2457,6 +2457,53 @@
   .rsel { border:1.5px solid #e3e0f0; border-radius:10px; padding:8px 10px; font-size:15px; font-weight:600; color:#6c5ce7; background:#fff; font-family:inherit; }
   .mz-fill{border:1.5px solid #d8d2f5;background:#fff;color:#6c5ce7;border-radius:12px;padding:5px 14px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
   .mz-fill.on{background:#6c5ce7;border-color:#6c5ce7;color:#fff;}
+
+  /* ===== 所要時間：横1行スクロール =====
+     .duration-options（flex-wrap:wrap）が .duration-scroll より後に定義されていて
+     同じ詳細度のため wrap が勝ってしまい、折り返したままだった。
+     詳細度を上げて確実に nowrap にする。 */
+  .duration-options.duration-scroll {
+    flex-wrap: nowrap;
+    overflow: visible;
+  }
+  .duration-options.duration-scroll .duration-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .duration-scroll-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  /* ===== 開始時刻の行：今すぐを左、時刻を右端（日付行と同じ位置）に ===== */
+  .starttime-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .starttime-row .st-time {
+    margin-left: auto;   /* 時刻ボタンを右端へ寄せる（今すぐが無い場所でも右端になる） */
+  }
+
+  /* ===== 所要時間ドラムロール：画面中央のポップアップに ===== */
+  #drumOverlay {
+    align-items: center;
+    justify-content: center;
+    padding: 0 24px;
+    -webkit-backdrop-filter: blur(1px);
+    backdrop-filter: blur(1px);
+  }
+  #drumOverlay .drum-sheet {
+    width: 100%;
+    max-width: 360px;
+    border-radius: 26px;
+    padding: 0 0 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+    animation: timePopIn 0.18s ease;
+  }
+  #drumOverlay .drum-header { border-bottom: none; padding: 18px 20px 4px; }
+  #drumOverlay .drum-body { height: 200px; }
 </style>
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -3238,17 +3285,17 @@
           </div>
           <!-- 時刻表示ボタン（タップでドラムロール開閉） -->
           <div id="timePickerArea">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div onclick="openStartTimePop()" id="timeDisplayBtn" style="
+          <div class="starttime-row">
+          <button type="button" id="nowBtn" onclick="openNowPopup()" style="
+            display:inline-flex;align-items:center;gap:4px;background:#6c5ce7;color:#fff;
+            border:none;border-radius:10px;padding:9px 14px;font-size:14px;font-weight:600;
+            font-family:inherit;cursor:pointer;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg> 今すぐ</button>
+          <div onclick="openStartTimePop()" id="timeDisplayBtn" class="st-time" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
             <span id="timeDisplayLabel" style="font-size:16px;font-weight:600;color:#6c5ce7;letter-spacing:0.5px;">07:00</span>
             <span id="timeDisplayArrow" style="font-size:13px;color:#8e8e93;margin-left:4px;">∨</span>
           </div>
-          <button type="button" id="nowBtn" onclick="openNowPopup()" style="
-            display:inline-flex;align-items:center;gap:4px;background:#6c5ce7;color:#fff;
-            border:none;border-radius:10px;padding:9px 14px;font-size:14px;font-weight:600;
-            font-family:inherit;cursor:pointer;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg> 今すぐ</button>
           </div>
 
           <!-- ドラムロール（初期非表示） -->
@@ -3658,11 +3705,13 @@
             </div>
           </div>
           <div id="repeatTimePickerArea">
-          <div onclick="openRepeatTimePop()" id="repeatTimeDisplayBtn" style="
+          <div class="starttime-row">
+          <div onclick="openRepeatTimePop()" id="repeatTimeDisplayBtn" class="st-time" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
             <span id="repeatTimeDisplayLabel" style="font-size:16px;font-weight:600;color:#6c5ce7;letter-spacing:0.5px;">07:00</span>
             <span id="repeatTimeDisplayArrow" style="font-size:13px;color:#8e8e93;margin-left:4px;">∨</span>
+          </div>
           </div>
           <div id="repeatDrumPickerContainer" style="display:none;margin-top:10px;">
             <div class="drum-picker-wrap" id="repeatDrumTimePicker">
