@@ -3145,16 +3145,23 @@
             <div class="duration-label">
               <span><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> 所要時間
             </div>
-            <button style="background:none;border:none;color:#8e8e93;font-size:18px;cursor:pointer;">⚙</button>
+            <button id="laterDurationCustomBtn" title="カスタム（ドラムロール）" style="background:#f2f2f7;border:none;border-radius:10px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;color:#8e8e93;cursor:pointer;padding:0;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
           </div>
-          <div class="duration-options">
-            <button class="duration-btn selected" onclick="selectDuration(this)">なし</button>
-            <button class="duration-btn" onclick="selectDuration(this)">5分</button>
-            <button class="duration-btn" onclick="selectDuration(this)">10分</button>
-            <button class="duration-btn" onclick="selectDuration(this)">15分</button>
-            <button class="duration-btn" onclick="selectDuration(this)">30分</button>
-            <button class="duration-btn" onclick="selectDuration(this)">1時間</button>
-            <button class="duration-btn" onclick="selectDuration(this)">2時間</button>
+          <div class="duration-scroll-wrap">
+            <div class="duration-options duration-scroll" id="laterDurationOptions">
+              <button class="duration-btn selected" data-min="0">なし</button>
+              <button class="duration-btn" data-min="5">5分</button>
+              <button class="duration-btn" data-min="10">10分</button>
+              <button class="duration-btn" data-min="15">15分</button>
+              <button class="duration-btn" data-min="30">30分</button>
+              <button class="duration-btn" data-min="45">45分</button>
+              <button class="duration-btn" data-min="60">1時間</button>
+              <button class="duration-btn" data-min="90">1時間半</button>
+              <button class="duration-btn" data-min="120">2時間</button>
+              <button class="duration-btn" data-min="180">3時間</button>
+              <button class="duration-btn" data-min="240">4時間</button>
+              <button class="duration-btn" data-min="300">5時間</button>
+            </div>
           </div>
         </div>
 
@@ -3235,7 +3242,7 @@
           <div onclick="openStartTimePop()" id="timeDisplayBtn" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
-            <span id="timeDisplayLabel" style="font-size:22px;font-weight:600;color:#6c5ce7;letter-spacing:1px;">07:00</span>
+            <span id="timeDisplayLabel" style="font-size:16px;font-weight:600;color:#6c5ce7;letter-spacing:0.5px;">07:00</span>
             <span id="timeDisplayArrow" style="font-size:13px;color:#8e8e93;margin-left:4px;">∨</span>
           </div>
           <button type="button" id="nowBtn" onclick="openNowPopup()" style="
@@ -3268,7 +3275,7 @@
         <div class="modal-section">
           <div class="duration-row">
             <div class="duration-label"><div class="pro-icon"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div> 所要時間</div>
-            <button id="durationCustomBtn" style="background:none;border:none;color:#8e8e93;font-size:18px;cursor:pointer;">⚙</button>
+            <button id="durationCustomBtn" title="カスタム（ドラムロール）" style="background:#f2f2f7;border:none;border-radius:10px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;color:#8e8e93;cursor:pointer;padding:0;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
           </div>
           <div class="duration-scroll-wrap">
             <div class="duration-options duration-scroll" id="timeDurationOptions">
@@ -3654,7 +3661,7 @@
           <div onclick="openRepeatTimePop()" id="repeatTimeDisplayBtn" style="
             display:inline-flex;align-items:center;background:#f2f2f7;
             border-radius:10px;padding:8px 16px;cursor:pointer;gap:4px;">
-            <span id="repeatTimeDisplayLabel" style="font-size:22px;font-weight:600;color:#6c5ce7;letter-spacing:1px;">07:00</span>
+            <span id="repeatTimeDisplayLabel" style="font-size:16px;font-weight:600;color:#6c5ce7;letter-spacing:0.5px;">07:00</span>
             <span id="repeatTimeDisplayArrow" style="font-size:13px;color:#8e8e93;margin-left:4px;">∨</span>
           </div>
           <div id="repeatDrumPickerContainer" style="display:none;margin-top:10px;">
@@ -3681,7 +3688,7 @@
         <div class="modal-section">
           <div class="duration-row">
             <div class="duration-label"><div class="pro-icon"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div> 所要時間</div>
-            <button id="repeatDurationCustomBtn" style="background:none;border:none;color:#8e8e93;font-size:18px;cursor:pointer;">⚙</button>
+            <button id="repeatDurationCustomBtn" title="カスタム（ドラムロール）" style="background:#f2f2f7;border:none;border-radius:10px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;color:#8e8e93;cursor:pointer;padding:0;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
           </div>
           <div class="duration-scroll-wrap">
             <div class="duration-options duration-scroll" id="repeatDurationOptions">
@@ -3694,6 +3701,9 @@
               <button class="duration-btn" data-min="60">1時間</button>
               <button class="duration-btn" data-min="90">1時間半</button>
               <button class="duration-btn" data-min="120">2時間</button>
+              <button class="duration-btn" data-min="180">3時間</button>
+              <button class="duration-btn" data-min="240">4時間</button>
+              <button class="duration-btn" data-min="300">5時間</button>
             </div>
           </div>
         </div>
@@ -4003,48 +4013,61 @@
     mCol.scrollTop = curMIdx * 44;
   }
 
+  // 所要時間ボタンの一覧（あとで / 時間指定 / 繰り返し の3タブ）
+  const DURATION_LISTS = [
+    { list: 'laterDurationOptions',  custom: 'laterCustomDurationBtn' },
+    { list: 'timeDurationOptions',   custom: 'customDurationBtn' },
+    { list: 'repeatDurationOptions', custom: 'repeatCustomDurationBtn' }
+  ];
+
+  function durationLabelOf(min) {
+    if (!min) return 'なし';
+    if (min < 60) return min + '分';
+    if (min % 60 === 0) return (min / 60) + '時間';
+    return Math.floor(min / 60) + '時間' + (min % 60) + '分';
+  }
+
+  // drumSelectedMin を3タブすべてのボタンUIへ反映（候補にない値は先頭にカスタムチップを出す）
+  function syncDurationUI() {
+    const label = durationLabelOf(drumSelectedMin);
+    selectedDuration = label;
+    DURATION_LISTS.forEach(({ list, custom }) => {
+      const box = document.getElementById(list);
+      if (!box) return;
+      let matched = false;
+      box.querySelectorAll('.duration-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        if (btn.id === custom) return;               // カスタムチップは判定から除外
+        if (parseInt(btn.dataset.min) === drumSelectedMin) {
+          btn.classList.add('selected');
+          matched = true;
+        }
+      });
+      let customBtn = document.getElementById(custom);
+      if (matched) {
+        if (customBtn) customBtn.remove();            // 既定候補に戻ったらカスタムチップは消す
+      } else {
+        if (!customBtn) {
+          customBtn = document.createElement('button');
+          customBtn.className = 'duration-btn';
+          customBtn.id = custom;
+          box.prepend(customBtn);
+        }
+        customBtn.dataset.min = drumSelectedMin;
+        customBtn.textContent = label;
+        customBtn.classList.add('selected');
+      }
+    });
+  }
+
   function closeDrumPicker() {
     const hCol = document.getElementById('drumHours');
     const mCol = document.getElementById('drumMins');
     const h = Math.round(hCol.scrollTop / 44);
     const mIdx = Math.round(mCol.scrollTop / 44);
-    const m = mIdx * 5;
-    drumSelectedMin = h * 60 + m;
+    drumSelectedMin = h * 60 + mIdx * 5;
 
-    // ボタンUIに反映
-    let label = '';
-    if (drumSelectedMin === 0) label = 'なし';
-    else if (drumSelectedMin < 60) label = drumSelectedMin + '分';
-    else if (drumSelectedMin % 60 === 0) label = (drumSelectedMin/60) + '時間';
-    else label = Math.floor(drumSelectedMin/60) + '時間' + (drumSelectedMin%60) + '分';
-
-    selectedDuration = label;
-
-    // ボタン選択状態更新
-    const btns = document.querySelectorAll('#timeDurationOptions .duration-btn');
-    let matched = false;
-    btns.forEach(btn => {
-      btn.classList.remove('selected');
-      if (parseInt(btn.dataset.min) === drumSelectedMin) {
-        btn.classList.add('selected');
-        matched = true;
-      }
-    });
-    // 候補にない値はカスタム表示
-    if (!matched && drumSelectedMin > 0) {
-      btns[0].classList.remove('selected');
-      // カスタムボタンがなければ先頭に追加
-      let customBtn = document.getElementById('customDurationBtn');
-      if (!customBtn) {
-        customBtn = document.createElement('button');
-        customBtn.className = 'duration-btn selected';
-        customBtn.id = 'customDurationBtn';
-        document.getElementById('timeDurationOptions').prepend(customBtn);
-      }
-      customBtn.textContent = label;
-      customBtn.classList.add('selected');
-    }
-
+    syncDurationUI();
     document.getElementById('drumOverlay').style.display = 'none';
     updateStartTimeDisplay();
   }
@@ -4117,16 +4140,21 @@
       if (e.target === this) closeTimePopup(true); // 背景タップでも現在位置で確定
     });
 
-    // 所要時間ボタンのイベント登録
-    document.getElementById('timeDurationOptions').addEventListener('click', function(e) {
-      const btn = e.target.closest('.duration-btn');
-      if (!btn) return;
-      this.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      drumSelectedMin = parseInt(btn.dataset.min) || 0;
-      selectedDuration = btn.textContent.trim();
-      updateStartTimeDisplay();
+    // 所要時間ボタンのイベント登録（3タブ共通・選択は全タブへ同期）
+    DURATION_LISTS.forEach(({ list }) => {
+      const box = document.getElementById(list);
+      if (!box) return;
+      box.addEventListener('click', function(e) {
+        const btn = e.target.closest('.duration-btn');
+        if (!btn) return;
+        drumSelectedMin = parseInt(btn.dataset.min) || 0;
+        syncDurationUI();
+        updateStartTimeDisplay();
+      });
     });
+    // 「あとで」タブのカスタム（ドラムロール）ボタン
+    const _laterCustom = document.getElementById('laterDurationCustomBtn');
+    if (_laterCustom) _laterCustom.addEventListener('click', openDrumPicker);
   }
 
   function renderHeader() {
@@ -5603,6 +5631,7 @@
     currentShurui = _editT ? (_editT['(B)種類'] || null) : null;
     currentKikan  = _editT ? (_editT['(B)実行期間'] || null) : null;
     ['later','time','repeat'].forEach(s => updateSelectorDisplay(s));
+    closeSelectorPanels();   // 前回開いたままのパネルを畳んでおく
     const overlay = document.getElementById('modalOverlay');
     overlay.classList.add('open');
 
@@ -10910,19 +10939,23 @@
         } else {
           currentKikan = currentKikan === val ? null : val;
         }
-        // 全suffix分の表示を更新 + チップ再描画
-        ['later','time','repeat'].forEach(s => {
-          updateSelectorDisplay(s);
-          // 開いているパネルがあれば再描画
-          const panelId = `${t === 'shurui' ? 'shurui' : 'kikan'}-chips-${s}`;
-          const p = document.getElementById(panelId);
-          if (p && p.closest('[id$="-panel-'+s+'"]')?.style.display !== 'none') {
-            renderSelectorChips(panelId, t === 'shurui' ? SHURUI_OPTIONS : KIKAN_OPTIONS, t);
-          }
-        });
-        // 今開いているパネルを閉じる
-        const parentPanel = this.closest('[id*="-panel-"]');
-        if (parentPanel) parentPanel.style.display = 'none';
+        // 全suffix分の表示（右側のバッジ）を更新
+        ['later','time','repeat'].forEach(s => updateSelectorDisplay(s));
+        // 1回タップしたらパネルを閉じる（他タブの同じセクションも畳む）
+        // ※ここで再描画すると this がDOMから外れて closest() が効かなくなるため、再描画はしない。
+        //   次に開いたときトリガー側が renderSelectorChips() で最新状態を描き直す。
+        closeSelectorPanels(t);
+      });
+    });
+  }
+
+  // 種類/実行期間のパネルを畳む（type省略で両方・全タブ）
+  function closeSelectorPanels(type) {
+    const types = type ? [type] : ['shurui', 'kikan'];
+    ['later', 'time', 'repeat'].forEach(s => {
+      types.forEach(t => {
+        const p = document.getElementById(`${t}-panel-${s}`);
+        if (p) p.style.display = 'none';
       });
     });
   }
@@ -11072,16 +11105,6 @@
         this.classList.add('toggle-on'); this.classList.remove('toggle-off');
         document.getElementById('repeatTimePickerArea').style.display = 'none';
       }
-    });
-
-    // 所要時間ボタン
-    document.getElementById('repeatDurationOptions').addEventListener('click', function(e) {
-      const btn = e.target.closest('.duration-btn');
-      if (!btn) return;
-      this.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      drumSelectedMin = parseInt(btn.dataset.min) || 0;
-      selectedDuration = btn.textContent.trim();
     });
 
     // ⚙ボタン
