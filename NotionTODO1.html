@@ -15876,6 +15876,26 @@
     return true;
   }
 
+  // 繰り返し由来か？
+  // Notion往復で _habitTemplateId 等のローカル目印が消えるため、同名テンプレートとの照合も行う
+  function isRepeatish(t){
+    if (!t) return false;
+    if (t._type === 'repeat' || t._type === 'repeat_ended') return true;
+    if (t._habitTemplateId || t._repeatConfig) return true;
+    var nm = String(t.name || '').trim();
+    if (!nm) return false;
+    return arr().some(function(x){
+      return x && (x._type === 'repeat' || x._type === 'repeat_ended') && String(x.name || '').trim() === nm;
+    });
+  }
+  // プロジェクトに所属しているか
+  function hasProject(t){
+    if (!t) return false;
+    if (Array.isArray(t._projectIds) && t._projectIds.length) return true;
+    if (Array.isArray(t._projectNames) && t._projectNames.length) return true;
+    return false;
+  }
+
   // マス目の行（日付）
   var ROWS = [
     { key:'today',    label:'今日'   },
@@ -15976,7 +15996,7 @@
     var sun = new Date(mon); sun.setDate(sun.getDate() + 6);
     var week = all.filter(function(t){
       if (t._type !== 'time') return false;
-      if (t._habitTemplateId || t._repeatConfig) return false;   // 繰り返し/習慣の実体は除く
+      if (isRepeatish(t)) return false;                          // 繰り返し由来は除く
       var d = dateOf(t); if (!d) return false;
       var m = midnight(d);
       return m >= mon && m <= sun;
@@ -15998,8 +16018,10 @@
         }).join('')
       : '<div class="gtd-empty">締め切りタグのタスクはありません</div>';
 
-    // ③ 見極める（長期スパンは仕分け済みなので④に任せて除外）
-    var later = all.filter(function(t){ return t._type === 'later' && t['(B)実行期間'] !== KIK(4); });
+    // ③ 見極める（長期スパンは仕分け済み→④へ / プロジェクト所属は整理済みなので対象外）
+    var later = all.filter(function(t){
+      return t._type === 'later' && t['(B)実行期間'] !== KIK(4) && !hasProject(t);
+    });
     $('gtdLaterCnt').textContent = later.length;
     $('gtdLater').innerHTML = later.length
       ? later.map(function(t){
