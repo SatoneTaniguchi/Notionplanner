@@ -369,6 +369,38 @@
     color: #1c1c1e;
   }
 
+  /* 起床/就寝マーカー（1日の境界） */
+  .tl-daymark-line {
+    position: absolute;
+    left: 60px; right: 0;
+    height: 0;
+    border-top: 1.5px dashed;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .tl-daymark {
+    position: absolute;
+    left: 60px;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid;
+    border-radius: 14px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 4;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tl-daymark:active { transform: translateY(-50%) scale(0.94); }
+  .tl-daymark .eic { width: 13px; height: 13px; }
+  .tl-daymark b { font-weight: 800; letter-spacing: .3px; }
+
   /* 空き時間カード（絶対配置） */
   .tl-free-card {
     position: absolute;
@@ -3862,6 +3894,26 @@
 
 <!-- ドラムロール所要時間ピッカー -->
 <!-- 実績時間の手入力ポップアップ -->
+<!-- 起床/就寝（1日の範囲）の設定 -->
+<div class="time-pop-overlay" id="dayRangePop" style="display:none;" onclick="if(event.target===this)closeDayRangePop()">
+  <div class="time-pop-card">
+    <div style="padding:18px 20px 6px;font-size:16px;font-weight:700;color:#1c1c1e;">1日の範囲</div>
+    <div style="padding:0 20px;font-size:11px;color:#8e8e93;line-height:1.6;">タイムラインの表示範囲と、空き時間の計算に使います。</div>
+    <div style="padding:12px 20px 0;display:flex;align-items:center;gap:10px;">
+      <span style="width:44px;font-size:13px;font-weight:700;color:#f0932b;">起床</span>
+      <input id="dayWakeInput" type="time" style="flex:1;font-size:17px;font-weight:700;color:#3c3c43;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px;font-family:inherit;outline:none;background:#fff;">
+    </div>
+    <div style="padding:10px 20px 0;display:flex;align-items:center;gap:10px;">
+      <span style="width:44px;font-size:13px;font-weight:700;color:#6c5ce7;">就寝</span>
+      <input id="daySleepInput" type="time" style="flex:1;font-size:17px;font-weight:700;color:#3c3c43;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px;font-family:inherit;outline:none;background:#fff;">
+    </div>
+    <div style="padding:16px 20px 18px;display:flex;gap:8px;">
+      <button type="button" onclick="closeDayRangePop()" style="flex:1;background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">キャンセル</button>
+      <button type="button" onclick="saveDayRangePop()" style="flex:1;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">保存</button>
+    </div>
+  </div>
+</div>
+
 <div class="time-pop-overlay" id="actualPopOverlay" style="display:none;" onclick="if(event.target===this)closeActualPop()">
   <div class="time-pop-card">
     <div style="padding:18px 20px 4px;display:flex;align-items:center;justify-content:space-between;">
@@ -4325,6 +4377,39 @@
     }
   }
 
+  // ── 起床 / 就寝（1日の境界）──
+  // タスクではなく設定値。タイムラインの表示範囲と空き時間の計算に使う。
+  const DAY_WAKE_KEY = 'dayWakeMin', DAY_SLEEP_KEY = 'daySleepMin';
+  function _dayMin(key, def) {
+    const v = parseInt(localStorage.getItem(key), 10);
+    return (isFinite(v) && v >= 0 && v <= 1439) ? v : def;
+  }
+  function dayWakeMin()  { return _dayMin(DAY_WAKE_KEY, 420); }
+  function daySleepMin() {
+    const sl = _dayMin(DAY_SLEEP_KEY, 1380);
+    return sl > dayWakeMin() ? sl : 1380;   // 就寝が起床より前なら既定に戻す
+  }
+  function minToHHMM(m) {
+    return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  }
+
+  function openDayRangePop() {
+    document.getElementById('dayWakeInput').value  = minToHHMM(dayWakeMin());
+    document.getElementById('daySleepInput').value = minToHHMM(daySleepMin());
+    document.getElementById('dayRangePop').style.display = 'flex';
+  }
+  function closeDayRangePop() { document.getElementById('dayRangePop').style.display = 'none'; }
+  function saveDayRangePop() {
+    const toMinStr = v => { const p = String(v || '').split(':'); return (parseInt(p[0],10) || 0) * 60 + (parseInt(p[1],10) || 0); };
+    const wk = toMinStr(document.getElementById('dayWakeInput').value);
+    const sl = toMinStr(document.getElementById('daySleepInput').value);
+    if (!(sl > wk)) { alert('就寝は起床より後の時刻にしてください。'); return; }
+    localStorage.setItem(DAY_WAKE_KEY, String(wk));
+    localStorage.setItem(DAY_SLEEP_KEY, String(sl));
+    closeDayRangePop();
+    renderTimeline();
+  }
+
   function renderTimeline() {
     // 以前の終日エリアを削除
     document.querySelectorAll('.allday-area').forEach(el => el.remove());
@@ -4457,8 +4542,9 @@
     const routinesDoneMap = JSON.parse(localStorage.getItem('routinesDone') || '{}');
 
     // ── 全イベントの開始・終了分を収集して表示範囲を決定 ──
-    const ROUTINE_START = 420;  // 7:00
-    const ROUTINE_END   = 1380; // 23:00
+    // 起床/就寝は設定値。タスクではなく「1日の境界」としてタイムラインに出す
+    const ROUTINE_START = dayWakeMin();   // 既定 7:00
+    const ROUTINE_END   = daySleepMin();  // 既定 23:00
     let minEventMin = ROUTINE_START;
     let maxEventMin = ROUTINE_END;
 
@@ -4495,8 +4581,11 @@
     }
 
     // 表示範囲：最初のイベントの○:00（切り捨て）〜最後のイベントの次の○:00（切り上げ）
+    // 就寝後のタスク（例 23:30〜）がはみ出さないよう下端は 24:00 まで許容する。
+    // 日をまたぐタスクは em が 1439 にクランプされ、翌日側に「0:00〜」の持ち越しカードとして
+    // 別途描かれるため、25:00 以降まで伸ばす必要はない。
     const START_H = Math.max(0, Math.floor(minEventMin / 60));
-    const END_H   = Math.min(23, Math.ceil(maxEventMin / 60));
+    const END_H   = Math.min(24, Math.ceil(maxEventMin / 60));
     const totalPx = (END_H - START_H) * PX;
 
     // グリッドコンテナ
@@ -4743,10 +4832,11 @@
       const line = document.createElement('div');
       line.style.cssText = `position:absolute;left:60px;right:0;top:${y}px;height:1px;background:${isMajor?'#e0e0e5':'#f2f2f7'};z-index:0;pointer-events:none;`;
       timeline.appendChild(line);
-      if (h < 24) {
+      {
         const lbl = document.createElement('div');
-        lbl.style.cssText = `position:absolute;left:0;width:58px;top:${y}px;transform:translateY(-50%);font-size:11px;color:#c7c7cc;text-align:right;padding-right:8px;z-index:1;pointer-events:none;`;
-        lbl.textContent = h + ':00';
+        // 24時以降は 24:00 / 25:00 表記（深夜のタスク用）
+        lbl.style.cssText = `position:absolute;left:0;width:58px;top:${y}px;transform:translateY(-50%);font-size:11px;color:${h >= 24 ? '#b9b4d6' : '#c7c7cc'};text-align:right;padding-right:8px;z-index:1;pointer-events:none;`;
+        lbl.textContent = h + ':00';   // 24:00 は当日の終端を示す
         timeline.appendChild(lbl);
       }
     }
@@ -4966,6 +5056,30 @@
       card.addEventListener('click', () => editTask(t.id));
       timeline.appendChild(card);
       setupDrag(card, t);
+    });
+
+    // ── 起床 / 就寝マーカー（タスクではなく1日の境界として表示）──
+    [
+      { min: ROUTINE_START, label: '起床', icon: 'sun', color: '#f0932b' },
+      { min: ROUTINE_END,   label: '就寝', icon: 'moon', color: '#6c5ce7' },
+    ].forEach(mk => {
+      const y = toY(mk.min);
+      const line = document.createElement('div');
+      line.className = 'tl-daymark-line';
+      line.style.cssText = `top:${y}px;border-top-color:${mk.color}44;`;
+      timeline.appendChild(line);
+
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'tl-daymark';
+      pill.style.cssText = `top:${y}px;color:${mk.color};border-color:${mk.color}55;background:${mk.color}12;`;
+      pill.innerHTML = (TASK_ICONS[mk.icon]
+          ? '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true">' + TASK_ICONS[mk.icon] + '</svg>'
+          : '')
+        + '<span>' + mk.label + '</span><b>' + minToHHMM(mk.min) + '</b>';
+      pill.title = '起床・就寝の時刻を変更';
+      pill.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
+      timeline.appendChild(pill);
     });
 
     // ── 空き時間カード ──
