@@ -1812,29 +1812,37 @@
   /* あとでやる：プロジェクトの絞り込みチップ列 */
   .proj-filter-row {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     overflow-x: auto;
     padding: 6px 2px 8px;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;   /* 横スクロールだけに限定し、タップを拾えるようにする */
   }
   .proj-filter-row::-webkit-scrollbar { display: none; }
   .proj-filter-chip {
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: #6a6a6c;
     background: #f2f2f7;
     border: 1px solid transparent;
-    border-radius: 14px;
-    padding: 4px 11px;
+    border-radius: 16px;
+    /* iOSでタップがスクロールに飲まれないよう、指で押せる高さを確保する */
+    min-height: 36px;
+    padding: 8px 15px;
     cursor: pointer;
     white-space: nowrap;
     font-family: inherit;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .12s, transform .08s;
   }
+  .proj-filter-chip:active { transform: scale(0.94); background: #e4e2ee; }
   .proj-filter-chip.active {
     color: #fff;
     background: #6c5ce7;
   }
+  .proj-filter-chip.active:active { background: #5a4ad1; }
   .later-group-head {
     font-size: 12px;
     font-weight: 700;
@@ -9515,6 +9523,7 @@
     ['navTdy','navTimer'].forEach(x => { const el = document.getElementById(x); if (el) el.classList.remove('active'); });
     try { const tv = document.getElementById('tdyOverlay'); if (tv) tv.classList.remove('open'); } catch(e) {}
     try { const mv = document.getElementById('mzOverlay'); if (mv) mv.classList.remove('open'); } catch(e) {}
+    try { const gv = document.getElementById('gtdOverlay'); if (gv) gv.classList.remove('open'); } catch(e) {}
     document.getElementById('navTodo').classList.toggle('active', screen === 'todo');
     document.getElementById('navRoutine').classList.toggle('active', screen === 'routine' || screen === 'graph' || screen === 'project');
     const na = document.getElementById('navAi');
@@ -10608,7 +10617,7 @@
         statusBtns = `<div style="margin-top:10px;"><div style="font-size:11px;color:#8e8e93;margin-bottom:5px;">ステータス</div><div style="display:flex;flex-wrap:wrap;gap:6px;">`
           + opts.map(o => {
               const active = o.name === p.status;
-              return `<button data-proj-status="${_escapeHtml(p.id)}" data-status-val="${_escapeHtml(o.name)}" style="${statusColorStyle(o.name)}border:${active?'2px solid #6c5ce7':'1px solid transparent'};border-radius:12px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;opacity:${active?'1':'0.75'};">${_escapeHtml(o.name)}</button>`;
+              return `<button data-proj-status="${_escapeHtml(p.id)}" data-status-val="${_escapeHtml(o.name)}" style="${statusColorStyle(o.name)}border:${active?'2px solid #6c5ce7':'1px solid transparent'};border-radius:12px;min-height:36px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;opacity:${active?'1':'0.75'};">${_escapeHtml(o.name)}</button>`;
             }).join('')
           + `</div></div>`;
       }
@@ -15759,7 +15768,7 @@
 
 <style>
 /* ===== GTDワークフロー ページ ===== */
-#gtdOverlay{position:fixed;inset:0 0 var(--navh,60px) 0;background:#f7f7fb;z-index:900;display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#gtdOverlay{position:fixed;inset:0 0 var(--navh,60px) 0;background:#f7f7fb;z-index:9400;display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}
 #gtdOverlay.open{display:block}
 .gtd-wrap{max-width:430px;margin:0 auto;padding:10px 16px 40px}
 .gtd-head{display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px;position:sticky;top:0;background:#f7f7fb;z-index:5}
@@ -15967,6 +15976,7 @@
     var sun = new Date(mon); sun.setDate(sun.getDate() + 6);
     var week = all.filter(function(t){
       if (t._type !== 'time') return false;
+      if (t._habitTemplateId || t._repeatConfig) return false;   // 繰り返し/習慣の実体は除く
       var d = dateOf(t); if (!d) return false;
       var m = midnight(d);
       return m >= mon && m <= sun;
