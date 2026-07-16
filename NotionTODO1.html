@@ -1860,6 +1860,27 @@
     margin-bottom: 12px;
     box-shadow: 0 2px 10px rgba(80,70,140,0.05);
   }
+  /* ステータス変更ボタン: 押した手応えを出す */
+  .proj-status-btn {
+    border-radius: 12px;
+    min-height: 36px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .07s ease, opacity .12s, box-shadow .12s;
+  }
+  .proj-status-btn:active { transform: scale(0.9); opacity: 1 !important; }
+  .proj-status-btn.active { box-shadow: 0 0 0 3px rgba(108,92,231,0.18); }
+  /* 並び替えで飛んだカードを目で追えるように光らせる */
+  @keyframes projFlash {
+    0%   { box-shadow: 0 0 0 3px rgba(108,92,231,0.55); }
+    100% { box-shadow: 0 2px 10px rgba(80,70,140,0.05); }
+  }
+  .proj-card.flash { animation: projFlash 1.2s ease-out; }
   .proj-card-head {
     display: flex;
     align-items: center;
@@ -2637,6 +2658,7 @@
   <div id="gcalEditPanel" style="
     background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:430px;
     max-height:90dvh;display:flex;flex-direction:column;overflow-y:auto;
+    padding-bottom:calc(var(--navh, 60px) + 12px);
     transform:translateY(100%);transition:transform 0.28s cubic-bezier(.4,0,.2,1);
   ">
     <div style="padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
@@ -2702,8 +2724,8 @@
         margin-top:4px;background:#1c1c1e;color:#fff;border:none;border-radius:14px;
         padding:14px;font-size:15px;font-weight:600;cursor:pointer;">保存</button>
       <button id="gcalEditDeleteBtn" onclick="gcalDeleteEvent()" style="
-        display:none;background:none;color:#ff3b30;border:1px solid #ffccc7;border-radius:14px;
-        padding:12px;font-size:14px;font-weight:600;cursor:pointer;">削除</button>
+        display:none;margin-top:4px;background:none;color:#ff3b30;border:1px solid #ffccc7;border-radius:14px;
+        padding:14px;font-size:14px;font-weight:600;cursor:pointer;touch-action:manipulation;">削除</button>
     </div>
   </div>
 </div>
@@ -9532,6 +9554,7 @@
 
   // ===== プロジェクト画面 =====
   let projectOpenState = {}; // プロジェクトID → 展開中か
+  let _projFlashId = null;   // ステータス変更後に光らせるプロジェクト
   let projectStatusFilter = '進行中'; // 既定は「進行中」。該当が無ければ初回renderで自動的に「すべて」に
   let _projFilterInit = false;
   let projectSortMode = 'date_desc';   // 'name' | 'date_desc'（既定は日付の新しい順）
@@ -10617,7 +10640,7 @@
         statusBtns = `<div style="margin-top:10px;"><div style="font-size:11px;color:#8e8e93;margin-bottom:5px;">ステータス</div><div style="display:flex;flex-wrap:wrap;gap:6px;">`
           + opts.map(o => {
               const active = o.name === p.status;
-              return `<button data-proj-status="${_escapeHtml(p.id)}" data-status-val="${_escapeHtml(o.name)}" style="${statusColorStyle(o.name)}border:${active?'2px solid #6c5ce7':'1px solid transparent'};border-radius:12px;min-height:36px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;opacity:${active?'1':'0.75'};">${_escapeHtml(o.name)}</button>`;
+              return `<button class="proj-status-btn${active?' active':''}" data-proj-status="${_escapeHtml(p.id)}" data-status-val="${_escapeHtml(o.name)}" style="${statusColorStyle(o.name)}border:${active?'2px solid #6c5ce7':'1px solid transparent'};opacity:${active?'1':'0.75'};">${_escapeHtml(o.name)}</button>`;
             }).join('')
           + `</div></div>`;
       }
@@ -10743,6 +10766,18 @@
     container.querySelectorAll('[data-proj-status]').forEach(el => {
       el.addEventListener('click', function(e) { e.stopPropagation(); notionUpdateProjectStatus(this.dataset.projStatus, this.dataset.statusVal); });
     });
+
+    // ステータス変更で並び替わったカードを光らせ、画面内に入れて目で追えるようにする
+    if (_projFlashId) {
+      const el = container.querySelector('[data-proj-toggle="' + _projFlashId + '"]');
+      const card = el && el.closest ? el.closest('.proj-card') : null;
+      _projFlashId = null;
+      if (card) {
+        card.classList.add('flash');
+        setTimeout(() => card.classList.remove('flash'), 1300);
+        try { card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch(e) {}
+      }
+    }
     container.querySelectorAll('[data-proj-date]').forEach(el => {
       el.addEventListener('click', e => e.stopPropagation());
       el.addEventListener('change', function() { notionUpdateProjectDate(this.dataset.projDate, this.value || ''); });
@@ -12558,25 +12593,29 @@
   // --- プロジェクトのステータスを更新 ---
   async function notionUpdateProjectStatus(projectId, statusName) {
     const statusProp = notionSettings.projStatusProp || '(A)ステータス';
+    const p = (notionProjects || []).find(x => x.id === projectId);
+    if (!p || p.status === statusName) return;   // 同じステータスなら何もしない
+    const prev = p.status;
+
+    // 楽観更新: 通信を待たずに即反映する（押した瞬間に反応が返る）。
+    // 並び替えでカードが飛ぶので、移動先を光らせて目で追えるようにする。
+    p.status = statusName;
+    localStorage.setItem('notionProjects', JSON.stringify(notionProjects));
+    _projFlashId = projectId;
+    renderProjectScreen();
+
+    const patch = (kind) => notionApiCall(`/pages/${projectId}`, 'PATCH', {
+      properties: { [statusProp]: kind === 'status' ? { status: { name: statusName } } : { select: { name: statusName } } }
+    });
     try {
-      await notionApiCall(`/pages/${projectId}`, 'PATCH', {
-        properties: { [statusProp]: { status: { name: statusName } } }
-      });
-      const p = (notionProjects || []).find(x => x.id === projectId);
-      if (p) p.status = statusName;
-      localStorage.setItem('notionProjects', JSON.stringify(notionProjects));
-      renderProjectScreen();
+      await patch('status');
     } catch(e) {
-      // status型でなくselect型の可能性 → selectで再試行
       try {
-        await notionApiCall(`/pages/${projectId}`, 'PATCH', {
-          properties: { [statusProp]: { select: { name: statusName } } }
-        });
-        const p = (notionProjects || []).find(x => x.id === projectId);
-        if (p) p.status = statusName;
+        await patch('select');   // status型でなくselect型の可能性 → 再試行
+      } catch(e2) {
+        p.status = prev;         // どちらも失敗 → 表示を元に戻す
         localStorage.setItem('notionProjects', JSON.stringify(notionProjects));
         renderProjectScreen();
-      } catch(e2) {
         alert('ステータスの更新に失敗しました: ' + e2.message);
       }
     }
@@ -15787,6 +15826,13 @@
 .gtd-item.due .dt{color:#e5484d;font-weight:700}
 .gtd-item.overdue{background:#fff5f5;border-color:#ffd9da}
 .gtd-empty{font-size:12px;color:#b3b0c2;padding:10px 2px}
+.gtd-chk{width:38px;height:38px;flex:none;border:none;background:transparent;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.gtd-chk .cc{width:22px;height:22px;border-radius:50%;border:2px solid #c9c5d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;transition:background .15s,border-color .15s,transform .08s}
+.gtd-chk.on .cc{border-color:#6c5ce7;background:#6c5ce7}
+.gtd-chk:active .cc{transform:scale(0.86)}
+.gtd-item.done{background:#fff;border-color:#f1eff8}
+.gtd-item.done .nm{color:#bcbfc4;text-decoration:line-through}
+.gtd-item.done .ico{opacity:.4}
 /* ③ 見極める */
 .gtd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .gtd-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:8px 12px;border-radius:12px;border:1px solid #e3e0ee;background:#fff;color:#2d2b3a;font-size:13px;font-family:inherit;cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent}
@@ -15972,6 +16018,13 @@
   }
 
   // ── 描画 ──
+  function chkHTML(t){
+    var on = !!t['(A)done'];
+    return '<button class="gtd-chk' + (on ? ' on' : '') + '" data-chk="' + esc(t.id) + '" aria-label="完了切替">'
+      + '<span class="cc">'
+      + (on ? '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10.5l4 4 8-9" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '')
+      + '</span></button>';
+  }
   function itemHTML(t, cls, right){
     var ic = '';
     try { if (typeof taskIconSVG === 'function') ic = taskIconSVG(t); } catch(e){}
@@ -15994,16 +16047,21 @@
     var mon = midnight(new Date());
     mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
     var sun = new Date(mon); sun.setDate(sun.getDate() + 6);
-    var week = all.filter(function(t){
-      if (t._type !== 'time') return false;
+    // 完了済みもチェックを外せるように残す（押し間違いを戻せる・進捗も見える）
+    var week = arr().filter(function(t){
+      if (!t || t._type !== 'time') return false;
       if (isRepeatish(t)) return false;                          // 繰り返し由来は除く
       var d = dateOf(t); if (!d) return false;
       var m = midnight(d);
       return m >= mon && m <= sun;
     }).sort(function(a,b){ return dateOf(a) - dateOf(b); });
-    $('gtdWeekCnt').textContent = week.length;
+    var weekDone = week.filter(function(t){ return t['(A)done']; }).length;
+    $('gtdWeekCnt').textContent = weekDone + ' / ' + week.length;
     $('gtdWeek').innerHTML = week.length
-      ? week.map(function(t){ return itemHTML(t, '', '<span class="dt">' + fmtDate(dateOf(t)) + '</span>'); }).join('')
+      ? week.map(function(t){
+          return itemHTML(t, t['(A)done'] ? 'done' : '',
+            '<span class="dt">' + fmtDate(dateOf(t)) + '</span>' + chkHTML(t));
+        }).join('')
       : '<div class="gtd-empty">今週のタスクはありません</div>';
 
     // ② 締切
@@ -16057,6 +16115,12 @@
 
   // ── 操作: タップ2回 ──
   function onClick(e){
+    var chk = e.target.closest('[data-chk]');
+    if (chk){
+      try { if (typeof toggleTaskDone === 'function') toggleTaskDone(chk.dataset.chk); } catch(err){ console.error(err); }
+      render();
+      return;
+    }
     var chip = e.target.closest('.gtd-chip');
     if (chip){ var id = chip.dataset.gid; sel = (sel === id) ? null : id; render(); return; }
     var cell = e.target.closest('.gtd-cell');
