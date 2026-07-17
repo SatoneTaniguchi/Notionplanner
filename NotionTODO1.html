@@ -398,6 +398,29 @@
     -webkit-tap-highlight-color: transparent;
   }
   .tl-daymark:active { transform: translateY(-50%) scale(0.94); }
+  /* カードと重なる時刻でも文字が被らないよう、時刻列に置くラベル */
+  .tl-daymark-gutter {
+    position: absolute;
+    left: 0; width: 58px;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
+    border: none;
+    background: transparent;
+    padding: 0 8px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 2;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tl-daymark-gutter .eic { width: 11px; height: 11px; flex: none; }
+  .tl-daymark-gutter:active { transform: translateY(-50%) scale(0.9); }
   .tl-daymark .eic { width: 13px; height: 13px; }
   .tl-daymark b { font-weight: 800; letter-spacing: .3px; }
 
@@ -4819,8 +4842,10 @@
     const hourHasMidStart = (hMin) => cardStartMinsAll.some(s => s > hMin && s < hMin + 60);
 
     // ── 時間ラベル + 横罫線（累積マッピング後）──
+    const _markerMins = [ROUTINE_START, ROUTINE_END];
     for (let h = START_H; h <= END_H; h++) {
       const hMin = h * 60;
+      if (_markerMins.includes(hMin)) continue;   // 起床/就寝マーカーが自前で描くので重複させない
       const y = toY(hMin);
       // 過去（当日は現在時刻前、過去日付は全部）はカードの「開始/通過」時刻のみ残す。
       const hourIsPast = isPastDay || (isToday && nowMin >= 0 && (hMin + 60) <= nowMin);
@@ -5059,27 +5084,45 @@
     });
 
     // ── 起床 / 就寝マーカー（タスクではなく1日の境界として表示）──
+    // その時刻にカードがあると文字が重なるので、重なる場合は時刻列(左端)に逃がして並列にする
+    const _cardsForMark = [...taskItemsRaw, ...gcalItemsRaw];
+    const _markHitsCard = (min) => _cardsForMark.some(c =>
+      min >= (c.startMin - 15) && min <= (c.endMin + 5)
+    );
     [
       { min: ROUTINE_START, label: '起床', icon: 'sun', color: '#f0932b' },
       { min: ROUTINE_END,   label: '就寝', icon: 'moon', color: '#6c5ce7' },
     ].forEach(mk => {
       const y = toY(mk.min);
+      const iconSvg = TASK_ICONS[mk.icon]
+        ? '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true">' + TASK_ICONS[mk.icon] + '</svg>' : '';
+
       const line = document.createElement('div');
       line.className = 'tl-daymark-line';
       line.style.cssText = `top:${y}px;border-top-color:${mk.color}44;`;
       timeline.appendChild(line);
 
-      const pill = document.createElement('button');
-      pill.type = 'button';
-      pill.className = 'tl-daymark';
-      pill.style.cssText = `top:${y}px;color:${mk.color};border-color:${mk.color}55;background:${mk.color}12;`;
-      pill.innerHTML = (TASK_ICONS[mk.icon]
-          ? '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true">' + TASK_ICONS[mk.icon] + '</svg>'
-          : '')
-        + '<span>' + mk.label + '</span><b>' + minToHHMM(mk.min) + '</b>';
-      pill.title = '起床・就寝の時刻を変更';
-      pill.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
-      timeline.appendChild(pill);
+      // 時刻列（左端 0〜58px）のラベル。カードとは絶対に重ならない位置
+      const gut = document.createElement('button');
+      gut.type = 'button';
+      gut.className = 'tl-daymark-gutter';
+      gut.style.cssText = `top:${y}px;color:${mk.color};`;
+      gut.innerHTML = iconSvg + '<b>' + minToHHMM(mk.min) + '</b>';
+      gut.title = mk.label + 'の時刻を変更';
+      gut.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
+      timeline.appendChild(gut);
+
+      // カードが無い時だけ「起床」「就寝」の文字ピルを出す（重なるなら出さない）
+      if (!_markHitsCard(mk.min)) {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'tl-daymark';
+        pill.style.cssText = `top:${y}px;color:${mk.color};border-color:${mk.color}55;background:${mk.color}12;`;
+        pill.innerHTML = iconSvg + '<span>' + mk.label + '</span>';
+        pill.title = mk.label + 'の時刻を変更';
+        pill.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
+        timeline.appendChild(pill);
+      }
     });
 
     // ── 空き時間カード ──
@@ -9580,8 +9623,17 @@
   // ============================================================
   let currentScreen = 'todo';
   // ナビ: 朝昼晩 / タイマー / AIのもう一度タップでプロジェクト・グラフ
-  function openTdyScreen() { navMoreClose(); const b = document.getElementById('tdyLaunch'); if (b) b.click(); navSetActive('navTdy'); syncNavHeight(); }
-  function openTimerScreen() { navMoreClose(); const b = document.getElementById('mzLaunch'); if (b) b.click(); navSetActive('navTimer'); syncNavHeight(); }
+  // TODO / タイマー / GTD は全画面オーバーレイなので同時に開かない。
+  // 開いたままだと z-index の重なりで「押しても反応しない」ように見える。
+  function closeAppOverlays(except) {
+    [['tdy', 'tdyOverlay'], ['timer', 'mzOverlay'], ['gtd', 'gtdOverlay']].forEach(([key, id]) => {
+      if (key === except) return;
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('open');
+    });
+  }
+  function openTdyScreen() { navMoreClose(); closeAppOverlays('tdy'); const b = document.getElementById('tdyLaunch'); if (b) b.click(); navSetActive('navTdy'); syncNavHeight(); }
+  function openTimerScreen() { navMoreClose(); closeAppOverlays('timer'); const b = document.getElementById('mzLaunch'); if (b) b.click(); navSetActive('navTimer'); syncNavHeight(); }
   function navMoreClose() {
     const m = document.getElementById('navMoreMenu'); const bd = document.getElementById('navMoreBackdrop');
     if (m) m.style.display = 'none';
@@ -16292,6 +16344,7 @@
   function open(){ $('gtdOverlay').classList.add('open'); sel = null; render(); }
   function close(){ $('gtdOverlay').classList.remove('open'); }
   window.openGtdScreen = function(){
+    try { if (typeof closeAppOverlays === 'function') closeAppOverlays('gtd'); } catch(e){}
     try { var t = document.getElementById('tdyOverlay'); if (t) t.classList.remove('open'); } catch(e){}
     open();
   };
