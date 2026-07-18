@@ -3920,8 +3920,12 @@
 <!-- 起床/就寝（1日の範囲）の設定 -->
 <div class="time-pop-overlay" id="dayRangePop" style="display:none;" onclick="if(event.target===this)closeDayRangePop()">
   <div class="time-pop-card">
-    <div style="padding:18px 20px 6px;font-size:16px;font-weight:700;color:#1c1c1e;">1日の範囲</div>
+    <div style="padding:18px 20px 2px;display:flex;align-items:baseline;gap:8px;">
+      <span style="font-size:16px;font-weight:700;color:#1c1c1e;">1日の範囲</span>
+      <span id="dayRangeDate" style="font-size:12px;font-weight:600;color:#6c5ce7;"></span>
+    </div>
     <div style="padding:0 20px;font-size:11px;color:#8e8e93;line-height:1.6;">タイムラインの表示範囲と、空き時間の計算に使います。</div>
+    <div id="dayRangeNote" style="padding:2px 20px 0;font-size:11px;color:#f0932b;font-weight:600;"></div>
     <div style="padding:12px 20px 0;display:flex;align-items:center;gap:10px;">
       <span style="width:44px;font-size:13px;font-weight:700;color:#f0932b;">起床</span>
       <input id="dayWakeInput" type="time" style="flex:1;font-size:17px;font-weight:700;color:#3c3c43;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px;font-family:inherit;outline:none;background:#fff;">
@@ -3930,9 +3934,12 @@
       <span style="width:44px;font-size:13px;font-weight:700;color:#6c5ce7;">就寝</span>
       <input id="daySleepInput" type="time" style="flex:1;font-size:17px;font-weight:700;color:#3c3c43;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px;font-family:inherit;outline:none;background:#fff;">
     </div>
-    <div style="padding:16px 20px 18px;display:flex;gap:8px;">
-      <button type="button" onclick="closeDayRangePop()" style="flex:1;background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">キャンセル</button>
-      <button type="button" onclick="saveDayRangePop()" style="flex:1;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">保存</button>
+    <div style="padding:16px 20px 6px;display:flex;flex-direction:column;gap:8px;">
+      <button type="button" onclick="saveDayRangePop('once')" style="background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;">この日だけ変更</button>
+      <button type="button" onclick="saveDayRangePop('from')" style="background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;">この日以降すべて変更</button>
+    </div>
+    <div style="padding:0 20px 16px;">
+      <button type="button" onclick="closeDayRangePop()" style="width:100%;background:none;color:#8e8e93;border:none;padding:8px;font-size:13px;font-family:inherit;cursor:pointer;">キャンセル</button>
     </div>
   </div>
 </div>
@@ -4402,33 +4409,86 @@
 
   // ── 起床 / 就寝（1日の境界）──
   // タスクではなく設定値。タイムラインの表示範囲と空き時間の計算に使う。
+  // 2階建てで日付ごとに解決する:
+  //   1. dayRangeOnce  { 'YYYY-MM-DD': {wake,sleep} }        … その日だけの上書き（最優先）
+  //   2. dayRangeRules [ {from:'YYYY-MM-DD', wake, sleep} ]  … その日以降ずっと（直近のものを採用）
+  //   3. dayWakeMin/daySleepMin                              … 既定値（旧バージョンとの互換）
   const DAY_WAKE_KEY = 'dayWakeMin', DAY_SLEEP_KEY = 'daySleepMin';
+  const DAY_RULES_KEY = 'dayRangeRules', DAY_ONCE_KEY = 'dayRangeOnce';
+
   function _dayMin(key, def) {
     const v = parseInt(localStorage.getItem(key), 10);
     return (isFinite(v) && v >= 0 && v <= 1439) ? v : def;
   }
-  function dayWakeMin()  { return _dayMin(DAY_WAKE_KEY, 420); }
-  function daySleepMin() {
-    const sl = _dayMin(DAY_SLEEP_KEY, 1380);
-    return sl > dayWakeMin() ? sl : 1380;   // 就寝が起床より前なら既定に戻す
+  function _dayLoad(key, def) {
+    try { const v = JSON.parse(localStorage.getItem(key)); return v || def; } catch(e) { return def; }
   }
+  function _dayYmd(d) {
+    const x = (d instanceof Date) ? d : new Date(d || Date.now());
+    return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+  }
+  function _dayTargetDate() {
+    try { if (typeof currentDate !== 'undefined' && currentDate) return currentDate; } catch(e) {}
+    return new Date();
+  }
+  function _dayValid(r) {
+    return r && isFinite(r.wake) && isFinite(r.sleep) && r.sleep > r.wake;
+  }
+
+  // その日に適用される {wake, sleep} を返す
+  function dayRangeFor(date) {
+    const ymd = _dayYmd(date || _dayTargetDate());
+    const once = _dayLoad(DAY_ONCE_KEY, {});
+    if (_dayValid(once[ymd])) return once[ymd];
+    const rules = _dayLoad(DAY_RULES_KEY, [])
+      .filter(r => _dayValid(r) && r.from && r.from <= ymd)
+      .sort((a, b) => a.from < b.from ? -1 : 1);
+    if (rules.length) return rules[rules.length - 1];   // 直近の「この日以降」ルール
+    const base = { wake: _dayMin(DAY_WAKE_KEY, 420), sleep: _dayMin(DAY_SLEEP_KEY, 1380) };
+    return _dayValid(base) ? base : { wake: 420, sleep: 1380 };
+  }
+  function dayWakeMin(date)  { return dayRangeFor(date).wake; }
+  function daySleepMin(date) { return dayRangeFor(date).sleep; }
   function minToHHMM(m) {
     return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   }
 
   function openDayRangePop() {
-    document.getElementById('dayWakeInput').value  = minToHHMM(dayWakeMin());
-    document.getElementById('daySleepInput').value = minToHHMM(daySleepMin());
+    const d = _dayTargetDate();
+    const r = dayRangeFor(d);
+    document.getElementById('dayWakeInput').value  = minToHHMM(r.wake);
+    document.getElementById('daySleepInput').value = minToHHMM(r.sleep);
+    const w = ['日','月','火','水','木','金','土'][d.getDay()];
+    document.getElementById('dayRangeDate').textContent = (d.getMonth()+1) + '月' + d.getDate() + '日(' + w + ')';
+    const once = _dayLoad(DAY_ONCE_KEY, {});
+    const note = document.getElementById('dayRangeNote');
+    note.textContent = _dayValid(once[_dayYmd(d)]) ? 'この日は個別に設定されています' : '';
     document.getElementById('dayRangePop').style.display = 'flex';
   }
   function closeDayRangePop() { document.getElementById('dayRangePop').style.display = 'none'; }
-  function saveDayRangePop() {
+
+  // scope: 'once' = この日だけ / 'from' = この日以降すべて
+  function saveDayRangePop(scope) {
     const toMinStr = v => { const p = String(v || '').split(':'); return (parseInt(p[0],10) || 0) * 60 + (parseInt(p[1],10) || 0); };
-    const wk = toMinStr(document.getElementById('dayWakeInput').value);
-    const sl = toMinStr(document.getElementById('daySleepInput').value);
-    if (!(sl > wk)) { alert('就寝は起床より後の時刻にしてください。'); return; }
-    localStorage.setItem(DAY_WAKE_KEY, String(wk));
-    localStorage.setItem(DAY_SLEEP_KEY, String(sl));
+    const wake  = toMinStr(document.getElementById('dayWakeInput').value);
+    const sleep = toMinStr(document.getElementById('daySleepInput').value);
+    if (!(sleep > wake)) { alert('就寝は起床より後の時刻にしてください。'); return; }
+    const ymd = _dayYmd(_dayTargetDate());
+
+    if (scope === 'once') {
+      const once = _dayLoad(DAY_ONCE_KEY, {});
+      once[ymd] = { wake, sleep };
+      localStorage.setItem(DAY_ONCE_KEY, JSON.stringify(once));
+    } else {
+      // この日から有効なルールを追加（同じ日のルールがあれば置き換え）
+      const rules = _dayLoad(DAY_RULES_KEY, []).filter(r => _dayValid(r) && r.from && r.from !== ymd);
+      rules.push({ from: ymd, wake, sleep });
+      localStorage.setItem(DAY_RULES_KEY, JSON.stringify(rules));
+      // 「以降すべて」なので、この日以降の個別設定は解除する
+      const once = _dayLoad(DAY_ONCE_KEY, {});
+      Object.keys(once).forEach(k => { if (k >= ymd) delete once[k]; });
+      localStorage.setItem(DAY_ONCE_KEY, JSON.stringify(once));
+    }
     closeDayRangePop();
     renderTimeline();
   }
@@ -5084,11 +5144,15 @@
     });
 
     // ── 起床 / 就寝マーカー（タスクではなく1日の境界として表示）──
-    // その時刻にカードがあると文字が重なるので、重なる場合は時刻列(左端)に逃がして並列にする
-    const _cardsForMark = [...taskItemsRaw, ...gcalItemsRaw];
-    const _markHitsCard = (min) => _cardsForMark.some(c =>
-      min >= (c.startMin - 15) && min <= (c.endMin + 5)
-    );
+    // その時刻にカードがあると文字が重なるので、重なる場合は時刻列(左端)に逃がして並列にする。
+    // 過去の時間帯は圧縮表示されるため「分」ではなく実際のピクセル位置で判定する
+    // （例: 8:00と9:00が画面上25pxしか離れていない、といったことが起きる）
+    const _cardRects = [...timeline.querySelectorAll('.tl-task-card, .tl-event')].map(el => {
+      const top = parseFloat(el.style.top) || 0;
+      return { top, bottom: top + (parseFloat(el.style.height) || 0) };
+    });
+    const _PILL_HALF = 15;   // ピル高さの半分＋余白
+    const _markHitsCard = (y) => _cardRects.some(r => (y + _PILL_HALF) > r.top && (y - _PILL_HALF) < r.bottom);
     [
       { min: ROUTINE_START, label: '起床', icon: 'sun', color: '#f0932b' },
       { min: ROUTINE_END,   label: '就寝', icon: 'moon', color: '#6c5ce7' },
@@ -5113,7 +5177,7 @@
       timeline.appendChild(gut);
 
       // カードが無い時だけ「起床」「就寝」の文字ピルを出す（重なるなら出さない）
-      if (!_markHitsCard(mk.min)) {
+      if (!_markHitsCard(y)) {
         const pill = document.createElement('button');
         pill.type = 'button';
         pill.className = 'tl-daymark';
