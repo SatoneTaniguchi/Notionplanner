@@ -450,6 +450,23 @@
   .tl-daymark .eic { width: 13px; height: 13px; }
   .tl-daymark b { font-weight: 800; letter-spacing: .3px; }
 
+  /* グラフ内の切替タブ */
+  .g-tabs { display: flex; gap: 4px; background: #f4f3f9; border-radius: 11px; padding: 3px; margin-bottom: 12px; }
+  .g-tabs button {
+    flex: 1; border: none; background: transparent; border-radius: 9px; padding: 7px 4px;
+    font-size: 12px; font-weight: 700; color: #8e8b9e; font-family: inherit; cursor: pointer;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
+  }
+  .g-tabs button.active { background: #fff; color: #6c5ce7; box-shadow: 0 1px 3px rgba(80,70,140,0.12); }
+  .g-note { font-size: 11px; color: #a8a5b8; line-height: 1.6; padding: 6px 2px 0; }
+  /* ルーチンのストリーク */
+  .g-streak { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid #f4f3f9; }
+  .g-streak:last-child { border-bottom: none; }
+  .g-streak .nm { flex: 1; min-width: 0; font-size: 13px; color: #2d2b3a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .g-streak .cur { font-size: 15px; font-weight: 800; color: #ff6b35; flex: none; }
+  .g-streak .cur.zero { color: #c9c5d8; }
+  .g-streak .best { font-size: 11px; color: #a8a5b8; flex: none; min-width: 62px; text-align: right; }
+
   /* 空き時間カード（絶対配置） */
   .tl-free-card {
     position: absolute;
@@ -3172,34 +3189,49 @@
     </div>
   </div>
 
+  <!-- ① 日々の記録: 完了数と集中時間を1つのグラフに重ねる + 時間帯の傾向 -->
   <div style="display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 8px;">
-    <div style="font-size:15px;font-weight:700;color:#2d2b3a;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg> 完了タスク数の推移</div>
+    <div style="font-size:15px;font-weight:700;color:#2d2b3a;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg> 日々の記録</div>
     <div id="graphCompletedSum" style="font-size:12px;color:#9a97ad;"></div>
   </div>
-  <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;margin-bottom:18px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
+  <div style="background:#fff;border-radius:18px;padding:14px 12px 10px;margin-bottom:18px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
     <div id="graphCompleted"></div>
-  </div>
-
-  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 8px;">
-    <div style="font-size:15px;font-weight:700;color:#2d2b3a;">⏱ 今週の集中時間</div>
-    <div id="graphFocusSum" style="font-size:12px;color:#9a97ad;"></div>
-  </div>
-  <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
-    <div id="graphFocus"></div>
-  </div>
-
-  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:18px 2px 8px;">
-    <div style="font-size:15px;font-weight:700;color:#2d2b3a;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/></svg> 見込み vs 実績</div>
-    <div id="graphEstActSum" style="font-size:12px;color:#9a97ad;"></div>
-  </div>
-  <div style="background:#fff;border-radius:18px;padding:14px 12px 8px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
-    <div id="graphEstAct"><div style="font-size:12px;color:#b0adc0;text-align:center;padding:20px 0;">—</div></div>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;font-size:11px;color:#9a97ad;margin-top:2px;">
-      <span><span style="display:inline-block;width:10px;height:10px;background:#ff9500;border-radius:50%;vertical-align:middle;"></span> 見込みオーバー</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#2e9e6b;border-radius:50%;vertical-align:middle;"></span> 見込み内で完了</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#6c5ce7;border-radius:50%;vertical-align:middle;"></span> ほぼ見込み通り</span>
+    <div style="display:flex;gap:14px;justify-content:center;font-size:11px;color:#9a97ad;margin:2px 0 10px;">
+      <span><span style="display:inline-block;width:9px;height:9px;background:#34c759;border-radius:2px;vertical-align:middle;"></span> 完了数</span>
+      <span><span style="display:inline-block;width:14px;height:3px;background:#6c5ce7;border-radius:2px;vertical-align:middle;"></span> 集中時間</span>
+    </div>
+    <div style="border-top:1px solid #f4f3f9;padding-top:10px;">
+      <div style="font-size:11.5px;font-weight:700;color:#8e8b9e;margin-bottom:6px;">よく動けている時間帯</div>
+      <div id="graphHourStrip"></div>
+      <div id="graphHourNote" class="g-note"></div>
     </div>
   </div>
+
+  <!-- ② 内訳: 種類ごとの時間と見積り精度を1つの表に。優先度の消化も同じカードに -->
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 8px;">
+    <div style="font-size:15px;font-weight:700;color:#2d2b3a;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/></svg> 何にどれだけ使ったか</div>
+    <div id="graphEstActSum" style="font-size:12px;color:#9a97ad;"></div>
+  </div>
+  <div style="background:#fff;border-radius:18px;padding:14px 14px 10px;margin-bottom:18px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
+    <div id="graphKindTable"></div>
+    <div id="graphEstAct" style="display:none;"></div>
+    <div style="border-top:1px solid #f4f3f9;margin-top:10px;padding-top:10px;">
+      <div style="font-size:11.5px;font-weight:700;color:#8e8b9e;margin-bottom:8px;">優先度の消化バランス</div>
+      <div id="graphKikanBars"></div>
+    </div>
+    <div id="graphKindNote" class="g-note"></div>
+  </div>
+
+  <!-- ③ 習慣の継続 -->
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 8px;">
+    <div style="font-size:15px;font-weight:700;color:#2d2b3a;">🔥 習慣の継続</div>
+    <div id="graphStreakSum" style="font-size:12px;color:#9a97ad;"></div>
+  </div>
+  <div style="background:#fff;border-radius:18px;padding:12px 14px;box-shadow:0 2px 10px rgba(80,70,140,0.05);">
+    <div id="graphStreak"></div>
+  </div>
+  <div id="graphFocusSum" style="display:none;"></div>
+  <div id="graphFocus" style="display:none;"></div>
   <div style="font-size:11px;color:#b0adc0;margin-top:10px;line-height:1.5;">集中時間は、タイムラインや編集画面のタイマー（開始→終了）で計測した実働時間から集計しています。</div>
 </div>
 
@@ -3327,13 +3359,13 @@
     </span>
     <span class="nav-label">TODO</span>
   </button>
-  <button class="bottom-nav-item" id="navTimer" onclick="openTimerScreen()">
+  <button class="bottom-nav-item" id="navProject" onclick="navProjectTap()">
     <span class="nav-ico">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/>
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
       </svg>
     </span>
-    <span class="nav-label">タイマー</span>
+    <span class="nav-label">プロジェクト</span>
   </button>
   <button class="bottom-nav-item" id="navRoutine" onclick="navRoutineTap()">
     <span class="nav-ico">
@@ -3355,9 +3387,9 @@
 
 <!-- AIタブをもう一度タップで出るメニュー -->
 <div id="navMoreMenu" style="display:none;position:fixed;right:56px;bottom:74px;z-index:9300;background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.16);padding:6px;min-width:168px;">
-  <button onclick="navMoreGo('project')" style="width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;padding:11px 12px;border-radius:12px;font-size:14px;font-weight:600;color:#1c1c1e;font-family:inherit;cursor:pointer;">
-    <svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#6c5ce7;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-    プロジェクト
+  <button onclick="navMoreClose(); openTimerScreen();" style="width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;padding:11px 12px;border-radius:12px;font-size:14px;font-weight:600;color:#1c1c1e;font-family:inherit;cursor:pointer;">
+    <svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#6c5ce7;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/></svg>
+    タイマー
   </button>
   <button onclick="navMoreGo('graph')" style="width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;padding:11px 12px;border-radius:12px;font-size:14px;font-weight:600;color:#1c1c1e;font-family:inherit;cursor:pointer;">
     <svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#6c5ce7;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>
@@ -4297,6 +4329,34 @@
   }
 
   var ROUTINE_KINDS = ['習慣','掃除','美容'];
+  // Notionに書けるか（token方式・マネージド方式のどちらでも可）
+  function notionLinked() {
+    try { return !!(notionSettings && (notionSettings.token || notionSettings.managed)); } catch(e) { return false; }
+  }
+
+  // 表示用の完了判定。
+  // 習慣は (A)done と 履歴(habitHistory) の2か所で管理されており、
+  // Notion往復やインスタンス再生成で (A)done だけ戻ることがあるため、どちらか立っていれば完了扱いにする。
+  function taskDisplayDone(t, dateForHabit) {
+    if (!t) return false;
+    if (t['(A)done']) return true;
+    try {
+      if (!isRoutineKind(t)) return false;
+      const h = JSON.parse(localStorage.getItem('habitHistory') || '{}');
+      const ds = t._habitDate || (dateForHabit ? ymd(dateForHabit) : null);
+      if (!ds) return false;
+      const key = t._habitTemplateId || t.id;
+      if (h[key] && h[key][ds]) return true;
+      // Notion往復で _habitTemplateId が消えた場合に備え、同名テンプレートでも照合する
+      const nm = String(t.name || '').trim();
+      if (nm) {
+        const tpl = tasks.find(x => x && (x._type === 'repeat' || x._type === 'repeat_ended') && String(x.name || '').trim() === nm);
+        if (tpl && h[tpl.id] && h[tpl.id][ds]) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
   function isRoutineKind(t){ if(!t) return false; var k=t['(B)種類']; return k==='習慣'||k==='掃除'||k==='美容'; }
 
   function getEndTime(task) {
@@ -4750,7 +4810,7 @@
       alldayLocalTasks.forEach(t => {
         const _shuruiOpt = SHURUI_OPTIONS.find(o => o.value === t['(B)種類']);
         const badgeHTML = _shuruiOpt ? `<span class="allday-cal-badge" style="background:${_shuruiOpt.bg};color:${_shuruiOpt.color};">${_shuruiOpt.label}</span>` : '';
-        const _done = t['(A)done'];
+        const _done = taskDisplayDone(t, currentDate);
         const item = document.createElement('div');
         item.className = 'allday-item allday-task' + (_done ? ' allday-task-done' : '');
         item.innerHTML = `<span data-allday-check="${t.id}" style="width:18px;height:18px;border-radius:50%;border:2px solid ${_done?'#34c759':'#d1d1d6'};background:${_done?'#34c759':'white'};display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:white;flex-shrink:0;cursor:pointer;">${_done?'✓':''}</span>`
@@ -5245,7 +5305,7 @@
       const nsy = nextSlotY(endMin);
       const finalH = Math.max(40, Math.min(rawH, nsy - cardTopBase - 12));
       const isPast = isPastDay || (isToday && endMin < nowMin);
-      const _done = t['(A)done'];
+      const _done = taskDisplayDone(t, currentDate);
       const _shuruiOpt = SHURUI_OPTIONS.find(o => o.value === t['(B)種類']);
       const isHabit = isRoutineKind(t);
       const totalW = window.innerWidth - 116;
@@ -5319,52 +5379,6 @@
       card.addEventListener('click', () => editTask(t.id));
       timeline.appendChild(card);
       setupDrag(card, t);
-    });
-
-    // ── 起床 / 就寝マーカー（タスクではなく1日の境界として表示）──
-    // その時刻にカードがあると文字が重なるので、重なる場合は時刻列(左端)に逃がして並列にする。
-    // 過去の時間帯は圧縮表示されるため「分」ではなく実際のピクセル位置で判定する
-    // （例: 8:00と9:00が画面上25pxしか離れていない、といったことが起きる）
-    const _cardRects = [...timeline.querySelectorAll('.tl-task-card, .tl-event')].map(el => {
-      const top = parseFloat(el.style.top) || 0;
-      return { top, bottom: top + (parseFloat(el.style.height) || 0) };
-    });
-    const _PILL_HALF = 15;   // ピル高さの半分＋余白
-    const _markHitsCard = (y) => _cardRects.some(r => (y + _PILL_HALF) > r.top && (y - _PILL_HALF) < r.bottom);
-    [
-      { min: ROUTINE_START, label: '起床', icon: 'sun', color: '#f0932b' },
-      { min: ROUTINE_END,   label: '就寝', icon: 'moon', color: '#6c5ce7' },
-    ].forEach(mk => {
-      const y = toY(mk.min);
-      const iconSvg = TASK_ICONS[mk.icon]
-        ? '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true">' + TASK_ICONS[mk.icon] + '</svg>' : '';
-
-      const line = document.createElement('div');
-      line.className = 'tl-daymark-line';
-      line.style.cssText = `top:${y}px;border-top-color:${mk.color}44;`;
-      timeline.appendChild(line);
-
-      // 時刻列（左端 0〜58px）のラベル。カードとは絶対に重ならない位置
-      const gut = document.createElement('button');
-      gut.type = 'button';
-      gut.className = 'tl-daymark-gutter';
-      gut.style.cssText = `top:${y}px;color:${mk.color};`;
-      gut.innerHTML = iconSvg + '<b>' + minToHHMM(mk.min) + '</b>';
-      gut.title = mk.label + 'の時刻を変更';
-      gut.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
-      timeline.appendChild(gut);
-
-      // カードが無い時だけ「起床」「就寝」の文字ピルを出す（重なるなら出さない）
-      if (!_markHitsCard(y)) {
-        const pill = document.createElement('button');
-        pill.type = 'button';
-        pill.className = 'tl-daymark';
-        pill.style.cssText = `top:${y}px;color:${mk.color};border-color:${mk.color}55;background:${mk.color}12;`;
-        pill.innerHTML = iconSvg + '<span>' + mk.label + '</span>';
-        pill.title = mk.label + 'の時刻を変更';
-        pill.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
-        timeline.appendChild(pill);
-      }
     });
 
     // ── 空き時間カード ──
@@ -5485,6 +5499,53 @@
       timeline.appendChild(freeDiv);
       requestAnimationFrame(checkFreeOverflow);
     }
+
+    // ── 起床 / 就寝マーカー（タスクではなく1日の境界として表示）──
+    // その時刻にカードがあると文字が重なるので、重なる場合は時刻列(左端)に逃がして並列にする。
+    // 空き時間カードも含めて判定するため、カード類をすべて描いたあとに実行する。
+    // 過去の時間帯は圧縮表示されるため「分」ではなく実際のピクセル位置で判定する
+    // （例: 8:00と9:00が画面上25pxしか離れていない、といったことが起きる）
+    const _cardRects = [...timeline.querySelectorAll('.tl-task-card, .tl-event, .tl-free-card')].map(el => {
+      const top = parseFloat(el.style.top) || 0;
+      return { top, bottom: top + (parseFloat(el.style.height) || 0) };
+    });
+    const _PILL_HALF = 15;   // ピル高さの半分＋余白
+    const _markHitsCard = (y) => _cardRects.some(r => (y + _PILL_HALF) > r.top && (y - _PILL_HALF) < r.bottom);
+    [
+      { min: ROUTINE_START, label: '起床', icon: 'sun', color: '#f0932b' },
+      { min: ROUTINE_END,   label: '就寝', icon: 'moon', color: '#6c5ce7' },
+    ].forEach(mk => {
+      const y = toY(mk.min);
+      const iconSvg = TASK_ICONS[mk.icon]
+        ? '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true">' + TASK_ICONS[mk.icon] + '</svg>' : '';
+
+      const line = document.createElement('div');
+      line.className = 'tl-daymark-line';
+      line.style.cssText = `top:${y}px;border-top-color:${mk.color}44;`;
+      timeline.appendChild(line);
+
+      // 時刻列（左端 0〜58px）のラベル。カードとは絶対に重ならない位置
+      const gut = document.createElement('button');
+      gut.type = 'button';
+      gut.className = 'tl-daymark-gutter';
+      gut.style.cssText = `top:${y}px;color:${mk.color};`;
+      gut.innerHTML = iconSvg + '<b>' + minToHHMM(mk.min) + '</b>';
+      gut.title = mk.label + 'の時刻を変更';
+      gut.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
+      timeline.appendChild(gut);
+
+      // カードが無い時だけ「起床」「就寝」の文字ピルを出す（重なるなら出さない）
+      if (!_markHitsCard(y)) {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'tl-daymark';
+        pill.style.cssText = `top:${y}px;color:${mk.color};border-color:${mk.color}55;background:${mk.color}12;`;
+        pill.innerHTML = iconSvg + '<span>' + mk.label + '</span>';
+        pill.title = mk.label + 'の時刻を変更';
+        pill.addEventListener('click', e => { e.stopPropagation(); openDayRangePop(); });
+        timeline.appendChild(pill);
+      }
+    });
 
     // ── 現在時刻ライン ──
     const _ymMaxMin = (_yMap && _yMap.mins && _yMap.mins.length) ? _yMap.mins[_yMap.mins.length - 1] : (END_H * 60);
@@ -5804,7 +5865,7 @@
   }
   async function notionFetchSubtaskInfo(id) {
     if (notionSubtaskCache[id]) return notionSubtaskCache[id];
-    if (!notionSettings.token) return null;
+    if (!notionLinked()) return null;
     try {
       const page = await notionApiCall(`/pages/${id}`, 'GET');
       const t = notionPageToTask(page);
@@ -5855,7 +5916,7 @@
 
     // 未解決（ローカルに無い）サブタスクの名前をNotionから遅延取得
     const pending = items.filter(it => it.pending);
-    if (pending.length && notionSettings.token) {
+    if (pending.length && notionLinked()) {
       const openedId = task.id;
       (async () => {
         for (const p of pending) { await notionFetchSubtaskInfo(p.id); }
@@ -5940,7 +6001,7 @@
       } else if (durLabel!=='なし') {
         tl = `<div class="later-item-time" style="color:#8e8e93;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> ${durLabel}</div>`;
       }
-      const _done = t['(A)done'];
+      const _done = taskDisplayDone(t, currentDate);
       const _lsOpt = SHURUI_OPTIONS.find(o => o.value === t['(B)種類']);
       const _lsBadge = _lsOpt
         ? `<span style="background:${_lsOpt.bg};color:${_lsOpt.color};padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;margin-left:4px;">${_lsOpt.label}</span>`
@@ -6206,7 +6267,7 @@
       updateTaskUrlUI();
       renderSubtasksForTask(task);
       // 完了状態をUIに反映
-      updateModalDoneUI(task['(A)done'] || false);
+      updateModalDoneUI(taskDisplayDone(task, currentDate));
 
       if (task._type === 'time') {
         const _isAllDay = task._allDay || false;
@@ -6714,11 +6775,6 @@
     btn.style.display = 'block';
   }
 
-  // Notionに書けるか（token方式・マネージド方式のどちらでも可）
-  function notionLinked() {
-    try { return !!(notionSettings && (notionSettings.token || notionSettings.managed)); } catch(e) { return false; }
-  }
-
   let _actualMode = 'set';     // 'add' = 現在値に足す / 'set' = 入力値で上書き
   let _actualBaseMin = 0;      // 現在記録されている分
 
@@ -6787,6 +6843,12 @@
     const totalMin = Math.max(0, _actualResultMin());
     const hours = Math.round((totalMin / 60) * 100) / 100;   // 集中タイマーと同じ小数第2位まで
 
+    // 「今週の集中時間」にも反映する。増えた分だけ記録するので、
+    // タイマーで記録済みの分を二重に数えることはない（下方修正した場合は記録しない）
+    const _prevMin = Math.round(((t[ACTUAL_PROP] || 0) * 60));
+    const _deltaMin = totalMin - _prevMin;
+    if (_deltaMin > 0) { try { recordFocus(_deltaMin); } catch (e) {} }
+
     t[ACTUAL_PROP] = hours;
     t._localLastEdited = new Date().toISOString();
     localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -6825,8 +6887,12 @@
     renderTimeline();
     renderLater();
     // Notion同期
-    if (task._notionId && notionSettings.token) {
+    if (task._notionId && notionLinked()) {
       notionUpdateDone(task._notionId, task['(A)done']).catch(e => console.error('Notion完了同期失敗', e));
+    }
+    // 完了にしたときは用が済んだので閉じる（未完了に戻したときは編集を続けられるよう開いたまま）
+    if (task['(A)done']) {
+      setTimeout(() => { try { closeModal(); } catch(e) {} }, 260);
     }
   }
 
@@ -7258,7 +7324,7 @@
           if (tpl._repeatConfig) { tpl._repeatConfig.time = newTime; tpl._repeatConfig.allDay = isAllDayNow; }
           tpl._allDay = isAllDayNow;
           tpl._localLastEdited = new Date().toISOString();
-          if (tpl._notionId && notionSettings.token) {
+          if (tpl._notionId && notionLinked()) {
             notionUpdateTask(tpl._notionId, tpl).catch(e => console.error('Notion同期失敗', e));
           }
         }
@@ -7278,7 +7344,7 @@
             applyTimeToInstance(t, newTime);
           }
           t._localLastEdited = new Date().toISOString();
-          if (t._notionId && notionSettings.token) {
+          if (t._notionId && notionLinked()) {
             notionUpdateTask(t._notionId, t).catch(e => console.error('Notion同期失敗', e));
           }
         });
@@ -8291,6 +8357,57 @@
   }
 
   // 依存のない軽量SVG棒グラフ
+  // 棒（完了数）と折れ線（集中時間）を1枚に重ねる
+  function svgComboChart(labels, bars, line, opts) {
+    opts = opts || {};
+    const W = 340, H = 176, padL = 26, padR = 26, padT = 16, padB = 24;
+    const n = Math.max(bars.length, 1);
+    const maxB = Math.max(1, ...bars);
+    const maxL = Math.max(1, ...line);
+    const cw = (W - padL - padR) / n;
+    const bw = Math.min(cw * 0.56, 20);
+    const chartH = H - padT - padB;
+    const yB = v => padT + chartH - (v / maxB) * chartH;
+    const yL = v => padT + chartH - (v / maxL) * chartH;
+    let out = '';
+    // 棒
+    bars.forEach((v, i) => {
+      if (v <= 0) return;
+      const x = padL + i * cw + (cw - bw) / 2;
+      const h = (v / maxB) * chartH;
+      out += `<rect x="${x.toFixed(1)}" y="${(padT + chartH - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="#34c759"/>`;
+      out += `<text x="${(x + bw/2).toFixed(1)}" y="${(padT + chartH - h - 4).toFixed(1)}" font-size="9" fill="#8e8b9e" text-anchor="middle">${v}</text>`;
+    });
+    // 折れ線
+    const pts = line.map((v, i) => [padL + i * cw + cw / 2, yL(v)]);
+    if (pts.length > 1) {
+      out += `<polyline fill="none" stroke="#6c5ce7" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"/>`;
+    }
+    line.forEach((v, i) => { if (v > 0) out += `<circle cx="${pts[i][0].toFixed(1)}" cy="${pts[i][1].toFixed(1)}" r="2.6" fill="#6c5ce7"/>`; });
+    // 軸ラベル
+    out += `<text x="2" y="${(padT + 8).toFixed(1)}" font-size="9" fill="#c7c4d4">${maxB}</text>`;
+    out += `<text x="${W - padR + 3}" y="${(padT + 8).toFixed(1)}" font-size="9" fill="#b9b3e0">${opts.lineMaxLabel || maxL}</text>`;
+    out += `<line x1="${padL}" y1="${padT + chartH}" x2="${W - padR}" y2="${padT + chartH}" stroke="#eceaf3" stroke-width="1"/>`;
+    labels.forEach((lb, i) => {
+      if (!lb) return;
+      out += `<text x="${(padL + i * cw + cw/2).toFixed(1)}" y="${H - 8}" font-size="9" fill="#c7c4d4" text-anchor="middle">${lb}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">${out}</svg>`;
+  }
+
+  // 24時間を細いブロックで表す（濃さ＝完了数）
+  function svgHourStrip(counts) {
+    const max = Math.max(1, ...counts);
+    let cells = '';
+    counts.forEach((v, h) => {
+      const a = v > 0 ? (0.18 + 0.82 * (v / max)) : 0;
+      const fill = v > 0 ? `rgba(52,199,89,${a.toFixed(2)})` : '#f2f1f7';
+      cells += `<rect x="${(h * 14).toFixed(1)}" y="0" width="12" height="22" rx="3" fill="${fill}"><title>${h}時 ${v}件</title></rect>`;
+      if (h % 6 === 0) cells += `<text x="${(h * 14 + 6).toFixed(1)}" y="34" font-size="9" fill="#c7c4d4" text-anchor="middle">${h}時</text>`;
+    });
+    return `<svg viewBox="0 0 336 38" style="width:100%;height:auto;display:block;">${cells}</svg>`;
+  }
+
   function svgBarChart(labels, values, opts) {
     opts = opts || {};
     const W = 340, H = 170, padL = 30, padR = 10, padT = 14, padB = 24;
@@ -8401,10 +8518,13 @@
         const est=numP(pr['(C)見込み/h']);
         const act=numP(pr['(C)手入力実績時間_out']);
         let name='(無題)'; const tp=pr['タスク名']; if(tp&&Array.isArray(tp.title)) name=tp.title.map(r=>r.plain_text).join('')||'(無題)';
-        if(est>0 && act>0) rows.push({name, est:rnd(est), act:rnd(act), t:(p.last_edited_time||'')});
+        const kp=pr['(B)種類']; const kind=(kp&&kp.select&&kp.select.name)||(kp&&kp.status&&kp.status.name)||'';
+        if(est>0 && act>0) rows.push({name, kind, est:rnd(est), act:rnd(act), t:(p.last_edited_time||'')});
       });
       rows.sort((a,b)=> (a.t<b.t?1:(a.t>b.t?-1:0))); // 新しい順
       if(!rows.length){ empty('見込みと実績が両方あるタスクがまだありません'); return; }
+
+      // 種類別タブ: どの種類で見積もりを外しやすいかを出す
       const recent=rows.slice(0,12);               // 統計は直近12件
       const chrono=recent.slice().reverse();       // 推移は古い→新しい
       const ratios=recent.filter(x=>x.est>0).map(x=>x.act/x.est);
@@ -8424,49 +8544,171 @@
       // B: 散布図
       html+='<div style="font-size:11px;color:#9a97ad;margin:14px 2px 0;">見込み(横) × 実績(縦)　斜め線＝見込み通り</div>';
       html+=svgScatterEstAct(recent.map(x=>({e:x.est,a:x.act})));
-      el.innerHTML=html;
-      if(sum) sum.textContent='直近'+recent.length+'件';
+      el.innerHTML=html;   // 非表示（内訳セクションに統合済み）。倍率だけ見出しに出す
+      if(sum) sum.textContent='実績は見込みの平均 '+mul+'倍（直近'+recent.length+'件）';
     }catch(e){ empty('失敗: '+((e&&e.message)?e.message:String(e))); }
+  }
+
+  // ── ルーチンの継続日数（ストリーク）──
+  // habitHistory[テンプレートID][YYYY-MM-DD] = true から、現在の連続日数と最長を出す。
+  // 「対象日でない日」は連続を切らさない（週2回の習慣でも続いていると数える）
+  function habitStreaks() {
+    let hist = {};
+    try { hist = JSON.parse(localStorage.getItem('habitHistory') || '{}'); } catch (e) {}
+    const out = [];
+    Object.keys(hist).forEach(tplId => {
+      const days = Object.keys(hist[tplId] || {}).filter(d => hist[tplId][d]).sort();
+      if (!days.length) return;
+      const tpl = tasks.find(t => t && t.id === tplId);
+      const name = (tpl && tpl.name) || days._name || null;
+      // 最長連続
+      let best = 1, run = 1;
+      for (let i = 1; i < days.length; i++) {
+        const prev = new Date(days[i-1] + 'T00:00:00');
+        const cur  = new Date(days[i] + 'T00:00:00');
+        const gap = Math.round((cur - prev) / 86400000);
+        if (gap === 1) { run++; best = Math.max(best, run); } else { run = 1; }
+      }
+      // 現在の連続（今日か昨日から遡る）
+      const t0 = new Date(); t0.setHours(0,0,0,0);
+      const has = d => !!hist[tplId][ymd(d)];
+      let cur = 0;
+      const cursor = new Date(t0);
+      if (!has(cursor)) cursor.setDate(cursor.getDate() - 1);   // 今日まだなら昨日から
+      while (has(cursor)) { cur++; cursor.setDate(cursor.getDate() - 1); }
+      out.push({ id: tplId, name: name || '(名称不明)', cur, best: Math.max(best, cur), total: days.length, last: days[days.length-1] });
+    });
+    return out.sort((a, b) => b.cur - a.cur || b.best - a.best);
+  }
+
+  function renderStreakSection() {
+    const el = document.getElementById('graphStreak');
+    const sum = document.getElementById('graphStreakSum');
+    if (!el) return;
+    const list = habitStreaks().filter(x => x.name !== '(名称不明)');
+    if (!list.length) {
+      el.innerHTML = '<div style="font-size:12px;color:#b0adc0;text-align:center;padding:16px 0;">ルーチンを達成すると、続いた日数がここに出ます</div>';
+      if (sum) sum.textContent = '';
+      return;
+    }
+    el.innerHTML = list.slice(0, 8).map(x =>
+      '<div class="g-streak">'
+      + '<span class="nm">' + _escapeHtml(x.name) + '</span>'
+      + '<span class="cur' + (x.cur ? '' : ' zero') + '">' + (x.cur ? x.cur + '日' : '—') + '</span>'
+      + '<span class="best">最長 ' + x.best + '日</span>'
+      + '</div>'
+    ).join('');
+    const top = list[0];
+    if (sum) sum.textContent = top.cur ? `最長継続中 ${top.cur}日` : `記録 ${list.length}件`;
   }
 
   function renderGraphScreen() {
     const store = getRewardStore();
     document.querySelectorAll('[data-coin-count]').forEach(el => { el.textContent = getCoinBalance(); });
 
-    // ① 完了タスク数の推移（直近14日）
+    // ① 日々の記録: 完了数（棒）と集中時間（折れ線）を同じ14日軸に重ねる
     const today = new Date(); today.setHours(0,0,0,0);
-    const cLabels = [], cValues = [];
+    const cLabels = [], cValues = [], fValues = [];
     for (let i = 13; i >= 0; i--) {
       const d = new Date(today); d.setDate(d.getDate() - i);
       const ds = ymd(d);
       cValues.push(store.completions.filter(c => c.dateStr === ds).length);
-      cLabels.push(i % 2 === 0 ? `${d.getMonth()+1}/${d.getDate()}` : ''); // 1日おきにラベル
+      let fm = 0;
+      store.focus.forEach(f => {
+        const fd = f.ts ? new Date(f.ts) : null;
+        if (fd && !isNaN(fd)) { fd.setHours(0,0,0,0); if (ymd(fd) === ds) fm += f.min; }
+      });
+      fValues.push(Math.round(fm));
+      cLabels.push(i % 3 === 0 ? `${d.getMonth()+1}/${d.getDate()}` : '');
     }
-    const totalCompleted = cValues.reduce((a, b) => a + b, 0);
+    const totalCompleted = cValues.reduce((x, y) => x + y, 0);
+    const totalFocus14  = fValues.reduce((x, y) => x + y, 0);
     const elC = document.getElementById('graphCompleted');
-    if (elC) elC.innerHTML = svgBarChart(cLabels, cValues, { color: '#34c759', showVal: true });
+    if (elC) elC.innerHTML = svgComboChart(cLabels, cValues, fValues, { lineMaxLabel: fmtMinShort(Math.max(1, ...fValues)) });
     const elCsum = document.getElementById('graphCompletedSum');
-    if (elCsum) elCsum.textContent = `直近14日で ${totalCompleted}件`;
+    if (elCsum) elCsum.textContent = `14日で ${totalCompleted}件 / ${fmtMinShort(totalFocus14)}`;
 
-    // ② 今週の集中時間（月〜日、実働分から）
-    const now = new Date();
-    const dow = (now.getDay() + 6) % 7; // 0=月
-    const monday = new Date(now); monday.setHours(0,0,0,0); monday.setDate(now.getDate() - dow);
-    const fLabels = ['月','火','水','木','金','土','日'];
-    const fMins = [0,0,0,0,0,0,0];
-    store.focus.forEach(f => {
-      const d = new Date(f.ts); d.setHours(0,0,0,0);
-      const diff = Math.round((d - monday) / 86400000);
-      if (diff >= 0 && diff < 7) fMins[diff] += f.min;
+    // 時間帯の傾向（完了ログの時刻から）
+    const hourCounts = new Array(24).fill(0);
+    store.completions.forEach(c => {
+      const d = c.ts ? new Date(c.ts) : null;
+      if (d && !isNaN(d)) hourCounts[d.getHours()]++;
     });
-    const totalFocus = fMins.reduce((a, b) => a + b, 0);
-    const elF = document.getElementById('graphFocus');
-    if (elF) elF.innerHTML = svgBarChart(fLabels, fMins, { color: '#6c5ce7', showVal: true, valFmt: v => fmtMinShort(v), yFmt: v => fmtMinShort(v) });
-    const elFsum = document.getElementById('graphFocusSum');
-    if (elFsum) elFsum.textContent = `今週 合計 ${fmtMinShort(totalFocus)}`;
+    const totalH = hourCounts.reduce((x, y) => x + y, 0);
+    const elHS = document.getElementById('graphHourStrip');
+    if (elHS) elHS.innerHTML = svgHourStrip(hourCounts);
+    const elHN = document.getElementById('graphHourNote');
+    if (elHN) {
+      const peak = hourCounts.indexOf(Math.max(...hourCounts));
+      elHN.textContent = totalH
+        ? `いちばん完了が多いのは ${peak}時台。集中したいタスクはこの時間に置くと進みやすいかもしれません。`
+        : 'タスクを完了すると、完了した時刻がここに貯まります。';
+    }
+
+    // ② 何にどれだけ使ったか（種類別の実績時間 ＋ 見積り倍率を1つの表に）
+    const shortKind = v => String(v).replace(/^[0-9a-z]\.\s*/i, '').slice(0, 5);
+    const kindRows = SHURUI_OPTIONS.map(o => {
+      let act = 0, est = 0, n = 0;
+      tasks.forEach(t => {
+        if (!t || t['(B)種類'] !== o.value) return;
+        const a2 = t['(C)手入力実績時間_out'], e2 = t['(C)見込み/h'];
+        if (typeof a2 === 'number' && a2 > 0) { act += a2; n++; if (typeof e2 === 'number' && e2 > 0) est += e2; }
+      });
+      return { name: shortKind(o.value), color: o.color || '#6c5ce7', min: Math.round(act * 60), ratio: est > 0 ? act / est : 0, n };
+    }).filter(r => r.min > 0).sort((x, y) => y.min - x.min);
+
+    const elKT = document.getElementById('graphKindTable');
+    const maxKindMin = Math.max(1, ...kindRows.map(r => r.min));
+    if (elKT) {
+      elKT.innerHTML = kindRows.length ? kindRows.map(r =>
+        '<div style="display:flex;align-items:center;gap:9px;padding:6px 0;">'
+        + '<span style="width:56px;flex:none;font-size:12px;color:#2d2b3a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + _escapeHtml(r.name) + '</span>'
+        + '<span style="flex:1;min-width:0;height:9px;background:#f2f1f7;border-radius:5px;overflow:hidden;">'
+        +   '<span style="display:block;height:100%;width:' + Math.max(3, (r.min / maxKindMin) * 100).toFixed(1) + '%;background:' + r.color + ';border-radius:5px;"></span>'
+        + '</span>'
+        + '<span style="width:52px;flex:none;text-align:right;font-size:11.5px;font-weight:700;color:#5a5768;">' + fmtMinShort(r.min) + '</span>'
+        + '<span style="width:46px;flex:none;text-align:right;font-size:11px;color:' + (r.ratio > 1.3 ? '#ff9500' : (r.ratio ? '#2e9e6b' : '#c9c5d8')) + ';">' + (r.ratio ? '×' + r.ratio.toFixed(1) : '—') + '</span>'
+        + '</div>'
+      ).join('') : '<div style="font-size:12px;color:#b0adc0;text-align:center;padding:16px 0;">実績時間を記録すると、種類ごとの内訳が出ます</div>';
+    }
+
+    // 優先度（実行期間）の消化バランス
+    const doneKeys = new Set(store.completions.map(c => c.key));
+    const kikanShort = ['優短', '優長', '低短', '低長'];
+    const kikanCnt = [0, 0, 0, 0];
+    tasks.forEach(t => {
+      if (!t || !doneKeys.has(t.id)) return;
+      const i = KIKAN_OPTIONS.findIndex(o => o.value === t['(B)実行期間']);
+      if (i >= 0 && i < 4) kikanCnt[i]++;
+    });
+    const maxK = Math.max(1, ...kikanCnt);
+    const elKB = document.getElementById('graphKikanBars');
+    if (elKB) {
+      const cols = ['#ff6b6e', '#ff9500', '#4aa3ff', '#9a97ad'];
+      elKB.innerHTML = kikanCnt.some(v => v > 0) ? kikanShort.map((nm, i) =>
+        '<div style="display:flex;align-items:center;gap:9px;padding:3px 0;">'
+        + '<span style="width:34px;flex:none;font-size:11.5px;color:#5a5768;">' + nm + '</span>'
+        + '<span style="flex:1;min-width:0;height:8px;background:#f2f1f7;border-radius:4px;overflow:hidden;">'
+        +   '<span style="display:block;height:100%;width:' + (kikanCnt[i] ? Math.max(3, (kikanCnt[i]/maxK)*100).toFixed(1) : 0) + '%;background:' + cols[i] + ';border-radius:4px;"></span>'
+        + '</span>'
+        + '<span style="width:30px;flex:none;text-align:right;font-size:11px;color:#8e8b9e;">' + kikanCnt[i] + '</span>'
+        + '</div>'
+      ).join('') : '<div style="font-size:11.5px;color:#b0adc0;padding:6px 0;">実行期間を設定したタスクを完了すると出ます</div>';
+    }
+
+    const elKN = document.getElementById('graphKindNote');
+    if (elKN) {
+      const worst = kindRows.filter(r => r.ratio > 0).sort((x, y) => y.ratio - x.ratio)[0];
+      elKN.textContent = worst
+        ? `右の「×」は見込みの何倍かかったか。いま外しやすいのは「${worst.name}」（約${worst.ratio.toFixed(1)}倍）です。`
+        : '右の「×」は、見込みに対して実際に何倍かかったかです。';
+    }
+
+    // ③ ルーチンの継続（ストリーク）
+    renderStreakSection();
 
     // ③ 見込み vs 実績（Notionから集計）
-    try{ renderEstActGraph(); }catch(e){}
+    try{ renderEstActGraph(); }catch(e){}   // 見出しに「実績は見込みの平均◯倍」を出す
   }
 
   // ============================================================
@@ -8817,7 +9059,7 @@
 
     // Notion側もアーカイブ
     toRemove.forEach(t => {
-      if (t._notionId && notionSettings.token) {
+      if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
           .catch(e => console.error('繰り返しタスク削除失敗', e));
       }
@@ -8826,7 +9068,7 @@
     const removeIds = new Set(toRemove.map(t => t.id));
     if (all) {
       removeIds.add(templateId);
-      if (tpl._notionId && notionSettings.token) {
+      if (tpl._notionId && notionLinked()) {
         notionApiCall(`/pages/${tpl._notionId}`, 'PATCH', { archived: true })
           .catch(e => console.error('繰り返しテンプレート削除失敗', e));
       }
@@ -8838,7 +9080,7 @@
       tpl._endedAt = ymdStr(cutoff);
       if (tpl._repeatConfig) tpl._repeatConfig.end = ymdStr(y);
       tpl._localLastEdited = new Date().toISOString();
-      if (tpl._notionId && notionSettings.token) {
+      if (tpl._notionId && notionLinked()) {
         try { notionUpdateTask(tpl._notionId, tpl); } catch(e) {}
       }
     }
@@ -9029,7 +9271,7 @@
       return d >= today; // 今日含む以降
     });
     toRemove.forEach(t => {
-      if (t._notionId && notionSettings.token) {
+      if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
           .catch(e => console.error('ルーチン終了:インスタンス削除失敗', e));
       }
@@ -9051,7 +9293,7 @@
       return d >= today;
     });
     toRemove.forEach(t => {
-      if (t._notionId && notionSettings.token) {
+      if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
           .catch(e => console.error('ルーチン終了:疑似インスタンス削除失敗', e));
       }
@@ -9449,7 +9691,7 @@
       const winner = loser === prev ? t : prev;
       seen.set(key, winner);
       removeIds.add(loser.id);
-      if (loser._notionId && notionSettings.token) {
+      if (loser._notionId && notionLinked()) {
         notionApiCall(`/pages/${loser._notionId}`, 'PATCH', { archived: true })
           .catch(e => console.error('重複インスタンス削除失敗', e));
       }
@@ -9476,7 +9718,7 @@
       }
     });
     toRemove.forEach(t => {
-      if (t._notionId && notionSettings.token) {
+      if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
           .catch(e => console.error('習慣インスタンス削除失敗', e));
       }
@@ -9517,7 +9759,7 @@
       }
       if (changed) {
         t._localLastEdited = new Date().toISOString();
-        if (t._notionId && notionSettings.token) {
+        if (t._notionId && notionLinked()) {
           notionUpdateTask(t._notionId, t).catch(e => console.error('習慣インスタンス更新失敗', e));
         }
       }
@@ -9534,7 +9776,7 @@
       return d > today; // 未来分のみ
     });
     toRemove.forEach(t => {
-      if (t._notionId && notionSettings.token) {
+      if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
           .catch(e => console.error('習慣インスタンス削除失敗', e));
       }
@@ -10378,7 +10620,10 @@
     });
   }
   function openTdyScreen() { navMoreClose(); closeAppOverlays('tdy'); const b = document.getElementById('tdyLaunch'); if (b) b.click(); navSetActive('navTdy'); syncNavHeight(); }
-  function openTimerScreen() { navMoreClose(); closeAppOverlays('timer'); const b = document.getElementById('mzLaunch'); if (b) b.click(); navSetActive('navTimer'); syncNavHeight(); }
+  // タイマーは「もっと」メニューから開くので、ナビ上はルーチンを点灯させておく
+  function openTimerScreen() { navMoreClose(); closeAppOverlays('timer'); const b = document.getElementById('mzLaunch'); if (b) b.click(); navSetActive('navRoutine'); syncNavHeight(); }
+  // プロジェクトタブ: 全画面オーバーレイが開いていれば閉じてから切り替える
+  function navProjectTap() { navMoreClose(); closeAppOverlays(null); switchScreen('project'); }
   function navMoreClose() {
     const m = document.getElementById('navMoreMenu'); const bd = document.getElementById('navMoreBackdrop');
     if (m) m.style.display = 'none';
@@ -10404,7 +10649,7 @@
 
   // TODO・タイマーもタブのアクティブ表示を他タブと同じ挙動に
   function navSetActive(id) {
-    ['navTodo','navTdy','navTimer','navRoutine','navAi'].forEach(x => {
+    ['navTodo','navTdy','navProject','navTimer','navRoutine','navAi'].forEach(x => {
       const el = document.getElementById(x);
       if (el) el.classList.toggle('active', x === id);
     });
@@ -10413,13 +10658,20 @@
   function navRoutineTap() {
     const m = document.getElementById('navMoreMenu');
     const opened = m && m.style.display === 'block';
-    if (currentScreen === 'routine') {
-      // ルーチン画面で、もう一度タップ → プロジェクト/グラフのメニュー
+    // TODO・タイマー・GTDは全画面オーバーレイで、currentScreen が更新されない。
+    // 開いている間は「別の画面にいる」と扱い、まずルーチンに戻す（反応しないように見えるのを防ぐ）
+    const overlayOpen = ['tdyOverlay','mzOverlay','gtdOverlay'].some(id => {
+      const el = document.getElementById(id);
+      return el && el.classList.contains('open');
+    });
+    if (currentScreen === 'routine' && !overlayOpen) {
+      // ルーチン画面で、もう一度タップ → タイマー/グラフのメニュー
       if (opened) navMoreClose(); else navMoreOpen();
       return;
     }
-    // プロジェクト・グラフなど他の画面からは、まずルーチンに戻る
+    // 他の画面・オーバーレイ表示中は、まずルーチンに戻る
     navMoreClose();
+    closeAppOverlays(null);
     switchScreen('routine');
   }
   function navAiGo() { navMoreClose(); switchScreen('ai'); }
@@ -10464,7 +10716,9 @@
     try { const mv = document.getElementById('mzOverlay'); if (mv) mv.classList.remove('open'); } catch(e) {}
     try { const gv = document.getElementById('gtdOverlay'); if (gv) gv.classList.remove('open'); } catch(e) {}
     document.getElementById('navTodo').classList.toggle('active', screen === 'todo');
-    document.getElementById('navRoutine').classList.toggle('active', screen === 'routine' || screen === 'graph' || screen === 'project');
+    // プロジェクトは独立タブになったので、ルーチンと分けて点灯させる
+    { const np = document.getElementById('navProject'); if (np) np.classList.toggle('active', screen === 'project'); }
+    document.getElementById('navRoutine').classList.toggle('active', screen === 'routine' || screen === 'graph');
     const na = document.getElementById('navAi');
     if (na) na.classList.toggle('active', screen === 'ai');
   }
@@ -11885,7 +12139,7 @@
       else delete h[histId][ds];
       saveHabitHistory(h);
     }
-    if (task._notionId && notionSettings.token) {
+    if (task._notionId && notionLinked()) {
       notionUpdateDone(task._notionId, task['(A)done']).catch(e => console.error('Notion完了同期失敗', e));
     }
     renderTimeline();
@@ -11960,7 +12214,7 @@
     // 繰り返しインスタンスは _habitDate と日付を必ず一致させる（ズレると増殖の原因）
     if (t._habitTemplateId) t._habitDate = sY;
     t._localLastEdited = new Date().toISOString();
-    if (t._notionId && notionSettings.token) {
+    if (t._notionId && notionLinked()) {
       notionUpdateTask(t._notionId, t).catch(e => console.error('Notion同期失敗', e));
     }
   }
@@ -11976,7 +12230,7 @@
       tpl._repeatConfig.allDay = false;
       tpl._allDay = false;
       tpl._localLastEdited = new Date().toISOString();
-      if (tpl._notionId && notionSettings.token) {
+      if (tpl._notionId && notionLinked()) {
         notionUpdateTask(tpl._notionId, tpl).catch(e => console.error('Notion同期失敗', e));
       }
     }
@@ -13896,7 +14150,7 @@
 
   // --- 完了状態の変更をNotionに送る ---
   async function notionUpdateDone(notionId, done) {
-    if (!notionId || !notionSettings.token) return;
+    if (!notionId || !notionLinked()) return;
     const props = notionSettings.props || NOTION_PROP_DEFAULT;
     try {
       await notionApiCall(`/pages/${notionId}`, 'PATCH', {
@@ -13909,7 +14163,7 @@
 
   // --- プロパティ変更をNotionに送る ---
   async function notionUpdateTask(notionId, task) {
-    if (!notionId || !notionSettings.token) return;
+    if (!notionId || !notionLinked()) return;
     try {
       await notionApiCall(`/pages/${notionId}`, 'PATCH', {
         properties: taskToNotionProps(task)
@@ -15616,7 +15870,7 @@
 
   // 開始時に「開始日時」を即書き込み（失敗しても計測は継続）
   async function timerSyncStartToNotion(task) {
-    if (!task._notionId || !notionSettings.token) return;
+    if (!task._notionId || !notionLinked()) return;
     const props = notionSettings.props || NOTION_PROP_DEFAULT;
     const startName = props.start || NOTION_PROP_DEFAULT.start;
     if (!startName) return;
@@ -15629,7 +15883,7 @@
 
   // 終了時に「開始/終了(/実働分)」を書き込み、formula値を取り直して表示更新
   async function timerSyncStopToNotion(task) {
-    if (!task._notionId || !notionSettings.token) return;
+    if (!task._notionId || !notionLinked()) return;
     const props = notionSettings.props || NOTION_PROP_DEFAULT;
     const startName = props.start || NOTION_PROP_DEFAULT.start;
     const endName   = props.end   || NOTION_PROP_DEFAULT.end;
