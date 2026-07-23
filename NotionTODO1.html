@@ -1912,7 +1912,7 @@
 
   /* 習慣タスク スター */
   .habit-star {
-    width: 28px; height: 28px;
+    width: 34px; height: 34px;
     border-radius: 50%;
     background: transparent;
     border: none;
@@ -1923,6 +1923,10 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
+  /* 星の本体。未完了は輪郭だけ、完了は金色で塗りつぶす */
+  .habit-star .eic { width: 24px; height: 24px; stroke-width: 1.6; }
+  .habit-star.done .eic { fill: #ffc531; stroke: #f0a500; stroke-width: 1.2; }
+  .habit-star:not(.done) .eic { fill: none; stroke: #c9c5d8; }
   .habit-star:active { transform: scale(0.85); }
 
   .habit-star.done { animation: starPop 0.3s ease; }
@@ -5365,8 +5369,8 @@
       if (isHabit) {
         checkEl.className = 'habit-star' + (_done?' done':'');
         checkEl.dataset.check = t.id;
-        checkEl.style.cssText = 'font-size:16px;flex-shrink:0;cursor:pointer;';
-        checkEl.innerHTML = _done ? '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.4 20.4l1.1-6.2L3 9.8l6.2-.9L12 3.2z"/></svg>' : '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.4 20.4l1.1-6.2L3 9.8l6.2-.9L12 3.2z" opacity=".45"/></svg>';
+        // サイズと塗りは .habit-star のCSSに任せる（インラインで上書きしない）
+        checkEl.innerHTML = '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.4 20.4l1.1-6.2L3 9.8l6.2-.9L12 3.2z" stroke-linejoin="round"/></svg>';
       } else {
         checkEl.className = 'task-check' + (_done?' checked':'');
         checkEl.dataset.check = t.id;
@@ -6014,7 +6018,7 @@
       const _isHabitL = isRoutineKind(t);
       const _repeatBadgeL = _isHabitL ? '<span style="font-size:11px;margin-left:4px;opacity:0.6;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg></span>' : '';
       const _checkL = _isHabitL
-        ? `<div class="habit-star ${_done?'done':''}" onclick="event.stopPropagation();if(!${_done})spawnSparkles(this);toggleTaskDone('${t.id}',this)">${_done?'⭐':'☆'}</div>`
+        ? `<div class="habit-star ${_done?'done':''}" onclick="event.stopPropagation();if(!${_done})spawnSparkles(this);toggleTaskDone('${t.id}',this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.4 20.4l1.1-6.2L3 9.8l6.2-.9L12 3.2z" stroke-linejoin="round"/></svg></div>`
         : `<div class="task-check ${_done?'checked':''}" onclick="event.stopPropagation();toggleTaskDone('${t.id}',this)">${_done?'✓':''}</div>`;
       const dh = laterReorderMode ? `<div class="drag-handle" data-drag="${t.id}">≡</div>` : '';
       const _row = `<div class="later-item${laterReorderMode?' reorder-mode':''}" data-id="${t.id}">${dh}<div class="later-item-icon">${isOverdue?'🕐':'✨'}</div><div class="later-item-info"><div class="later-item-name">${t.name}${_repeatBadgeL}${_lsBadge}${_projBadge}${_notionBadge}</div>${tl}</div>${_checkL}</div>`;
