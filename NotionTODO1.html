@@ -369,6 +369,32 @@
     color: #1c1c1e;
   }
 
+  /* 繰り返しタスクビュー（ルーチンとは別物として色味を変える） */
+  .rep-note { font-size: 11.5px; color: #8e8b9e; line-height: 1.6; padding: 2px 4px 10px; }
+  .rep-empty { font-size: 13px; color: #b3b0c2; text-align: center; padding: 34px 10px; line-height: 1.9; }
+  .rep-sec { font-size: 12px; font-weight: 800; color: #5a5768; padding: 12px 4px 6px; display: flex; align-items: center; gap: 7px; }
+  .rep-cnt { font-size: 11px; font-weight: 700; color: #8e8b9e; background: #eceaf5; border-radius: 9px; padding: 2px 8px; }
+  .rep-card {
+    display: flex; align-items: center; gap: 6px;
+    background: #fff; border: 1px solid #e6e3f2; border-left: 3px solid #00a8a8;
+    border-radius: 12px; padding: 10px 8px 10px 11px; margin-bottom: 8px;
+  }
+  .rep-card.ended { opacity: .55; border-left-color: #c9c5d8; }
+  .rep-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; cursor: pointer; }
+  .rep-ic { width: 20px; flex: none; color: #00a8a8; display: flex; align-items: center; }
+  .rep-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .rep-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rep-name { font-size: 13.5px; font-weight: 600; color: #2d2b3a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rep-meta { font-size: 11px; color: #8e8b9e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rep-del {
+    width: 36px; height: 36px; flex: none; border: none; background: transparent;
+    color: #c9c5d8; padding: 0; border-radius: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .rep-del svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .rep-del:active { background: #fff0f0; color: #e5484d; transform: scale(0.9); }
+
   /* 起床/就寝マーカー（1日の境界） */
   .tl-daymark-line {
     position: absolute;
@@ -773,6 +799,36 @@
   }
 
   .later-item:last-child { border-bottom: none; }
+
+  /* 左スワイプで削除 */
+  .later-swipe {
+    position: relative;
+    overflow: hidden;
+    background: #e5484d;
+  }
+  .later-swipe:last-child .later-item { border-bottom: none; }
+  .later-swipe-bg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-right: 20px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .later-swipe-bg svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .later-swipe .later-item {
+    position: relative;
+    background: #fff;
+    padding-left: 2px;
+    padding-right: 2px;
+    will-change: transform;
+  }
+  .later-swipe.animating .later-item { transition: transform .18s ease; }
 
   .later-item.drag-over-top { border-top: 2px solid #6c5ce7; }
   .later-item.dragging-item { opacity: 0.4; }
@@ -1223,6 +1279,26 @@
     justify-content: center;
   }
 
+  .modal-del {
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(229,72,77,0.16);
+    color: #ff6b6e;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .08s;
+  }
+  .modal-del svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .modal-del:active { transform: scale(0.88); background: rgba(229,72,77,0.28); }
+
   .modal-save {
     background: #3a3a3c;
     border: none;
@@ -1306,7 +1382,9 @@
 
   /* モーダルボディ */
   .modal-body {
-    padding: 16px 20px;
+    /* 下部ナビ(z-index:9700)がモーダルの上に乗るので、その高さぶん余白を確保して
+       最後の削除ボタンまでスクロールで到達できるようにする */
+    padding: 16px 20px calc(var(--navh, 60px) + 24px);
     background: #f2f2f7;
   }
 
@@ -3006,6 +3084,7 @@
   <div class="routine-view-toggle" id="routineViewToggle">
     <button class="active" data-view="tracker" onclick="setRoutineView('tracker', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V4M16 20v-6M2 20h20"/></svg> トラッカー</button>
     <button data-view="manage" onclick="setRoutineView('manage', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg> 一覧・管理</button>
+    <button data-view="repeat" onclick="setRoutineView('repeat', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 繰り返し</button>
   </div>
   <!-- コントロールバー（種類・表示・期間・状態を1行に集約） -->
   <div class="r-ctrlbar" id="routineCtrlBar">
@@ -3245,7 +3324,12 @@
       <div class="modal-grabber"></div>
       <div class="modal-header-top">
         <button class="modal-close" onclick="closeModal()">✕</button>
-        <button class="modal-save" onclick="saveTask()">保存</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="modal-del" id="modalHeaderDelete" onclick="deleteTask()" title="削除" style="display:none;" aria-label="削除">
+            <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7M10 11v6M14 11v6"/></svg>
+          </button>
+          <button class="modal-save" onclick="saveTask()">保存</button>
+        </div>
       </div>
       <div class="modal-task-input-row">
         <div class="modal-checkbox" id="modalActualBtn" onclick="openActualPop()" title="実績時間を手入力" style="cursor:pointer;position:relative;">
@@ -3917,6 +4001,24 @@
 
 <!-- ドラムロール所要時間ピッカー -->
 <!-- 実績時間の手入力ポップアップ -->
+<!-- 繰り返しタスクの削除範囲 -->
+<div class="time-pop-overlay" id="repDelPop" style="display:none;" onclick="if(event.target===this)closeRepeatDeletePop()">
+  <div class="time-pop-card">
+    <div style="padding:18px 20px 2px;font-size:16px;font-weight:700;color:#1c1c1e;">繰り返しを削除</div>
+    <div id="repDelName" style="padding:2px 20px 0;font-size:13px;font-weight:600;color:#6c5ce7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    <div style="padding:6px 20px 0;font-size:11px;color:#8e8e93;line-height:1.6;">選んだ日より前の予定は記録として残します。</div>
+    <div style="padding:14px 20px 6px;display:flex;flex-direction:column;gap:8px;">
+      <button type="button" id="repDelDay"   onclick="runRepeatDelete('day')"   style="background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;"></button>
+      <button type="button" id="repDelWeek"  onclick="runRepeatDelete('week')"  style="background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;"></button>
+      <button type="button" id="repDelMonth" onclick="runRepeatDelete('month')" style="background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;"></button>
+      <button type="button" onclick="runRepeatDelete('all')" style="background:#fff0f0;color:#e5484d;border:1px solid #ffd9da;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;">すべて削除（過去分も）</button>
+    </div>
+    <div style="padding:0 20px 16px;">
+      <button type="button" onclick="closeRepeatDeletePop()" style="width:100%;background:none;color:#8e8e93;border:none;padding:8px;font-size:13px;font-family:inherit;cursor:pointer;">キャンセル</button>
+    </div>
+  </div>
+</div>
+
 <!-- 起床/就寝（1日の範囲）の設定 -->
 <div class="time-pop-overlay" id="dayRangePop" style="display:none;" onclick="if(event.target===this)closeDayRangePop()">
   <div class="time-pop-card">
@@ -5753,7 +5855,10 @@
         ? `<div class="habit-star ${_done?'done':''}" onclick="event.stopPropagation();if(!${_done})spawnSparkles(this);toggleTaskDone('${t.id}',this)">${_done?'⭐':'☆'}</div>`
         : `<div class="task-check ${_done?'checked':''}" onclick="event.stopPropagation();toggleTaskDone('${t.id}',this)">${_done?'✓':''}</div>`;
       const dh = laterReorderMode ? `<div class="drag-handle" data-drag="${t.id}">≡</div>` : '';
-      return `<div class="later-item${laterReorderMode?' reorder-mode':''}" data-id="${t.id}">${dh}<div class="later-item-icon">${isOverdue?'🕐':'✨'}</div><div class="later-item-info"><div class="later-item-name">${t.name}${_repeatBadgeL}${_lsBadge}${_projBadge}${_notionBadge}</div>${tl}</div>${_checkL}</div>`;
+      const _row = `<div class="later-item${laterReorderMode?' reorder-mode':''}" data-id="${t.id}">${dh}<div class="later-item-icon">${isOverdue?'🕐':'✨'}</div><div class="later-item-info"><div class="later-item-name">${t.name}${_repeatBadgeL}${_lsBadge}${_projBadge}${_notionBadge}</div>${tl}</div>${_checkL}</div>`;
+      // 並び替えモード中はドラッグ操作と競合するのでスワイプ削除を無効にする
+      if (laterReorderMode) return _row;
+      return `<div class="later-swipe" data-swipe-id="${t.id}"><div class="later-swipe-bg"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7M10 11v6M14 11v6"/></svg><span>削除</span></div>${_row}</div>`;
     };
 
     let html = `<div class="later-section-title">≡ あとでやる ${shown.length}</div>` + chipRow;
@@ -5986,6 +6091,7 @@
       if (!task) return;
       document.getElementById('taskNameInput').value = task.name;
       document.getElementById('editActions').style.display = 'flex';
+      { const _hd = document.getElementById('modalHeaderDelete'); if (_hd) _hd.style.display = 'flex'; }
       timerRenderForTask(editingTaskId);
       updateActualBadge();
       updateModalIcon();
@@ -6064,6 +6170,7 @@
     } else {
       document.getElementById('taskNameInput').value = '';
       document.getElementById('editActions').style.display = 'none';
+      { const _hd = document.getElementById('modalHeaderDelete'); if (_hd) _hd.style.display = 'none'; }
       { const _tp = document.getElementById('timerPanel'); if (_tp) _tp.style.display = 'none'; }
       { const _sp = document.getElementById('subtaskPanel'); if (_sp) _sp.style.display = 'none'; }
       document.getElementById('modalSubtitle').textContent = '・あとで';
@@ -8407,6 +8514,204 @@
   }
 
   // 今日以降のインスタンス削除（過去は残す。今日を含む）
+  // ── 繰り返しタスク（ルーチン種類=習慣/掃除/美容 以外）──
+  // ルーチン画面からは見えないが、繰り返し設定を持つタスクを一覧するためのもの。
+  function getRepeatTaskTemplates(includeEnded) {
+    return tasks.filter(t =>
+      t &&
+      (t._type === 'repeat' || (includeEnded && t._type === 'repeat_ended')) &&
+      !t._habitTemplateId &&
+      !isRoutineKind(t)
+    ).sort((a, b) => {
+      const ta = (a._repeatConfig && a._repeatConfig.time) || '99:99';
+      const tb = (b._repeatConfig && b._repeatConfig.time) || '99:99';
+      if (ta !== tb) return ta < tb ? -1 : 1;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+    });
+  }
+
+  // 削除の起点を返す（'day' = その日 / 'week' = その週の月曜 / 'month' = その月の1日）
+  function repeatCutoffDate(scope, baseDate) {
+    const d = baseDate ? new Date(baseDate) : new Date();
+    d.setHours(0, 0, 0, 0);
+    if (scope === 'week')  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));  // 月曜まで戻す
+    if (scope === 'month') d.setDate(1);
+    return d;
+  }
+
+  // 繰り返しタスクを「起点日以降」まとめて削除する。
+  // scope='all' のときはテンプレート・全インスタンスを完全に削除する。
+  function deleteRepeatTaskFrom(templateId, scope) {
+    const tpl = tasks.find(t => t.id === templateId);
+    if (!tpl) return { removed: 0 };
+    const all = scope === 'all';
+    const cutoff = all ? null : repeatCutoffDate(scope);
+    const name = (tpl.name || '(無題)').trim();
+
+    // 対象インスタンス: テンプレート紐付き、または同名の展開済み（Notion往復でID紐付けが消えた分）
+    const toRemove = tasks.filter(t => {
+      if (t.id === templateId) return false;
+      const mine = t._habitTemplateId === templateId ||
+        (!t._habitTemplateId && t._type === 'time' && (t.name || '').trim() === name);
+      if (!mine) return false;
+      if (all) return true;
+      const src = t._habitDate || (t['(A)実行日'] && t['(A)実行日'].start);
+      if (!src) return false;
+      const d = new Date(String(src).length > 10 ? src : src + 'T00:00:00');
+      if (isNaN(d)) return false;
+      d.setHours(0, 0, 0, 0);
+      return d >= cutoff;
+    });
+
+    // Notion側もアーカイブ
+    toRemove.forEach(t => {
+      if (t._notionId && notionSettings.token) {
+        notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
+          .catch(e => console.error('繰り返しタスク削除失敗', e));
+      }
+    });
+
+    const removeIds = new Set(toRemove.map(t => t.id));
+    if (all) {
+      removeIds.add(templateId);
+      if (tpl._notionId && notionSettings.token) {
+        notionApiCall(`/pages/${tpl._notionId}`, 'PATCH', { archived: true })
+          .catch(e => console.error('繰り返しテンプレート削除失敗', e));
+      }
+    } else {
+      // 起点日より前は記録として残し、今後の展開だけ止める
+      const y = new Date(cutoff); y.setDate(y.getDate() - 1);
+      const ymdStr = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      tpl._type = 'repeat_ended';
+      tpl._endedAt = ymdStr(cutoff);
+      if (tpl._repeatConfig) tpl._repeatConfig.end = ymdStr(y);
+      tpl._localLastEdited = new Date().toISOString();
+      if (tpl._notionId && notionSettings.token) {
+        try { notionUpdateTask(tpl._notionId, tpl); } catch(e) {}
+      }
+    }
+
+    tasks = tasks.filter(t => !removeIds.has(t.id));
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    return { removed: removeIds.size, name };
+  }
+
+  // ── 「あとでやる」の左スワイプ削除 ──
+  // 縦スクロールと誤爆しないよう、横移動が縦移動を上回ったときだけスワイプとして扱う。
+  (function initLaterSwipe(){
+    const THRESHOLD = 78;    // ここまで引いたら削除
+    const MAX = 108;         // 引ける上限
+    let sw = null;
+
+    function itemOf(el) { return el ? el.querySelector('.later-item') : null; }
+    function reset(wrap, animate) {
+      const it = itemOf(wrap); if (!it) return;
+      if (animate) {
+        wrap.classList.add('animating');
+        setTimeout(() => wrap.classList.remove('animating'), 200);
+      }
+      it.style.transform = '';
+    }
+    function closeAll(except) {
+      document.querySelectorAll('.later-swipe').forEach(el => {
+        if (el !== except) {
+          const it = itemOf(el);
+          if (it && it.style.transform) reset(el, true);
+        }
+      });
+    }
+
+    document.addEventListener('pointerdown', e => {
+      const wrap = e.target.closest ? e.target.closest('.later-swipe') : null;
+      closeAll(wrap);
+      if (!wrap) return;
+      if (e.target.closest('.task-check, .habit-star, .drag-handle')) return;
+      sw = { wrap, x0: e.clientX, y0: e.clientY, dir: null, dx: 0 };
+    }, true);
+
+    document.addEventListener('pointermove', e => {
+      if (!sw) return;
+      const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
+      if (!sw.dir) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        // 縦に動いていたらスクロールとして手放す
+        sw.dir = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (sw.dir === 'y') { sw = null; return; }
+      }
+      if (dx > 0) { sw.dx = 0; itemOf(sw.wrap).style.transform = ''; return; }  // 右方向は無効
+      sw.dx = Math.max(-MAX, dx);
+      if (e.cancelable) e.preventDefault();
+      const it = itemOf(sw.wrap);
+      if (it) it.style.transform = 'translateX(' + sw.dx + 'px)';
+    }, { passive: false });
+
+    function finish() {
+      if (!sw) return;
+      const { wrap, dx } = sw; sw = null;
+      const id = wrap.dataset.swipeId;
+      if (dx <= -THRESHOLD) {
+        const t = (typeof tasks !== 'undefined') ? tasks.find(x => x.id === id) : null;
+        const nm = t ? (t.name || '(無題)') : '';
+        if (confirm('「' + nm + '」を削除しますか？')) {
+          wrap.classList.add('animating');
+          const it = itemOf(wrap);
+          if (it) it.style.transform = 'translateX(-100%)';
+          setTimeout(() => { try { deleteTaskById(id); } catch(e) { console.error(e); } }, 160);
+          return;
+        }
+      }
+      reset(wrap, true);
+    }
+    document.addEventListener('pointerup', finish);
+    document.addEventListener('pointercancel', () => { if (sw) { reset(sw.wrap, true); sw = null; } });
+  })();
+
+  // idを指定してタスクを削除（スワイプ削除用。確認は呼び出し側で行う）
+  async function deleteTaskById(id) {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    if (t._notionId && notionSettings.token) {
+      notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
+        .catch(e => console.error('Notion削除失敗', e));
+    }
+    tasks = tasks.filter(x => x.id !== id);
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    try { renderLater(); } catch(e) {}
+    try { renderTimeline(); } catch(e) {}
+  }
+
+  let _repDelId = null;
+  function openTaskFromRepeatView(id) {
+    const t = tasks.find(x => x.id === id);
+    if (t && typeof openModal === 'function') openModal(t.id);   // openModal は id を取る
+  }
+  function openRepeatDeletePop(id) {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    _repDelId = id;
+    const fmt = d => (d.getMonth()+1) + '/' + d.getDate();
+    document.getElementById('repDelName').textContent = t.name || '(無題)';
+    document.getElementById('repDelDay').textContent   = '今日以降を削除（' + fmt(repeatCutoffDate('day')) + '〜）';
+    document.getElementById('repDelWeek').textContent  = '今週以降を削除（' + fmt(repeatCutoffDate('week')) + '〜）';
+    document.getElementById('repDelMonth').textContent = '今月以降を削除（' + fmt(repeatCutoffDate('month')) + '〜）';
+    document.getElementById('repDelPop').style.display = 'flex';
+  }
+  function closeRepeatDeletePop() {
+    document.getElementById('repDelPop').style.display = 'none';
+    _repDelId = null;
+  }
+  function runRepeatDelete(scope) {
+    if (!_repDelId) return;
+    const t = tasks.find(x => x.id === _repDelId);
+    const nm = t ? (t.name || '(無題)') : '';
+    if (scope === 'all' && !confirm('「' + nm + '」の繰り返し設定と、過去分も含むすべての予定を削除します。よろしいですか？')) return;
+    const r = deleteRepeatTaskFrom(_repDelId, scope);
+    closeRepeatDeletePop();
+    renderRoutineScreen();
+    try { renderTimeline(); } catch(e) {}
+    try { renderLater(); } catch(e) {}
+  }
+
   function deleteHabitInstancesFromToday(templateId) {
     const today = new Date(); today.setHours(0,0,0,0);
     const toRemove = tasks.filter(t => {
@@ -9308,6 +9613,11 @@
   let routineViewMode = 'tracker'; // 'tracker' | 'manage'
 
   function _routineApplyControlsVisibility() {
+    const repeatView = routineViewMode === 'repeat';
+    // 繰り返しビューはルーチン用の絞り込みを一切使わないので、コントロールバーごと隠す
+    const bar = document.getElementById('routineCtrlBar');
+    if (bar) bar.style.display = repeatView ? 'none' : '';
+    if (repeatView) return;
     const manage = routineViewMode === 'manage';
     // 管理ビューではトラッカー用コントロール（期間・状態）を隠し、種類だけ残す
     const tc = document.getElementById('routineTrackerCtrls');
@@ -9524,6 +9834,54 @@
 
     // ── アクティブタブ ──
     const activeHabits = allHabits.filter(h => !h._endedAt);
+
+    // ===== 繰り返しタスクビュー（ルーチン=習慣/掃除/美容 以外の繰り返し）=====
+    if (routineViewMode === 'repeat') {
+      container.className = 'repeatview';
+      const reps = getRepeatTaskTemplates(true);
+      const active = reps.filter(t => t._type === 'repeat');
+      const ended  = reps.filter(t => t._type === 'repeat_ended');
+
+      let html = '<div class="rep-note">ルーチン（習慣・掃除・美容）以外で、繰り返し設定があるタスクです。</div>';
+
+      if (!reps.length) {
+        html += '<div class="rep-empty">繰り返しタスクはありません。<br>タスク作成時に「繰り返し」タブから設定できます。</div>';
+      } else {
+        const row = (t, isEnded) => {
+          const kind = t['(B)種類'] || '未設定';
+          const time = (t._repeatConfig && t._repeatConfig.time) || '';
+          let freq = '';
+          try { freq = routineFreqText(t) || ''; } catch(e) {}
+          let ic = '';
+          try { ic = taskIconSVG(t); } catch(e) {}
+          return '<div class="rep-card' + (isEnded ? ' ended' : '') + '">'
+            + '<div class="rep-main" onclick="openTaskFromRepeatView(\'' + _escapeHtml(t.id) + '\')">'
+            +   '<span class="rep-ic">' + ic + '</span>'
+            +   '<span class="rep-body">'
+            +     '<span class="rep-name">' + _escapeHtml(t.name || '(無題)') + '</span>'
+            +     '<span class="rep-meta">' + _escapeHtml(kind)
+            +       (freq ? ' ・ ' + _escapeHtml(freq) : '')
+            +       (time ? ' ・ ' + _escapeHtml(time) : '')
+            +       (isEnded && t._endedAt ? ' ・ 終了 ' + _escapeHtml(t._endedAt) : '')
+            +     '</span>'
+            +   '</span>'
+            + '</div>'
+            + (isEnded ? '' : '<button class="rep-del" onclick="openRepeatDeletePop(\'' + _escapeHtml(t.id) + '\')" aria-label="削除">'
+                + '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7M10 11v6M14 11v6"/></svg></button>')
+            + '</div>';
+        };
+        if (active.length) {
+          html += '<div class="rep-sec">実行中 <span class="rep-cnt">' + active.length + '</span></div>';
+          html += active.map(t => row(t, false)).join('');
+        }
+        if (ended.length) {
+          html += '<div class="rep-sec">終了済み <span class="rep-cnt">' + ended.length + '</span></div>';
+          html += ended.map(t => row(t, true)).join('');
+        }
+      }
+      container.innerHTML = html;
+      return;
+    }
 
     // ===== 一覧・管理ビュー（種類別の簡易一覧。タップで編集、＋で追加） =====
     if (routineViewMode === 'manage') {
@@ -10046,7 +10404,7 @@
         }
       }
     });
-    if (typing) html += '<div class="ai-bubble-ai">🤖 …</div>';
+    if (typing) html += '<div class="ai-bubble-ai">🤖 …<div id="aiProgressNote" style="display:none;margin-top:6px;font-size:11px;color:#8e8e93;line-height:1.6;"></div></div>';
     wrap.innerHTML = html;
   }
   function aiSystemPrompt() {
@@ -10202,11 +10560,31 @@
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
       + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(aiSettings.apiKey);
     aiBumpReqCount(); // 実際に送ったリクエスト数をカウント（裏送信が無いことの確認用）
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    // 応答が返らないまま待たされないようタイムアウトを付ける（賢いモデルほど長めに）
+    const timeoutMs = /pro/i.test(model) ? 75000 : 40000;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctl.signal,
+      });
+    } catch (e) {
+      const err = new Error(
+        (e && e.name === 'AbortError')
+          ? ('応答が' + Math.round(timeoutMs / 1000) + '秒以内に返りませんでした')
+          : ('通信に失敗しました: ' + (e && e.message ? e.message : e))
+      );
+      err.isTimeout = (e && e.name === 'AbortError');
+      err.isNetwork = !err.isTimeout;
+      err.retryable = true;   // タイムアウト・通信断はどちらも再試行する価値がある
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) {
       let msg = 'HTTP ' + res.status;
       let retryAfter = 0, isDaily = false, isRate = (res.status === 429);
@@ -10247,19 +10625,33 @@
   // 過負荷(503)時は少し待って再試行し、ダメなら別モデルへ自動フォールバック
   let aiDailyBlocked = JSON.parse(localStorage.getItem('aiDailyBlocked') || '{}'); // model -> 上限に当たった日付
   function aiModelBlockedToday(m) { return aiDailyBlocked[m] === ymd(new Date()); }
+  // 進捗を待ち行に出す（「別のモデルに切り替えました」など）
+  function aiSetProgress(text) {
+    const el = document.getElementById('aiProgressNote');
+    if (el) { el.textContent = text || ''; el.style.display = text ? 'block' : 'none'; }
+  }
+
   async function aiCallWithFallback(system, messages, model) {
     let chain = [model || 'gemini-2.5-flash'];
     ['gemini-2.0-flash', 'gemini-2.5-flash-lite'].forEach(m => { if (!chain.includes(m)) chain.push(m); });
     // 本日すでに1日上限に当たったモデルはスキップ（全部ブロックなら一応元のを残す）
     const usable = chain.filter(m => !aiModelBlockedToday(m));
     if (usable.length) chain = usable;
+
+    const short = m => String(m).replace(/^gemini-/, '');
     let lastErr;
+    let rateHit = 0;   // 毎分制限に当たったモデル数
+
     for (let ci = 0; ci < chain.length; ci++) {
-      const attempts = (ci === 0) ? 2 : 1;
+      // 同じモデルで再試行する回数（タイムアウト・過負荷など一時的な失敗のみ）
+      const attempts = 2;
       let nextModel = false;
       for (let a = 0; a < attempts && !nextModel; a++) {
         try {
-          return await aiApiCall(system, messages, chain[ci]);
+          if (ci > 0 || a > 0) aiSetProgress(short(chain[ci]) + ' で試しています…' + (a > 0 ? '（再送 ' + a + '回目）' : ''));
+          const r = await aiApiCall(system, messages, chain[ci]);
+          aiSetProgress('');
+          return r;
         } catch (e) {
           lastErr = e;
           if (e && e.isDaily) {
@@ -10268,15 +10660,26 @@
             localStorage.setItem('aiDailyBlocked', JSON.stringify(aiDailyBlocked));
             nextModel = true;
           } else if (e && e.isRate) {
-            throw e; // 毎分制限は待つべき → 中断
-          } else if (e && e.isOverload) {
-            await new Promise(r => setTimeout(r, 1200)); // 過負荷 → 少し待って再試行
+            // 毎分制限はモデルごとに別枠 → 待たずに次のモデルへ切り替える
+            rateHit++;
+            nextModel = true;
+          } else if (e && (e.isOverload || e.retryable)) {
+            // 過負荷・タイムアウト・通信断 → 少し待って同じ質問をもう一度
+            if (a + 1 < attempts) {
+              await new Promise(r => setTimeout(r, e.isTimeout ? 600 : 1200));
+            } else {
+              nextModel = true;   // 同じモデルで駄目なら別モデルへ
+            }
           } else {
+            aiSetProgress('');
             throw e; // それ以外の本当のエラー → 中断
           }
         }
       }
     }
+    aiSetProgress('');
+    // 全モデルが毎分制限だった場合だけ「待つ」エラーとして返す
+    if (lastErr && rateHit >= chain.length) lastErr.allRateLimited = true;
     throw lastErr;
   }
   // Geminiレスポンス → テキスト抽出
@@ -10311,7 +10714,10 @@
     }
     return null;
   }
-  async function aiSend(presetText) {
+  let _aiAutoRetryLeft = 0;      // 自動再送の残り回数
+  let _aiAutoRetryTimer = null;
+
+  async function aiSend(presetText, isAutoRetry) {
     if (aiBusy) return;
     // レート制限のクールダウン中は送信しない（連打・裏での連続送信を防止）
     const now = Date.now();
@@ -10325,7 +10731,12 @@
     let text = (typeof presetText === 'string') ? presetText : (inp ? inp.value.trim() : '');
     if (!text) return;
     if (inp && typeof presetText !== 'string') { inp.value = ''; inp.style.height = 'auto'; }
-    aiMessages.push({ role: 'user', text });
+    // 自動再送のときは同じ質問を二重に表示しない／再送回数もリセットしない
+    if (!isAutoRetry) {
+      aiMessages.push({ role: 'user', text });
+      _aiAutoRetryLeft = 2;
+      clearTimeout(_aiAutoRetryTimer);
+    }
     persistAiMessages();
     aiBusy = true;
     renderAiMessages(true);
@@ -10429,10 +10840,36 @@
       if (e && e.isRate) {
         const wait = Math.max(5, Math.ceil(e.retryAfter || 30));
         aiCooldownUntil = Date.now() + wait * 1000;
+        // 全モデルが毎分制限 & 待ち時間が現実的なら、同じ質問を自動で送り直す
+        if (!e.isDaily && wait <= 75 && _aiAutoRetryLeft > 0) {
+          _aiAutoRetryLeft--;
+          aiMessages.push({ role: 'assistant', text: '⏳ 混み合っているため、約' + wait + '秒後に同じ内容で自動的に送り直します。このまま待つだけでOKです。', tasks: [], updates: [], projects: [], applied: true, _transient: true });
+          persistAiMessages(); renderAiMessages(); aiScrollBottom();
+          clearTimeout(_aiAutoRetryTimer);
+          _aiAutoRetryTimer = setTimeout(() => {
+            // 自動再送の案内は消してから送り直す
+            aiMessages = aiMessages.filter(m => !m._transient);
+            aiSend(text, true);
+          }, (wait + 1) * 1000);
+          return;
+        }
         const note = e.isDaily
           ? '⚠️ 無料枠の「1日の上限」に達しました（gemini-2.5-flash・2.0-flash・flash-lite を自動で順に試しましたが、いずれも本日分を使い切っています）。これは時間で待っても回復せず、太平洋時間0時（日本の約17時）にリセットされます。明日また使えます。'
           : ('⚠️ 送信が混み合っています（無料枠の毎分制限）。約' + wait + '秒待ってから自動で送れるようになります。連打すると制限が伸びるので、表示が戻るまでお待ちください。');
         aiMessages.push({ role: 'assistant', text: note, tasks: [], updates: [], projects: [], applied: true });
+      } else if (e && (e.isTimeout || e.isNetwork)) {
+        if (_aiAutoRetryLeft > 0) {
+          _aiAutoRetryLeft--;
+          aiMessages.push({ role: 'assistant', text: '⏳ 応答が返らなかったので、同じ内容で送り直します…', tasks: [], updates: [], projects: [], applied: true, _transient: true });
+          persistAiMessages(); renderAiMessages(); aiScrollBottom();
+          clearTimeout(_aiAutoRetryTimer);
+          _aiAutoRetryTimer = setTimeout(() => {
+            aiMessages = aiMessages.filter(m => !m._transient);
+            aiSend(text, true);
+          }, 1500);
+          return;
+        }
+        aiMessages.push({ role: 'assistant', text: '⚠️ ' + (e.isTimeout ? '応答が返ってきませんでした' : '通信に失敗しました') + '。何度か自動で試しましたが繋がりませんでした。電波の良い場所でもう一度お試しください。', tasks: [], updates: [], projects: [], applied: true });
       } else if (e && e.isOverload) {
         aiCooldownUntil = Date.now() + 8000;
         aiMessages.push({ role: 'assistant', text: '⚠️ Geminiが一時的に混み合っています（過負荷）。別モデルも自動で試しましたが繋がりませんでした。数十秒〜数分おいて再送してください。続くようなら設定(⚙︎)でモデルを gemini-2.0-flash にすると安定する場合があります。', tasks: [], updates: [], projects: [], applied: true });
