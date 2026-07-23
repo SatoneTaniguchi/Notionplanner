@@ -4057,16 +4057,21 @@
       <span style="font-size:16px;font-weight:700;color:#1c1c1e;">実績時間</span>
       <span id="actualPopTotal" style="font-size:12px;color:#8e8e93;"></span>
     </div>
+    <div id="actualPopModes" style="display:none;padding:8px 20px 0;gap:6px;">
+      <button type="button" id="actualModeAdd" onclick="setActualMode('add')" style="flex:1;border:none;border-radius:10px;padding:8px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;">追加する</button>
+      <button type="button" id="actualModeSet" onclick="setActualMode('set')" style="flex:1;border:none;border-radius:10px;padding:8px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;">修正する</button>
+    </div>
     <div style="padding:6px 20px 0;display:flex;align-items:center;gap:8px;">
-      <input id="actualPopH" type="number" min="0" max="99" inputmode="numeric" placeholder="0"
+      <input id="actualPopH" type="number" min="0" max="99" inputmode="numeric" placeholder="0" oninput="_actualPaintPreview()"
         style="width:70px;text-align:center;font-size:22px;font-weight:700;color:#6c5ce7;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px 4px;font-family:inherit;outline:none;background:#fff;">
       <span style="font-size:14px;color:#3c3c43;">時間</span>
-      <input id="actualPopM" type="number" min="0" max="59" step="5" inputmode="numeric" placeholder="0"
+      <input id="actualPopM" type="number" min="0" max="59" step="5" inputmode="numeric" placeholder="0" oninput="_actualPaintPreview()"
         style="width:70px;text-align:center;font-size:22px;font-weight:700;color:#6c5ce7;border:1.5px solid #e5e5ea;border-radius:12px;padding:10px 4px;font-family:inherit;outline:none;background:#fff;">
       <span style="font-size:14px;color:#3c3c43;">分</span>
     </div>
     <div style="padding:10px 20px 0;display:flex;gap:6px;flex-wrap:wrap;" id="actualPopQuick"></div>
-    <div id="actualPopNote" style="padding:10px 20px 0;font-size:11px;color:#8e8e93;line-height:1.6;"></div>
+    <div id="actualPopPreview" style="padding:10px 20px 0;font-size:12px;color:#6c5ce7;font-weight:700;"></div>
+    <div id="actualPopNote" style="padding:8px 20px 0;font-size:11px;color:#8e8e93;line-height:1.6;"></div>
     <div style="padding:14px 20px 18px;display:flex;gap:8px;">
       <button type="button" onclick="closeActualPop()" style="flex:1;background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">キャンセル</button>
       <button type="button" onclick="saveActualPop()" style="flex:1;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">保存</button>
@@ -5550,11 +5555,20 @@
   //  ・習慣以外、かつ未完了
   //  ・_type==='later'、または 時間指定で実行日が「今日より前の日（前日以前）」のもの
   //  ※ 時刻なし＝日付のみ（Notion終日扱い）の期限切れタスクも必ず含める。
-  // プロジェクトに紐づいているか（relationのid・名前どちらでも判定）
+  // プロジェクトに紐づいているか。
+  // relation が取れていない場合に備えて、プロジェクト側から作った対応表も見る（取りこぼし防止）
   function taskHasProject(t) {
     if (!t) return false;
     if (Array.isArray(t._projectIds) && t._projectIds.length) return true;
     if (Array.isArray(t._projectNames) && t._projectNames.length) return true;
+    try {
+      const map = notionProjectTaskMap;
+      if (map) {
+        const norm = id => String(id || '').replace(/-/g, '');
+        if (t.id && map[norm(t.id)]) return true;
+        if (t._notionId && map[norm(t._notionId)]) return true;
+      }
+    } catch (e) {}
     return false;
   }
 
@@ -6539,24 +6553,86 @@
     document.getElementById('actualPopM').value = total ? total % 60 : '';
     document.getElementById('actualPopTotal').textContent = total ? '現在: ' + fmtActual(total / 60) : '未記録';
 
+    // 既に記録があるときは「追加」を既定にする（35分 → さらに1時間、という使い方のため）
+    _actualBaseMin = total;
+    _actualMode = total > 0 ? 'add' : 'set';
+    const modes = document.getElementById('actualPopModes');
+    modes.style.display = total > 0 ? 'flex' : 'none';
+    if (total > 0) { document.getElementById('actualPopH').value = ''; document.getElementById('actualPopM').value = ''; }
+    _actualPaintModes();
+
     // よく使う値をワンタップで加算
     document.getElementById('actualPopQuick').innerHTML = [15, 30, 60, 90].map(m =>
-      '<button type="button" onclick="addActualPop(' + m + ')" style="background:#f2f2f7;border:none;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:600;color:#6c5ce7;font-family:inherit;cursor:pointer;">+' + (m === 90 ? '1時間半' : m >= 60 ? (m / 60) + '時間' : m + '分') + '</button>'
+      '<button type="button" onclick="addActualPop(' + m + ')" style="background:#f2f2f7;border:none;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:600;color:#6c5ce7;font-family:inherit;cursor:pointer;touch-action:manipulation;">+' + (m === 90 ? '1時間半' : m >= 60 ? (m / 60) + '時間' : m + '分') + '</button>'
     ).join('');
 
     const note = document.getElementById('actualPopNote');
-    note.textContent = (t._notionId && notionSettings.token)
+    // 判定はアプリ全体と揃える（マネージド接続でも連携済みとみなす）
+    note.textContent = notionLinked()
       ? 'Notionの「' + ACTUAL_PROP + '」に保存します（集中タイマーと同じ項目）。'
       : 'Notion未連携のため、この端末にのみ保存します。';
+    _actualPaintPreview();
     document.getElementById('actualPopOverlay').style.display = 'flex';
+  }
+
+  // Notionに書けるか（token方式・マネージド方式のどちらでも可）
+  function notionLinked() {
+    try { return !!(notionSettings && (notionSettings.token || notionSettings.managed)); } catch(e) { return false; }
+  }
+
+  let _actualMode = 'set';     // 'add' = 現在値に足す / 'set' = 入力値で上書き
+  let _actualBaseMin = 0;      // 現在記録されている分
+
+  function setActualMode(mode) {
+    if (_actualMode !== mode) {
+      const hEl = document.getElementById('actualPopH'), mEl = document.getElementById('actualPopM');
+      if (mode === 'set') {
+        // 修正モードは今の記録を出して直せるようにする
+        hEl.value = _actualBaseMin ? Math.floor(_actualBaseMin / 60) || '' : '';
+        mEl.value = _actualBaseMin ? _actualBaseMin % 60 : '';
+      } else {
+        hEl.value = ''; mEl.value = '';   // 追加モードは0から
+      }
+    }
+    _actualMode = mode;
+    _actualPaintModes();
+    _actualPaintPreview();
+  }
+  function _actualPaintModes() {
+    const on  = 'background:#6c5ce7;color:#fff;';
+    const off = 'background:#f2f2f7;color:#3c3c43;';
+    const base = 'flex:1;border:none;border-radius:10px;padding:8px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;';
+    const a = document.getElementById('actualModeAdd'), b = document.getElementById('actualModeSet');
+    if (a) a.style.cssText = base + (_actualMode === 'add' ? on : off);
+    if (b) b.style.cssText = base + (_actualMode === 'set' ? on : off);
+  }
+  function _actualInputMin() {
+    const h = parseInt(document.getElementById('actualPopH').value, 10) || 0;
+    const m = parseInt(document.getElementById('actualPopM').value, 10) || 0;
+    return h * 60 + m;
+  }
+  function _actualResultMin() {
+    const inp = _actualInputMin();
+    return _actualMode === 'add' ? (_actualBaseMin + inp) : inp;
+  }
+  function _actualPaintPreview() {
+    const el = document.getElementById('actualPopPreview');
+    if (!el) return;
+    const res = _actualResultMin();
+    if (_actualMode === 'add' && _actualBaseMin > 0) {
+      el.textContent = '合計 ' + (fmtActual(_actualBaseMin / 60) || '0分') + ' ＋ ' + (fmtActual(_actualInputMin() / 60) || '0分') + ' = ' + (fmtActual(res / 60) || '0分');
+    } else {
+      el.textContent = '合計 ' + (fmtActual(res / 60) || '0分');
+    }
   }
 
   function addActualPop(min) {
     const hEl = document.getElementById('actualPopH'), mEl = document.getElementById('actualPopM');
-    let total = (parseInt(hEl.value, 10) || 0) * 60 + (parseInt(mEl.value, 10) || 0) + min;
+    let total = _actualInputMin() + min;
     total = Math.max(0, Math.min(99 * 60 + 59, total));
     hEl.value = Math.floor(total / 60) || '';
     mEl.value = total % 60;
+    _actualPaintPreview();
   }
 
   function closeActualPop() {
@@ -6567,10 +6643,10 @@
     if (!editingTaskId) return closeActualPop();
     const t = tasks.find(x => x.id === editingTaskId);
     if (!t) return closeActualPop();
-    const h = parseInt(document.getElementById('actualPopH').value, 10) || 0;
     const m = parseInt(document.getElementById('actualPopM').value, 10) || 0;
-    if (h < 0 || m < 0 || m > 59) { alert('分は 0〜59 で入力してください。'); return; }
-    const hours = Math.round((h + m / 60) * 100) / 100;   // 集中タイマーと同じ小数第2位まで
+    if (m < 0 || m > 59) { alert('分は 0〜59 で入力してください。'); return; }
+    const totalMin = Math.max(0, _actualResultMin());
+    const hours = Math.round((totalMin / 60) * 100) / 100;   // 集中タイマーと同じ小数第2位まで
 
     t[ACTUAL_PROP] = hours;
     t._localLastEdited = new Date().toISOString();
@@ -6579,7 +6655,7 @@
     closeActualPop();
     renderTimeline();
 
-    if (t._notionId && notionSettings.token) {
+    if (t._notionId && notionLinked()) {
       try {
         await notionApiCall('/pages/' + t._notionId, 'PATCH', {
           properties: { [ACTUAL_PROP]: { number: hours } }
@@ -6588,6 +6664,9 @@
         console.error('実績時間の保存に失敗', e);
         alert('Notionへの保存に失敗しました: ' + (e.message || e));
       }
+    } else if (!t._notionId && notionLinked() && notionSettings.dbId) {
+      // まだNotionに無いタスクは、この機会に登録して実績も一緒に送る
+      try { await pushNewTaskToNotion(t); } catch (e) { console.error('Notion登録に失敗', e); }
     }
   }
 
@@ -16268,7 +16347,12 @@
     try{
       if(typeof tasks!=='undefined' && Array.isArray(tasks)){
         var _lt=tasks.find(function(x){ return x && (x._notionId===task.pageId || x.id===task.localId); });
-        if(_lt) _lt['(C)手入力実績時間_out']=next;
+        if(_lt){
+          _lt['(C)手入力実績時間_out']=next;
+          // 再読込しても消えないよう保存し、詳細モーダルの表示も更新する
+          try{ localStorage.setItem('tasks', JSON.stringify(tasks)); }catch(e){}
+          try{ if(typeof updateActualBadge==='function') updateActualBadge(); }catch(e){}
+        }
       }
       if(typeof renderTimeline==='function') renderTimeline();
     }catch(e){}
@@ -16694,6 +16778,8 @@
   }
   // プロジェクトに所属しているか
   function hasProject(t){
+    // 本体と同じ判定を使う（プロジェクト側の対応表も見るので取りこぼさない）
+    try { if (typeof taskHasProject === 'function') return taskHasProject(t); } catch(e) {}
     if (!t) return false;
     if (Array.isArray(t._projectIds) && t._projectIds.length) return true;
     if (Array.isArray(t._projectNames) && t._projectNames.length) return true;
