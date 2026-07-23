@@ -800,20 +800,60 @@
 
   .later-item:last-child { border-bottom: none; }
 
+  /* 削除の取り消しバー */
+  #undoBar {
+    position: fixed;
+    left: 12px; right: 12px;
+    bottom: calc(var(--navh, 60px) + 12px);
+    z-index: 9800;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #2d2b3a;
+    color: #fff;
+    border-radius: 14px;
+    padding: 12px 12px 12px 16px;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity .2s, transform .2s;
+  }
+  #undoBar.show { opacity: 1; transform: translateY(0); }
+  #undoBarText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #undoBar button {
+    flex: none;
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #undoBar button:active { background: rgba(255,255,255,0.3); }
+
   /* 左スワイプで削除 */
   .later-swipe {
     position: relative;
     overflow: hidden;
-    background: #e5484d;
+    /* 背景は普段 透明。スワイプ中だけ赤くする（スクロール中のチラつき防止） */
+    background: transparent;
     /* 縦スクロールはブラウザ、横スワイプはJSが担当。
        これが無いとiOSがジェスチャを横取りして pointercancel が飛び、すぐ戻ってしまう */
     touch-action: pan-y;
   }
+  .later-swipe.swiping { background: #e5484d; }
   .later-swipe .later-item { touch-action: pan-y; }
   .later-swipe:last-child .later-item { border-bottom: none; }
   .later-swipe-bg {
     position: absolute;
     inset: 0;
+    opacity: 0;                 /* スワイプ中だけ見せる */
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -824,7 +864,11 @@
     font-weight: 700;
     pointer-events: none;
   }
+  .later-swipe.swiping .later-swipe-bg { opacity: 1; }
   .later-swipe-bg svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  /* しきい値を超えたら「離せば削除」と分かるように濃くする */
+  .later-swipe.will-delete { background: #c9333a; }
+  .later-swipe.will-delete .later-swipe-bg { transform: scale(1.06); }
   .later-swipe .later-item {
     position: relative;
     background: #fff;
@@ -4006,6 +4050,12 @@
 
 <!-- ドラムロール所要時間ピッカー -->
 <!-- 実績時間の手入力ポップアップ -->
+<!-- 削除の取り消しバー -->
+<div id="undoBar" style="display:none;">
+  <span id="undoBarText"></span>
+  <button type="button" onclick="undoDelete()">元に戻す</button>
+</div>
+
 <!-- 繰り返しタスクの削除範囲 -->
 <div class="time-pop-overlay" id="repDelPop" style="display:none;" onclick="if(event.target===this)closeRepeatDeletePop()">
   <div class="time-pop-card">
@@ -4070,6 +4120,9 @@
       <span style="font-size:14px;color:#3c3c43;">分</span>
     </div>
     <div style="padding:10px 20px 0;display:flex;gap:6px;flex-wrap:wrap;" id="actualPopQuick"></div>
+    <div style="padding:8px 20px 0;">
+      <button type="button" id="actualPopAuto" onclick="fillActualFromStart()" style="display:none;width:100%;background:#eceafd;border:1px solid #d8d2f5;border-radius:11px;padding:10px;font-size:12.5px;font-weight:700;color:#6c5ce7;font-family:inherit;cursor:pointer;touch-action:manipulation;"></button>
+    </div>
     <div id="actualPopPreview" style="padding:10px 20px 0;font-size:12px;color:#6c5ce7;font-weight:700;"></div>
     <div id="actualPopNote" style="padding:8px 20px 0;font-size:11px;color:#8e8e93;line-height:1.6;"></div>
     <div style="padding:14px 20px 18px;display:flex;gap:8px;">
@@ -6571,8 +6624,55 @@
     note.textContent = notionLinked()
       ? 'Notionの「' + ACTUAL_PROP + '」に保存します（集中タイマーと同じ項目）。'
       : 'Notion未連携のため、この端末にのみ保存します。';
+    _actualPaintAuto();
     _actualPaintPreview();
     document.getElementById('actualPopOverlay').style.display = 'flex';
+  }
+
+  // 「開始時刻から今まで」の経過を求める。
+  // 優先: 計測で押された開始日時 → 予定の開始時刻（終日タスクは時刻が無いので対象外）
+  function actualStartInfo(t) {
+    if (!t) return null;
+    const now = new Date();
+    // 1) タイマーが押した (c)開始日時
+    if (t._notionStart) {
+      const d = new Date(t._notionStart);
+      if (!isNaN(d)) return { at: d, label: '計測開始', src: 'timer' };
+    }
+    // 2) 予定の開始時刻（時刻付きのみ）
+    const raw = t['(A)実行日'] && t['(A)実行日'].start;
+    if (raw && String(raw).length > 10) {
+      const d = new Date(raw);
+      if (!isNaN(d)) return { at: d, label: '開始予定', src: 'plan' };
+    }
+    return null;
+  }
+
+  function fillActualFromStart() {
+    const t = editingTaskId ? tasks.find(x => x.id === editingTaskId) : null;
+    const info = actualStartInfo(t);
+    if (!info) return;
+    let min = Math.round((Date.now() - info.at.getTime()) / 60000);
+    if (min <= 0) { alert('開始時刻がまだ先の予定です。'); return; }
+    if (min > 24 * 60) min = 24 * 60;   // 1日を超える場合は24時間で止める
+    document.getElementById('actualPopH').value = Math.floor(min / 60) || '';
+    document.getElementById('actualPopM').value = min % 60;
+    _actualPaintPreview();
+  }
+
+  // 自動計算ボタンの表示を更新する
+  function _actualPaintAuto() {
+    const btn = document.getElementById('actualPopAuto');
+    if (!btn) return;
+    const t = editingTaskId ? tasks.find(x => x.id === editingTaskId) : null;
+    const info = actualStartInfo(t);
+    if (!info) { btn.style.display = 'none'; return; }
+    const min = Math.round((Date.now() - info.at.getTime()) / 60000);
+    if (min <= 0) { btn.style.display = 'none'; return; }
+    const hhmm = String(info.at.getHours()).padStart(2, '0') + ':' + String(info.at.getMinutes()).padStart(2, '0');
+    const capped = Math.min(min, 24 * 60);
+    btn.textContent = '⏱ ' + info.label + ' ' + hhmm + ' 〜 今 ＝ ' + (fmtActual(capped / 60) || '0分') + ' を入力';
+    btn.style.display = 'block';
   }
 
   // Notionに書けるか（token方式・マネージド方式のどちらでも可）
@@ -8709,6 +8809,8 @@
     function itemOf(el) { return el ? el.querySelector('.later-item') : null; }
     function reset(wrap, animate) {
       const it = itemOf(wrap); if (!it) return;
+      wrap.classList.remove('will-delete');
+      setTimeout(() => wrap.classList.remove('swiping'), animate ? 200 : 0);
       if (animate) {
         wrap.classList.add('animating');
         setTimeout(() => wrap.classList.remove('animating'), 200);
@@ -8736,12 +8838,14 @@
       if (!sw || (sw.id != null && e.pointerId !== sw.id)) return;
       const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
       if (!sw.dir) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        // 縦に動いていたらスクロールとして手放す
-        sw.dir = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-        if (sw.dir === 'y') { sw = null; return; }
+        // 縦に少しでも動いたら即スクロール扱い（指は必ず上下にぶれるので早めに手放す）
+        if (Math.abs(dy) > 10) { sw = null; return; }
+        // 横方向がはっきり優勢なときだけスワイプ開始（縦の1.5倍以上）
+        if (Math.abs(dx) < 12 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        sw.dir = 'x';
         // 横スワイプ確定 → このポインタを掴んで、指が行の外に出ても追従させる
         window._laterSwipeBusy = true;
+        sw.wrap.classList.add('swiping');
         try { sw.wrap.setPointerCapture(e.pointerId); } catch (err) {}
       }
       if (dx > 0) { sw.dx = 0; itemOf(sw.wrap).style.transform = ''; return; }  // 右方向は無効
@@ -8749,6 +8853,7 @@
       if (e.cancelable) e.preventDefault();
       const it = itemOf(sw.wrap);
       if (it) it.style.transform = 'translateX(' + sw.dx + 'px)';
+      sw.wrap.classList.toggle('will-delete', sw.dx <= -THRESHOLD);
     }, { passive: false });
 
     function finish(e) {
@@ -8757,18 +8862,17 @@
       const { wrap, dx } = sw; sw = null;
       window._laterSwipeBusy = false;
       try { if (e && e.pointerId != null) wrap.releasePointerCapture(e.pointerId); } catch (err) {}
+      wrap.classList.remove('will-delete');
       const id = wrap.dataset.swipeId;
       if (dx <= -THRESHOLD) {
-        const t = (typeof tasks !== 'undefined') ? tasks.find(x => x.id === id) : null;
-        const nm = t ? (t.name || '(無題)') : '';
-        if (confirm('「' + nm + '」を削除しますか？')) {
-          wrap.classList.add('animating');
-          const it = itemOf(wrap);
-          if (it) it.style.transform = 'translateX(-100%)';
-          setTimeout(() => { try { deleteTaskById(id); } catch(e) { console.error(e); } }, 160);
-          return;
-        }
+        // 確認は出さず即削除。代わりに「元に戻す」を出すので誤操作しても取り返せる
+        wrap.classList.add('animating');
+        const it = itemOf(wrap);
+        if (it) it.style.transform = 'translateX(-100%)';
+        setTimeout(() => { try { deleteTaskById(id); } catch (err) { console.error(err); } }, 140);
+        return;
       }
+      wrap.classList.remove('swiping');
       reset(wrap, true);
     }
     document.addEventListener('pointerup', finish);
@@ -8783,11 +8887,14 @@
     });
   })();
 
-  // idを指定してタスクを削除（スワイプ削除用。確認は呼び出し側で行う）
+  // idを指定してタスクを削除（スワイプ削除用）。確認は出さず、あとから取り消せるようにする
+  let _undoTimer = null;
   async function deleteTaskById(id) {
-    const t = tasks.find(x => x.id === id);
-    if (!t) return;
-    if (t._notionId && notionSettings.token) {
+    const idx = tasks.findIndex(x => x.id === id);
+    if (idx < 0) return;
+    const t = tasks[idx];
+    const snapshot = { task: t, index: idx };
+    if (t._notionId && notionLinked()) {
       notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
         .catch(e => console.error('Notion削除失敗', e));
     }
@@ -8795,6 +8902,42 @@
     localStorage.setItem('tasks', JSON.stringify(tasks));
     try { renderLater(); } catch(e) {}
     try { renderTimeline(); } catch(e) {}
+    showUndoBar(t.name || '(無題)', snapshot);
+  }
+
+  // 削除の取り消しバー（数秒で消える）
+  function showUndoBar(name, snapshot) {
+    const bar = document.getElementById('undoBar');
+    if (!bar) return;
+    document.getElementById('undoBarText').textContent = '「' + (name.length > 14 ? name.slice(0, 14) + '…' : name) + '」を削除しました';
+    bar.style.display = 'flex';
+    requestAnimationFrame(() => bar.classList.add('show'));
+    clearTimeout(_undoTimer);
+    _undoTimer = setTimeout(hideUndoBar, 5000);
+    bar._snapshot = snapshot;
+  }
+  function hideUndoBar() {
+    const bar = document.getElementById('undoBar');
+    if (!bar) return;
+    bar.classList.remove('show');
+    clearTimeout(_undoTimer);
+    setTimeout(() => { bar.style.display = 'none'; bar._snapshot = null; }, 220);
+  }
+  async function undoDelete() {
+    const bar = document.getElementById('undoBar');
+    const snap = bar && bar._snapshot;
+    hideUndoBar();
+    if (!snap) return;
+    const t = snap.task;
+    if (tasks.some(x => x.id === t.id)) return;
+    tasks.splice(Math.min(snap.index, tasks.length), 0, t);
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    try { renderLater(); } catch(e) {}
+    try { renderTimeline(); } catch(e) {}
+    if (t._notionId && notionLinked()) {
+      try { await notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: false }); }
+      catch (e) { console.error('Notion復元失敗', e); }
+    }
   }
 
   let _repDelId = null;
