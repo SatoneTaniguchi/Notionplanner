@@ -805,7 +805,11 @@
     position: relative;
     overflow: hidden;
     background: #e5484d;
+    /* 縦スクロールはブラウザ、横スワイプはJSが担当。
+       これが無いとiOSがジェスチャを横取りして pointercancel が飛び、すぐ戻ってしまう */
+    touch-action: pan-y;
   }
+  .later-swipe .later-item { touch-action: pan-y; }
   .later-swipe:last-child .later-item { border-bottom: none; }
   .later-swipe-bg {
     position: absolute;
@@ -5546,12 +5550,22 @@
   //  ・習慣以外、かつ未完了
   //  ・_type==='later'、または 時間指定で実行日が「今日より前の日（前日以前）」のもの
   //  ※ 時刻なし＝日付のみ（Notion終日扱い）の期限切れタスクも必ず含める。
+  // プロジェクトに紐づいているか（relationのid・名前どちらでも判定）
+  function taskHasProject(t) {
+    if (!t) return false;
+    if (Array.isArray(t._projectIds) && t._projectIds.length) return true;
+    if (Array.isArray(t._projectNames) && t._projectNames.length) return true;
+    return false;
+  }
+
   function collectLaterTasks() {
     const today0 = new Date(); today0.setHours(0,0,0,0);
     return tasks.filter(t => {
       if (t['(A)done']) return false;
       if (t._projectOnly) return false; // プロジェクト表示専用（日付・実行期間なし）はあとでやるに出さない
       if (isRoutineKind(t)) return false; // 習慣は振り分けない
+      // プロジェクトのタスクで日付が無いものは、プロジェクト画面で管理する（あとでやるを埋めない）
+      if (t._type === 'later' && taskHasProject(t)) return false;
       if (t._type === 'later') return true;
       if (t._type === 'time') {
         try {
@@ -5776,6 +5790,12 @@
   }
 
   function renderLater() {
+    // スワイプ操作中に再描画すると行が作り直されて指の動きが巻き戻るため、終わってから描き直す
+    if (window._laterSwipeBusy) {
+      clearTimeout(window._laterRenderPending);
+      window._laterRenderPending = setTimeout(renderLater, 400);
+      return;
+    }
     const now = new Date();
     const durToMin = d => {
       if (!d || d==='なし') return 0;
@@ -8630,17 +8650,20 @@
       closeAll(wrap);
       if (!wrap) return;
       if (e.target.closest('.task-check, .habit-star, .drag-handle')) return;
-      sw = { wrap, x0: e.clientX, y0: e.clientY, dir: null, dx: 0 };
+      sw = { wrap, id: e.pointerId, x0: e.clientX, y0: e.clientY, dir: null, dx: 0 };
     }, true);
 
     document.addEventListener('pointermove', e => {
-      if (!sw) return;
+      if (!sw || (sw.id != null && e.pointerId !== sw.id)) return;
       const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
       if (!sw.dir) {
         if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
         // 縦に動いていたらスクロールとして手放す
         sw.dir = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
         if (sw.dir === 'y') { sw = null; return; }
+        // 横スワイプ確定 → このポインタを掴んで、指が行の外に出ても追従させる
+        window._laterSwipeBusy = true;
+        try { sw.wrap.setPointerCapture(e.pointerId); } catch (err) {}
       }
       if (dx > 0) { sw.dx = 0; itemOf(sw.wrap).style.transform = ''; return; }  // 右方向は無効
       sw.dx = Math.max(-MAX, dx);
@@ -8649,9 +8672,12 @@
       if (it) it.style.transform = 'translateX(' + sw.dx + 'px)';
     }, { passive: false });
 
-    function finish() {
+    function finish(e) {
       if (!sw) return;
+      if (e && e.pointerId != null && sw.id != null && e.pointerId !== sw.id) return;
       const { wrap, dx } = sw; sw = null;
+      window._laterSwipeBusy = false;
+      try { if (e && e.pointerId != null) wrap.releasePointerCapture(e.pointerId); } catch (err) {}
       const id = wrap.dataset.swipeId;
       if (dx <= -THRESHOLD) {
         const t = (typeof tasks !== 'undefined') ? tasks.find(x => x.id === id) : null;
@@ -8667,7 +8693,15 @@
       reset(wrap, true);
     }
     document.addEventListener('pointerup', finish);
-    document.addEventListener('pointercancel', () => { if (sw) { reset(sw.wrap, true); sw = null; } });
+    // ブラウザ側でジェスチャが打ち切られた場合。
+    // 横スワイプが確定済みなら、その位置を保って指を離した扱いにする（すぐ閉じるのを防ぐ）
+    document.addEventListener('pointercancel', e => {
+      if (!sw) return;
+      if (sw.dir === 'x') { finish(e); return; }
+      reset(sw.wrap, true);
+      sw = null;
+      window._laterSwipeBusy = false;
+    });
   })();
 
   // idを指定してタスクを削除（スワイプ削除用。確認は呼び出し側で行う）
