@@ -2380,6 +2380,7 @@
   }
   /* 管理リスト（種類別の簡易一覧） */
   #routineList.manage { display: block; }
+  #routineList.repeatview { display: block; }
   .rman-group { margin: 6px 0 16px; }
   .rman-add {
     border: none; border-radius: 12px; padding: 6px 13px; font-size: 13px;
@@ -8517,12 +8518,15 @@
   // ── 繰り返しタスク（ルーチン種類=習慣/掃除/美容 以外）──
   // ルーチン画面からは見えないが、繰り返し設定を持つタスクを一覧するためのもの。
   function getRepeatTaskTemplates(includeEnded) {
-    return tasks.filter(t =>
-      t &&
-      (t._type === 'repeat' || (includeEnded && t._type === 'repeat_ended')) &&
-      !t._habitTemplateId &&
-      !isRoutineKind(t)
-    ).sort((a, b) => {
+    // Notion往復で _type が 'time'/'later' に戻ることがあるため、_repeatConfig の有無でも拾う
+    const isRepeatTpl = t => {
+      if (!t || t._habitTemplateId) return false;
+      if (t._type === 'repeat') return true;
+      if (includeEnded && t._type === 'repeat_ended') return true;
+      const rc = t._repeatConfig;
+      return !!(rc && (rc.type || rc.time || (rc.daysOfWeek && rc.daysOfWeek.length)));
+    };
+    return tasks.filter(t => isRepeatTpl(t) && !isRoutineKind(t)).sort((a, b) => {
       const ta = (a._repeatConfig && a._repeatConfig.time) || '99:99';
       const tb = (b._repeatConfig && b._repeatConfig.time) || '99:99';
       if (ta !== tb) return ta < tb ? -1 : 1;
@@ -9839,13 +9843,27 @@
     if (routineViewMode === 'repeat') {
       container.className = 'repeatview';
       const reps = getRepeatTaskTemplates(true);
-      const active = reps.filter(t => t._type === 'repeat');
+      // _type が 'repeat' 以外（Notion往復で time/later に戻った分）も実行中として扱う
       const ended  = reps.filter(t => t._type === 'repeat_ended');
+      const active = reps.filter(t => t._type !== 'repeat_ended');
 
-      let html = '<div class="rep-note">ルーチン（習慣・掃除・美容）以外で、繰り返し設定があるタスクです。</div>';
+      // ルーチン種類（習慣・掃除・美容）の繰り返しは「一覧・管理」の担当。件数だけ案内する
+      const routineRepeats = tasks.filter(t =>
+        t && !t._habitTemplateId && isRoutineKind(t) &&
+        (t._type === 'repeat' || t._type === 'repeat_ended' ||
+         (t._repeatConfig && (t._repeatConfig.type || t._repeatConfig.time)))
+      ).length;
+
+      let html = '<div class="rep-note">ルーチン（習慣・掃除・美容）以外で、繰り返し設定があるタスクです。'
+        + (routineRepeats ? '<br>ルーチン種類の繰り返し ' + routineRepeats + '件は「一覧・管理」にあります。' : '')
+        + '</div>';
 
       if (!reps.length) {
-        html += '<div class="rep-empty">繰り返しタスクはありません。<br>タスク作成時に「繰り返し」タブから設定できます。</div>';
+        html += '<div class="rep-empty">ここに出る繰り返しタスクはありません。'
+          + (routineRepeats
+              ? '<br>お持ちの繰り返し ' + routineRepeats + '件はすべて習慣・掃除・美容なので<br>「一覧・管理」に表示されます。'
+              : '<br>タスク作成時に「繰り返し」タブから設定できます。')
+          + '</div>';
       } else {
         const row = (t, isEnded) => {
           const kind = t['(B)種類'] || '未設定';
@@ -10370,10 +10388,13 @@
               if (u.done === true) extra.push('完了');
               if (u.shurui) extra.push(String(u.shurui));
               if (u.allDay === true) extra.push('終日');
+              if (u.clearDate === true) extra.push('日付をクリア');
               html += '<div class="ai-act-item"><input type="checkbox" class="ai-act-cb" data-kind="upd" data-i="' + i + '" ' + (t?'checked':'disabled') + '>'
                 + '<span style="flex:1;min-width:0;' + (t?'':'opacity:0.5;') + '">'
                 + '<div style="font-size:13px;color:#1c1c1e;">' + _escapeHtml(nm) + (t?'':' <span style="color:#d04a3a;font-size:10px;">未解決（対象不明・スキップ）</span>') + (extra.length?' <span style="color:#6c5ce7;font-size:11px;">'+_escapeHtml(extra.join(' ・ '))+'</span>':'') + '</div>'
-                + (t ? ('<div style="display:flex;gap:6px;margin-top:4px;align-items:flex-end;flex-wrap:wrap;">'
+                + (t ? (u.clearDate === true
+                  ? '<div style="margin-top:4px;font-size:11px;color:#8e8e93;">現在の日付を外して「あとでやる」に戻します</div>'
+                  : '<div style="display:flex;gap:6px;margin-top:4px;align-items:flex-end;flex-wrap:wrap;">'
                     + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">日付</span><input type="date" data-edit="upd-date-' + i + '" ' + ei + ' value="' + _escapeHtml(curDate) + '"></div>'
                     + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">時刻</span><input type="time" data-edit="upd-time-' + i + '" ' + ei + ' value="' + _escapeHtml(curTime) + '"></div>'
                     + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">見込み</span><input type="number" step="0.5" placeholder="h" data-edit="upd-est-' + i + '" ' + ei + ' style="width:52px;font-size:12px;font-family:inherit;border:1px solid #d8d2f5;border-radius:8px;padding:4px 6px;" value="' + (u.estimateHours!=null?u.estimateHours:'') + '"></div>'
@@ -10421,7 +10442,8 @@
       + '応答は必ずJSONオブジェクト1つで返す（スキーマで強制済み）。フィールド:\n'
       + '・message: 画面に表示する短い日本語の説明（操作内容の要約。idや番号は書かない）。\n'
       + '・tasks: 新規作成するタスクの配列。各 {name, estimateHours(数値h), date("YYYY-MM-DD"・不要ならnull), time("HH:MM"・任意), project(紐付けるプロジェクト名・任意), shurui, reason}。\n'
-      + '・updates: 既存タスクの変更の配列。各 {ref(対象タスクの#番号の数字のみ。例 "3"), name(任意), date, time, allDay, done, estimateHours, shurui}。変更する項目だけ入れる。\n'
+      + '・updates: 既存タスクの変更の配列。各 {ref(対象タスクの#番号の数字のみ。例 "3"), name(任意), date, time, allDay, done, estimateHours, shurui, clearDate}。変更する項目だけ入れる。\n'
+      + '・日付を消す指示（「日付をクリア」「日付を外す」「未定に戻す」「あとでに戻す」など）は clearDate:true を使う。この場合 date や time は絶対に入れない（入れると逆に日付が設定されてしまう）。\n'
       + '・projects: プロジェクトの変更/作成の配列。各 {name, status, deadline("YYYY-MM-DD"), create(新規ならtrue), type(新規時の種類), goal(新規時の親目標名)}。\n'
       + '操作が無い配列は空[]にする。\n'
       + '\n━━━ ルール ━━━\n'
@@ -10474,14 +10496,17 @@
     const todayStr = ymdS;
     aiRefMap = {};
     let refN = 0;
+    const _aiRefByTaskId = {};   // タスクid → 既に振った番号
     const lineFor = (t) => {
       const d0 = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start) : '';
       const dateOnly = d0 ? d0.substring(0,10) : '日付なし';
       const st = d0.length > 10 ? (' ' + d0.substring(11,16)) : '';
       const h = (t['(C)見込み/h']!=null && t['(C)見込み/h']!=='') ? (' ' + t['(C)見込み/h'] + 'h') : '';
-      refN++;
-      aiRefMap[String(refN)] = t.id;
-      return '#' + refN + ' ' + t.name + ' (' + dateOnly + st + ')' + h;
+      // 同じタスクが複数のセクションに出ても番号は1つに固定する。
+      // （別番号を振ると、後段の「同じ対象の重複はマージ」で更新が取りこぼされる）
+      let myN = _aiRefByTaskId[t.id];
+      if (!myN) { refN++; myN = refN; _aiRefByTaskId[t.id] = myN; aiRefMap[String(myN)] = t.id; }
+      return '#' + myN + ' ' + t.name + ' (' + dateOnly + st + ')' + h;
     };
     const norm = id => String(id||'').replace(/-/g,'');
     const allNonRepeat = (tasks||[]).filter(t => t._type !== 'repeat' && !t._habitTemplateId);
@@ -10528,6 +10553,7 @@
     }};
     const updItem = { type:'OBJECT', properties: {
       ref: STR, name: STR, estimateHours: NUM, date: STR, time: STR,
+      clearDate: BOOL,
       allDay: BOOL, done: BOOL, shurui: { type:'STRING', enum: shuruiEnum }, memo: STR,
     }};
     const projStatus = statusEnum.length ? { type:'STRING', enum: statusEnum } : STR;
@@ -10806,11 +10832,23 @@
       }
       const reschedKw = /(組み直|組みなお|再計画|順番|順通り|順に|並べ替え|並び替え|期限内|までに(終わ|やり|完了)|割り当て直|並べ直|日程|スケジュール.*組|全タスク|組んで|組み立て|日付順|日付.*入|日付.*出|入力して|直して|修正|前に|後に|順序)/;
       const isReschedule = reschedKw.test(text);
-      updates = aiAutoSpreadUpdates(updates, projects, aiRefMap, text, isReschedule);
+      // 「日付をクリア」系の指示では自動割り当てを止める（意図と逆に日付が入るため）
+      const clearDateKw = /(日付|予定日|実行日).{0,6}(クリア|消|外|空|無く|なく|リセット)|未定に戻|あとでに戻|日程.{0,4}(クリア|消|外)/;
+      const wantsClear = clearDateKw.test(text);
+      if (wantsClear) {
+        updates = (updates || []).map(u => {
+          const o = { ...u, clearDate: true };
+          delete o.date; delete o.time; delete o.allDay;
+          return o;
+        });
+      } else {
+        updates = aiAutoSpreadUpdates(updates, projects, aiRefMap, text, isReschedule);
+      }
       // 中身の無い（変更項目が空の）更新はカードに出さない（日付割り当て後に判定）
       updates = updates.filter(u => {
         const t = _aiResolveTask(u, aiRefMap);
         const hasChange = (u.date && String(u.date).trim()) || (u.time && String(u.time).trim())
+          || u.clearDate === true
           || u.done != null || u.allDay != null || (u.estimateHours != null && u.estimateHours !== '')
           || u.shurui || u.memo;
         return t && hasChange; // 対象が特定でき、かつ実際に変える項目があるものだけ
@@ -11128,6 +11166,17 @@
     if (u.memo) t['(e)memo'] = (t['(e)memo'] ? (t['(e)memo'] + '\n') : '') + String(u.memo);
     if (u.done === true) t['(A)done'] = true;
     if (u.done === false) t['(A)done'] = false;
+    // 日付を外す（「日付をクリア」「未定に戻す」等）。以降の日付設定は行わない
+    if (u.clearDate === true) {
+      delete t['(A)実行日'];
+      t._allDay = false;
+      t._type = 'later';
+      t._localLastEdited = new Date().toISOString();
+      if (notionSettings.token || notionSettings.managed) {
+        try { if (t._notionId) notionUpdateTask(t._notionId, t); } catch(e) {}
+      }
+      return true;
+    }
     const curDate = (t['(A)実行日'] && t['(A)実行日'].start) ? String(t['(A)実行日'].start).substring(0,10) : ymd(new Date());
     const dateStr = (u.date && /^\d{4}-\d{2}-\d{2}/.test(String(u.date))) ? String(u.date).substring(0,10) : curDate;
     if (u.time && /^\d{1,2}:\d{2}/.test(String(u.time))) {
