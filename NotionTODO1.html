@@ -10427,7 +10427,9 @@
                 + '<span style="flex:1;min-width:0;' + (t?'':'opacity:0.5;') + '">'
                 + '<div style="font-size:13px;color:#1c1c1e;">' + _escapeHtml(nm) + (t?'':' <span style="color:#d04a3a;font-size:10px;">未解決（対象不明・スキップ）</span>') + (extra.length?' <span style="color:#6c5ce7;font-size:11px;">'+_escapeHtml(extra.join(' ・ '))+'</span>':'') + '</div>'
                 + (t ? (u.clearDate === true
-                  ? '<div style="margin-top:4px;font-size:11px;color:#8e8e93;">現在の日付を外して「あとでやる」に戻します</div>'
+                  ? '<div style="margin-top:4px;font-size:11px;color:#8e8e93;">' + (taskHasProject(t)
+                        ? '現在の日付を外します（プロジェクト画面で管理／あとでやるには出ません）'
+                        : '現在の日付を外して「あとでやる」に戻します') + '</div>'
                   : '<div style="display:flex;gap:6px;margin-top:4px;align-items:flex-end;flex-wrap:wrap;">'
                     + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">日付</span><input type="date" data-edit="upd-date-' + i + '" ' + ei + ' value="' + _escapeHtml(curDate) + '"></div>'
                     + '<div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:9px;color:#a0a0a8;">時刻</span><input type="time" data-edit="upd-time-' + i + '" ' + ei + ' value="' + _escapeHtml(curTime) + '"></div>'
