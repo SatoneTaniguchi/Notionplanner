@@ -1912,7 +1912,7 @@
 
   /* 習慣タスク スター */
   .habit-star {
-    width: 34px; height: 34px;
+    width: 30px; height: 30px;
     border-radius: 50%;
     background: transparent;
     border: none;
@@ -1924,7 +1924,7 @@
     touch-action: manipulation;
   }
   /* 星の本体。未完了は輪郭だけ、完了は金色で塗りつぶす */
-  .habit-star .eic { width: 24px; height: 24px; stroke-width: 1.6; }
+  .habit-star .eic { width: 19px; height: 19px; stroke-width: 1.7; }
   .habit-star.done .eic { fill: #ffc531; stroke: #f0a500; stroke-width: 1.2; }
   .habit-star:not(.done) .eic { fill: none; stroke: #c9c5d8; }
   .habit-star:active { transform: scale(0.85); }
@@ -3236,7 +3236,7 @@
   </div>
   <div id="graphFocusSum" style="display:none;"></div>
   <div id="graphFocus" style="display:none;"></div>
-  <div style="font-size:11px;color:#b0adc0;margin-top:10px;line-height:1.5;">集中時間は、タイムラインや編集画面のタイマー（開始→終了）で計測した実働時間から集計しています。</div>
+  <div style="font-size:11px;color:#b0adc0;margin-top:10px;line-height:1.5;">集中時間は、タスクの「(C)手入力実績時間_out」を実行日ごとに合計しています。タイマーの計測分も手入力分も、このプロパティに記録されます。</div>
 </div>
 
 <!-- ===== プロジェクト画面 ===== -->
@@ -5703,12 +5703,61 @@
     return false;
   }
 
+  // 繰り返しの実行間隔をおおよその日数で返す（daily=1, 週2回=3.5, 月1=30 …）
+  function repeatIntervalDays(cfg) {
+    const rc = cfg || {};
+    switch (rc.type) {
+      case 'daily':   return 1;
+      case 'weekly': {
+        const n = Array.isArray(rc.daysOfWeek) ? rc.daysOfWeek.length : 0;
+        return n > 0 ? 7 / n : 7;
+      }
+      case 'monthly': return 30;
+      case 'yearly':  return 365;
+      case 'interval': {
+        const num = parseInt(rc.intervalNum, 10) || 1;
+        const u = rc.intervalUnit || '日';
+        return num * (u === '月' ? 30 : u === '週' ? 7 : 1);
+      }
+      default: return 1;
+    }
+  }
+
+  // やり逃したルーチンのうち「あとでやる」に出すべきものか。
+  // 毎日のルーチンは1日抜けても追いかける意味が薄く、出すとリストが埋まるので除く。
+  // 週1以上に間隔が空くもの（月1など）だけ、直近1週間以内の分に限って拾う。
+  const LATE_ROUTINE_MIN_INTERVAL = 7;   // これ以上の間隔なら対象
+  const LATE_ROUTINE_WINDOW_DAYS  = 7;   // 何日前までさかのぼるか
+  function isCatchUpRoutine(t, today0) {
+    if (!t || !isRoutineKind(t)) return false;
+    if (t._type !== 'time') return false;
+    const src = t._habitDate || (t['(A)実行日'] && t['(A)実行日'].start);
+    if (!src) return false;
+    const d = new Date(String(src).length > 10 ? src : src + 'T00:00:00');
+    if (isNaN(d)) return false;
+    d.setHours(0,0,0,0);
+    if (d >= today0) return false;                                  // 期限切れのみ
+    const ageDays = Math.round((today0 - d) / 86400000);
+    if (ageDays > LATE_ROUTINE_WINDOW_DAYS) return false;           // 古すぎるものは追わない
+    // テンプレートの繰り返し設定から間隔を求める（往復でID紐付けが消えても同名で照合）
+    let cfg = t._repeatConfig;
+    if (!cfg) {
+      const nm = String(t.name || '').trim();
+      const tpl = tasks.find(x => x && (x._type === 'repeat' || x._type === 'repeat_ended')
+        && (x.id === t._habitTemplateId || String(x.name || '').trim() === nm));
+      cfg = tpl && tpl._repeatConfig;
+    }
+    if (!cfg) return false;
+    return repeatIntervalDays(cfg) >= LATE_ROUTINE_MIN_INTERVAL;
+  }
+
   function collectLaterTasks() {
     const today0 = new Date(); today0.setHours(0,0,0,0);
     return tasks.filter(t => {
       if (t['(A)done']) return false;
       if (t._projectOnly) return false; // プロジェクト表示専用（日付・実行期間なし）はあとでやるに出さない
-      if (isRoutineKind(t)) return false; // 習慣は振り分けない
+      // 習慣は基本的に振り分けないが、間隔の空くルーチン（月1など）のやり逃しは拾う
+      if (isRoutineKind(t)) return isCatchUpRoutine(t, today0);
       // プロジェクトのタスクで日付が無いものは、プロジェクト画面で管理する（あとでやるを埋めない）
       if (t._type === 'later' && taskHasProject(t)) return false;
       if (t._type === 'later') return true;
@@ -5719,6 +5768,21 @@
         } catch(e) { return false; }
       }
       return false;
+    }).filter((t, _i, arr) => {
+      // やり逃したルーチンは、同じルーチンにつき直近の1件だけ残す（同じ名前が並ばないように）
+      if (!isRoutineKind(t)) return true;
+      const keyOf = x => x._habitTemplateId || String(x.name || '').trim();
+      const dateOf = x => {
+        const src = x._habitDate || (x['(A)実行日'] && x['(A)実行日'].start) || '';
+        return String(src).slice(0, 10);
+      };
+      const k = keyOf(t), myD = dateOf(t);
+      const newest = arr.reduce((acc, x) => {
+        if (!isRoutineKind(x) || keyOf(x) !== k) return acc;
+        const d = dateOf(x);
+        return (!acc || d > acc) ? d : acc;
+      }, null);
+      return myD === newest;
     });
   }
 
@@ -6846,12 +6910,6 @@
     if (m < 0 || m > 59) { alert('分は 0〜59 で入力してください。'); return; }
     const totalMin = Math.max(0, _actualResultMin());
     const hours = Math.round((totalMin / 60) * 100) / 100;   // 集中タイマーと同じ小数第2位まで
-
-    // 「今週の集中時間」にも反映する。増えた分だけ記録するので、
-    // タイマーで記録済みの分を二重に数えることはない（下方修正した場合は記録しない）
-    const _prevMin = Math.round(((t[ACTUAL_PROP] || 0) * 60));
-    const _deltaMin = totalMin - _prevMin;
-    if (_deltaMin > 0) { try { recordFocus(_deltaMin); } catch (e) {} }
 
     t[ACTUAL_PROP] = hours;
     t._localLastEdited = new Date().toISOString();
@@ -8617,10 +8675,17 @@
       const d = new Date(today); d.setDate(d.getDate() - i);
       const ds = ymd(d);
       cValues.push(store.completions.filter(c => c.dateStr === ds).length);
+      // 集中時間は「(C)手入力実績時間_out」だけを見る。
+      // タイマーも手入力もこのプロパティに書き込むので、ここが唯一の正本になる。
       let fm = 0;
-      store.focus.forEach(f => {
-        const fd = f.ts ? new Date(f.ts) : null;
-        if (fd && !isNaN(fd)) { fd.setHours(0,0,0,0); if (ymd(fd) === ds) fm += f.min; }
+      tasks.forEach(t => {
+        if (!t) return;
+        const h = t['(C)手入力実績時間_out'];
+        if (typeof h !== 'number' || h <= 0) return;
+        const src = t._habitDate || (t['(A)実行日'] && t['(A)実行日'].start);
+        if (!src) return;
+        const td = new Date(String(src).length > 10 ? src : src + 'T00:00:00');
+        if (!isNaN(td) && ymd(td) === ds) fm += h * 60;
       });
       fValues.push(Math.round(fm));
       cLabels.push(i % 3 === 0 ? `${d.getMonth()+1}/${d.getDate()}` : '');
