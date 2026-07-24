@@ -5703,6 +5703,29 @@
     return false;
   }
 
+  // 繰り返しテンプレートが、その日に該当するか（タイムラインの判定と同じもの）
+  function repeatTemplateOccursOn(t, day) {
+    if (!t || t._type !== 'repeat') return false;
+    const cur = new Date(day); cur.setHours(0,0,0,0);
+    const rc = t._repeatConfig || {};
+    if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (cur < rs) return false; }
+    if (rc.end)   { const re = new Date(rc.end);   re.setHours(23,59,59,999); if (cur > re) return false; }
+    if (Array.isArray(rc.daysOfWeek) && rc.daysOfWeek.length > 0) return rc.daysOfWeek.includes(cur.getDay());
+    if (rc.type === 'monthly') return _rMatchMonthly(rc, cur);
+    if (rc.type === 'yearly')  return _rMatchYearly(rc, cur);
+    return true;
+  }
+
+  // 繰り返しテンプレートの「直近の該当日」を、今日より前でさかのぼって探す
+  function lastRepeatOccurrence(t, today0, windowDays) {
+    const d = new Date(today0);
+    for (let i = 1; i <= windowDays; i++) {
+      d.setTime(today0.getTime() - i * 86400000);
+      if (repeatTemplateOccursOn(t, d)) return new Date(d);
+    }
+    return null;
+  }
+
   // 繰り返しの実行間隔をおおよその日数で返す（daily=1, 週2回=3.5, 月1=30 …）
   function repeatIntervalDays(cfg) {
     const rc = cfg || {};
@@ -5766,6 +5789,14 @@
           const td = new Date(t['(A)実行日'].start); td.setHours(0,0,0,0);
           return td < today0; // 前日以前（終日／時刻なしも含む）
         } catch(e) { return false; }
+      }
+      if (t._type === 'repeat') {
+        // 仕事などの繰り返しは実体が作られずテンプレートのまま。
+        // 直近1週間に該当日があって未完了なら、やり残しとして拾う（毎日のものは除く）
+        if (repeatIntervalDays(t._repeatConfig) < LATE_ROUTINE_MIN_INTERVAL) return false;
+        const occ = lastRepeatOccurrence(t, today0, LATE_ROUTINE_WINDOW_DAYS);
+        if (!occ) return false;
+        return !isHabitDoneOn(t.id, ymd(occ));   // その日ぶんが済んでいなければ出す
       }
       return false;
     }).filter((t, _i, arr) => {
@@ -6015,7 +6046,8 @@
       return 0;
     };
     const _allLaterSet = collectLaterTasks();
-    const overdueTasks = _allLaterSet.filter(t => t._type === 'time'); // 期限切れ（時間指定・終日含む）
+    // 繰り返しテンプレート（仕事の毎月など）は実体を持たないので、やり残しとして期限切れ側に入れる
+    const overdueTasks = _allLaterSet.filter(t => t._type === 'time' || t._type === 'repeat');
     const laterTasks   = _allLaterSet.filter(t => t._type === 'later');
     let allLater = [...overdueTasks, ...laterTasks];
     if (laterSortMode===1) allLater.sort((a,b)=>(a['(C)見込み/h']||0)-(b['(C)見込み/h']||0));
