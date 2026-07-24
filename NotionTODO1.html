@@ -386,6 +386,10 @@
   .rep-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .rep-name { font-size: 13.5px; font-weight: 600; color: #2d2b3a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rep-meta { font-size: 11px; color: #8e8b9e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rep-avg { font-size: 11.5px; font-weight: 700; color: #00a8a8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rep-avg.over { color: #ff9500; }
+  .rep-avg.none { color: #c9c5d8; font-weight: 500; }
+  .rep-avg .n { font-weight: 500; color: #a8a5b8; font-size: 10.5px; }
   .rep-del {
     width: 36px; height: 36px; flex: none; border: none; background: transparent;
     color: #c9c5d8; padding: 0; border-radius: 10px; cursor: pointer;
@@ -498,6 +502,9 @@
 
   .tl-task-info { flex: 1; overflow: hidden; min-width: 0; }
   .tl-task-time { font-size: 10px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tl-child-sum { font-size: 10.5px; color: #6c5ce7; font-weight: 700; margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+  .tl-child-sum .bar { flex: none; width: 42px; height: 4px; border-radius: 2px; background: rgba(108,92,231,0.2); overflow: hidden; }
+  .tl-child-sum .bar > span { display: block; height: 100%; background: #6c5ce7; border-radius: 2px; }
   .tl-task-name { font-size: 12px; color: #1c1c1e; font-weight: 400; overflow: hidden; word-break: break-all; white-space: normal; line-height: 1.25; }
   .tl-task-dur  { font-size: 10px; color: #8e8e93; margin-top: 1px; }
 
@@ -816,6 +823,15 @@
   }
 
   .later-item:last-child { border-bottom: none; }
+
+  /* AI分解の候補 */
+  .sp-item { display:flex; align-items:center; gap:9px; padding:9px 2px; border-bottom:1px solid #f4f3f9; }
+  .sp-item:last-child { border-bottom:none; }
+  .sp-item input[type=checkbox] { width:20px; height:20px; flex:none; accent-color:#6c5ce7; }
+  .sp-item .nm { flex:1; min-width:0; font-size:13.5px; color:#2d2b3a; border:none; outline:none; background:transparent; font-family:inherit; }
+  .sp-item .mn { width:58px; flex:none; text-align:right; font-size:12.5px; color:#6c5ce7; font-weight:700; border:1px solid #e5e5ea; border-radius:8px; padding:5px 6px; font-family:inherit; outline:none; }
+  .sp-item .unit { font-size:11px; color:#8e8b9e; flex:none; }
+  .sp-sum { font-size:12px; font-weight:700; color:#5a5768; padding:10px 2px 0; }
 
   /* 削除の取り消しバー */
   #undoBar {
@@ -1343,6 +1359,27 @@
     align-items: center;
     justify-content: center;
   }
+
+  .modal-ai {
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(108,92,231,0.18);
+    color: #b9aef5;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .08s;
+  }
+  .modal-ai .eic { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+  .modal-ai:active { transform: scale(0.88); background: rgba(108,92,231,0.3); }
+  .modal-ai:disabled { opacity: .5; }
 
   .modal-del {
     width: 38px;
@@ -2790,6 +2827,7 @@
   <div id="gcalPanel" style="
     background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:430px;
     max-height:82dvh;display:flex;flex-direction:column;
+    padding-bottom:calc(var(--navh, 60px) + 12px);
     transform:translateY(100%);transition:transform 0.3s cubic-bezier(.4,0,.2,1);
   ">
     <!-- ヘッダー -->
@@ -3410,6 +3448,9 @@
       <div class="modal-header-top">
         <button class="modal-close" onclick="closeModal()">✕</button>
         <div style="display:flex;align-items:center;gap:8px;">
+          <button class="modal-ai" id="modalHeaderSplit" onclick="openSplitPop()" title="AIで細かく分ける" style="display:none;" aria-label="AIで分解">
+            <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"/></svg>
+          </button>
           <button class="modal-del" id="modalHeaderDelete" onclick="deleteTask()" title="削除" style="display:none;" aria-label="削除">
             <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7M10 11v6M14 11v6"/></svg>
           </button>
@@ -4054,6 +4095,12 @@
         <div id="timerDetail" style="margin-top:10px;"></div>
       </div>
       <!-- ⬇ サブタスク（既存タスク編集時のみ・Notion relation） -->
+      <div id="parentLinkRow" style="display:none;align-items:center;gap:8px;background:#f4f2fe;border:1px solid #e3e0ee;border-radius:12px;padding:10px 12px;margin-bottom:12px;cursor:pointer;">
+        <svg class="eic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;flex:none;color:#6c5ce7;"><path d="M9 18l6-6-6-6"/></svg>
+        <span style="font-size:11px;color:#8e8b9e;flex:none;">親タスク</span>
+        <span id="parentLinkName" style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#6c5ce7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      </div>
+
       <div class="modal-section" id="urlSection">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="width:34px;height:34px;flex:none;border-radius:10px;background:#f2f2f7;display:flex;align-items:center;justify-content:center;color:#6a6a6c;">
@@ -4103,6 +4150,23 @@
 <div id="undoBar" style="display:none;">
   <span id="undoBarText"></span>
   <button type="button" onclick="undoDelete()">元に戻す</button>
+</div>
+
+<!-- AIによるタスク分解 -->
+<div class="time-pop-overlay" id="splitPop" style="display:none;" onclick="if(event.target===this)closeSplitPop()">
+  <div class="time-pop-card" style="max-height:80dvh;display:flex;flex-direction:column;">
+    <div style="padding:18px 20px 2px;font-size:16px;font-weight:700;color:#1c1c1e;">細かく分ける</div>
+    <div id="splitParentName" style="padding:2px 20px 0;font-size:13px;font-weight:600;color:#6c5ce7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    <div id="splitStatus" style="padding:10px 20px 0;font-size:12px;color:#8e8e93;line-height:1.6;"></div>
+    <div id="splitList" style="flex:1;min-height:0;overflow-y:auto;padding:10px 20px 0;"></div>
+    <div style="padding:14px 20px 6px;display:flex;gap:8px;">
+      <button type="button" onclick="closeSplitPop()" style="flex:1;background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">キャンセル</button>
+      <button type="button" id="splitApplyBtn" onclick="applySplit()" style="flex:1.4;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">この内容で作成</button>
+    </div>
+    <div style="padding:0 20px 16px;">
+      <button type="button" onclick="runSplit()" style="width:100%;background:none;color:#8e8e93;border:none;padding:8px;font-size:12.5px;font-family:inherit;cursor:pointer;">別の案を出す</button>
+    </div>
+  </div>
 </div>
 
 <!-- 繰り返しタスクの削除範囲 -->
@@ -4835,7 +4899,17 @@
     }
 
     // ── データ収集 ──
+    // 親が同じ日に出ているタスクは、親カードにまとめるので個別には出さない
+    const _visibleOnDay = t => {
+      if (!t) return false;
+      if (t._type === 'time') return !isAllDayTask(t) && getDateString(t) === dayStr;
+      return false;
+    };
     const dayTasks = tasks.filter(t => {
+      if (t._parentIds && t._parentIds.length) {
+        const p = parentOf(t);
+        if (p && _visibleOnDay(p)) return false;   // 親にまとめる
+      }
       if (t._type === 'time') {
         if (isAllDayTask(t)) return false; // 終日タスクはタイムライン外
         if (getDateString(t) !== dayStr) return false;
@@ -5297,15 +5371,13 @@
       }
       const y = toY(startMin);
       const durTotalMin = endMin - startMin;
-      const OVERHANG = (SLOT_H - 6) / 2; // 全カード共通の上方向はみ出し量
-      const cardTopBase = startMin <= 0 ? 0 : (y - OVERHANG);
-      // 1時間未満は固定高さ、1時間以上はtoYベースで伸ばす
-      let rawH;
-      if (durTotalMin >= 60) {
-        rawH = Math.max(SLOT_H, toY(endMin) - toY(startMin));
-      } else {
-        rawH = SLOT_H - 6; // 固定（約48px）
-      }
+      // カードは開始時刻ちょうどから、終了時刻まで描く（時間軸と一致させる）。
+      // 以前は上に24pxはみ出していたが、それだと隣り合うカードが必ず重なってしまう
+      const cardTopBase = startMin <= 0 ? 0 : y;
+      // 終了時刻まで実際に届く高さにする（短いタスクだけ読めるように最低48pxを確保）。
+      // カードは開始時刻より OVERHANG ぶん上から始まるので、その分も足して終端を合わせる
+      const spanH = toY(endMin) - cardTopBase;
+      const rawH = Math.max(SLOT_H - 6, spanH);
       const nsy = nextSlotY(endMin);
       const finalH = Math.max(40, Math.min(rawH, nsy - cardTopBase - 12));
       const isPast = isPastDay || (isToday && endMin < nowMin);
@@ -5353,15 +5425,24 @@
       const badgeHTML = _shuruiOpt ? `<span style="background:${_shuruiOpt.bg};color:${_shuruiOpt.color};padding:1px 5px;border-radius:7px;font-size:10px;font-weight:600;">${_shuruiOpt.label}</span>` : '';
       const repeatBadge = isHabit ? '<span style="font-size:10px;margin-left:3px;opacity:0.6;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg></span>' : '';
 
+      // 子タスクをまとめている親は、進み具合をカード内に出す
+      const _cs = childSummary(t);
+      const childLine = _cs
+        ? `<div class="tl-child-sum"><span class="bar"><span style="width:${Math.round((_cs.done / _cs.n) * 100)}%"></span></span>`
+          + `子 ${_cs.done}/${_cs.n}${_cs.min ? ' ・ 計 ' + fmtMinShort(_cs.min) : ''}</div>`
+        : '';
+
       const info = document.createElement('div');
       info.className = 'tl-task-info';
       if (isNarrow) {
         info.innerHTML = `<div class="tl-task-time">${st} ${badgeHTML}</div>`
           + `<div class="tl-task-name" style="${_done?'text-decoration:line-through;color:#8e8e93;':''}">${t.name}${repeatBadge}${projectBadgeHTML(t)}</div>`
-          + (durLabel2 ? `<div class="tl-task-dur">${durLabel2}</div>` : '');
+          + (durLabel2 ? `<div class="tl-task-dur">${durLabel2}</div>` : '')
+          + childLine;
       } else {
         info.innerHTML = `<div class="tl-task-time">${st}〜${et} ${badgeHTML}</div>`
-          + `<div class="tl-task-name" style="${_done?'text-decoration:line-through;color:#8e8e93;':''}">${t.name}${repeatBadge}${projectBadgeHTML(t)}</div>`;
+          + `<div class="tl-task-name" style="${_done?'text-decoration:line-through;color:#8e8e93;':''}">${t.name}${repeatBadge}${projectBadgeHTML(t)}</div>`
+          + childLine;
       }
 
       // チェックボタン（小さめ）
@@ -5951,6 +6032,47 @@
     return `<span class="proj-badge" title="${_escapeHtml(names.join(', '))}"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg> ${first}${extra}</span>`;
   }
 
+  // 子タスクを開いたとき、どの親に属するかを出す
+  function updateParentLinkUI() {
+    const row = document.getElementById('parentLinkRow');
+    if (!row) return;
+    const t = editingTaskId ? tasks.find(x => x.id === editingTaskId) : null;
+    const p = t ? parentOf(t) : null;
+    if (!p) { row.style.display = 'none'; row.onclick = null; return; }
+    document.getElementById('parentLinkName').textContent = p.name || '(無題)';
+    row.style.display = 'flex';
+    row.onclick = () => { closeModal(); setTimeout(() => openModal(p.id), 60); };
+  }
+
+  // ===== 親子タスクの関係をたどるヘルパー =====
+  // Notionのrelation（_parentIds / _subIds）はNotion側のページIDで持っているため、
+  // ローカルタスクとの突き合わせにIDの正規化が必要になる
+  function _nid(v) { return String(v || '').replace(/-/g, ''); }
+  function parentOf(t) {
+    if (!t || !Array.isArray(t._parentIds) || !t._parentIds.length) return null;
+    const want = t._parentIds.map(_nid);
+    return tasks.find(x => x && x._notionId && want.includes(_nid(x._notionId))) || null;
+  }
+  function childrenOf(t) {
+    if (!t) return [];
+    const byParent = t._notionId
+      ? tasks.filter(x => x && x !== t && Array.isArray(x._parentIds) && x._parentIds.map(_nid).includes(_nid(t._notionId)))
+      : [];
+    if (byParent.length) return byParent;
+    // Notion未登録・同期前は親側の _subIds から引く
+    const ids = Array.isArray(t._subIds) ? t._subIds.map(_nid) : [];
+    if (!ids.length) return [];
+    return tasks.filter(x => x && x !== t && x._notionId && ids.includes(_nid(x._notionId)));
+  }
+  // 子の集計（件数・完了数・見込み合計分）
+  function childSummary(t) {
+    const kids = childrenOf(t);
+    if (!kids.length) return null;
+    const done = kids.filter(k => k['(A)done']).length;
+    const min = kids.reduce((a, k) => a + Math.round((k['(C)見込み/h'] || 0) * 60), 0);
+    return { n: kids.length, done, min, kids };
+  }
+
   // ===== サブタスク（Notion relation: (d)サブアイテム） =====
   let notionSubtaskCache = {}; // notionId -> {name, done, date}
   function findLocalByNotionId(nid) {
@@ -6353,18 +6475,21 @@
     updateModalIcon();
     { const _u = document.getElementById('taskUrlInput'); if (_u) _u.value = ''; }
     updateTaskUrlUI();
+    { const _pl = document.getElementById('parentLinkRow'); if (_pl) _pl.style.display = 'none'; }
 
     if (editingTaskId) {
       const task = tasks.find(t => t.id === editingTaskId);
       if (!task) return;
       document.getElementById('taskNameInput').value = task.name;
       document.getElementById('editActions').style.display = 'flex';
-      { const _hd = document.getElementById('modalHeaderDelete'); if (_hd) _hd.style.display = 'flex'; }
+      { const _hd = document.getElementById('modalHeaderDelete'); if (_hd) _hd.style.display = 'flex';
+        const _hs = document.getElementById('modalHeaderSplit'); if (_hs) _hs.style.display = 'flex'; }
       timerRenderForTask(editingTaskId);
       updateActualBadge();
       updateModalIcon();
       { const _u = document.getElementById('taskUrlInput'); if (_u) _u.value = task['(e)URL'] || ''; }
       updateTaskUrlUI();
+      updateParentLinkUI();
       renderSubtasksForTask(task);
       // 完了状態をUIに反映
       updateModalDoneUI(taskDisplayDone(task, currentDate));
@@ -6440,7 +6565,8 @@
     } else {
       document.getElementById('taskNameInput').value = '';
       document.getElementById('editActions').style.display = 'none';
-      { const _hd = document.getElementById('modalHeaderDelete'); if (_hd) _hd.style.display = 'none'; }
+      { const _hd = document.getElementById('modalHeaderDelete'); if (_hd) _hd.style.display = 'none';
+        const _hs = document.getElementById('modalHeaderSplit'); if (_hs) _hs.style.display = 'none'; }
       { const _tp = document.getElementById('timerPanel'); if (_tp) _tp.style.display = 'none'; }
       { const _sp = document.getElementById('subtaskPanel'); if (_sp) _sp.style.display = 'none'; }
       document.getElementById('modalSubtitle').textContent = '・あとで';
@@ -9125,6 +9251,32 @@
     });
   }
 
+  // 繰り返しタスクの「1回あたり平均どれくらいかかっているか」を実績から求める。
+  // ・ルーチン系: 日ごとのインスタンスに実績が付くので、その平均
+  // ・仕事などの繰り返し: インスタンスが作られずテンプレートに積み上がるので、達成回数で割る
+  function repeatAvgMinutes(tpl) {
+    if (!tpl) return null;
+    const ACT = '(C)手入力実績時間_out';
+    const nm = String(tpl.name || '').trim();
+    const insts = tasks.filter(t => t && t.id !== tpl.id &&
+      (t._habitTemplateId === tpl.id || (!t._habitTemplateId && t._type === 'time' && String(t.name || '').trim() === nm)));
+    const times = insts.map(t => t[ACT]).filter(h => typeof h === 'number' && h > 0);
+    if (times.length) {
+      const avg = times.reduce((a, b) => a + b, 0) / times.length;
+      return { min: Math.round(avg * 60), n: times.length };
+    }
+    // インスタンスが無い場合はテンプレートの累計を達成回数で割る
+    const total = tpl[ACT];
+    if (typeof total !== 'number' || total <= 0) return null;
+    let done = 0;
+    try {
+      const h = JSON.parse(localStorage.getItem('habitHistory') || '{}');
+      done = Object.values(h[tpl.id] || {}).filter(Boolean).length;
+    } catch (e) {}
+    if (done <= 0) return { min: Math.round(total * 60), n: 1 };   // 1回分としてそのまま出す
+    return { min: Math.round((total / done) * 60), n: done };
+  }
+
   // 削除の起点を返す（'day' = その日 / 'week' = その週の月曜 / 'month' = その月の1日）
   function repeatCutoffDate(scope, baseDate) {
     const d = baseDate ? new Date(baseDate) : new Date();
@@ -9329,6 +9481,152 @@
     if (t._notionId && notionLinked()) {
       try { await notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: false }); }
       catch (e) { console.error('Notion復元失敗', e); }
+    }
+  }
+
+  // ── AIでタスクを細かく分ける ──
+  let _splitTaskId = null, _splitItems = [];
+
+  function openSplitPop() {
+    if (!editingTaskId) return;
+    const t = tasks.find(x => x.id === editingTaskId);
+    if (!t) return;
+    const nameEl = document.getElementById('taskNameInput');
+    const nm = (nameEl && nameEl.value.trim()) || t.name || '';
+    if (!nm) { alert('先にタスク名を入れてください。'); return; }
+    _splitTaskId = editingTaskId;
+    _splitItems = [];
+    document.getElementById('splitParentName').textContent = nm;
+    document.getElementById('splitList').innerHTML = '';
+    document.getElementById('splitPop').style.display = 'flex';
+    runSplit();
+  }
+  function closeSplitPop() {
+    document.getElementById('splitPop').style.display = 'none';
+    _splitTaskId = null; _splitItems = [];
+  }
+
+  async function runSplit() {
+    const t = tasks.find(x => x.id === _splitTaskId);
+    if (!t) return;
+    const nameEl = document.getElementById('taskNameInput');
+    const nm = (nameEl && nameEl.value.trim()) || t.name || '';
+    const st = document.getElementById('splitStatus');
+    const btn = document.getElementById('splitApplyBtn');
+    st.textContent = 'AIが手順を考えています…';
+    document.getElementById('splitList').innerHTML = '';
+    if (btn) btn.disabled = true;
+
+    const estH = (typeof t['(C)見込み/h'] === 'number' && t['(C)見込み/h'] > 0) ? t['(C)見込み/h'] : null;
+    const kind = t['(B)種類'] || '';
+    const sys = 'あなたは作業を実行可能な手順に分解するアシスタントです。'
+      + '与えられたタスクを、それぞれ単独で着手できる小さな手順に分けてください。'
+      + '出力はJSONのみ。{"items":[{"name":"手順名","min":所要分}]} の形式で、3〜6個。'
+      + 'name は日本語で25文字以内、動詞で終える。min は5〜240の整数。'
+      + (estH ? ('全体の見込みは約' + Math.round(estH * 60) + '分なので、合計がそれに近くなるようにしてください。') : '')
+      + '説明文やマークダウンは一切書かないこと。';
+    const msg = [{ role: 'user', content: 'タスク: ' + nm + (kind ? ('\n種類: ' + kind) : '') }];
+
+    try {
+      const data = await aiCallWithFallback(sys, msg, (aiSettings && aiSettings.model) || 'gemini-2.5-flash');
+      const raw = aiResponseText(data);
+      const obj = aiExtractJson(raw);
+      const items = (obj && Array.isArray(obj.items)) ? obj.items : [];
+      if (!items.length) throw new Error('分解できませんでした');
+      _splitItems = items.slice(0, 8).map(it => ({
+        name: String(it.name || '').trim().slice(0, 60),
+        min: Math.max(5, Math.min(240, Math.round(Number(it.min) || 15))),
+        on: true,
+      })).filter(x => x.name);
+      st.textContent = 'チェックを外したり、名前・分数を直せます。';
+      renderSplitList();
+    } catch (e) {
+      st.textContent = '⚠ ' + (e && e.message ? e.message : '失敗しました') + '（「別の案を出す」で再試行できます）';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function renderSplitList() {
+    const el = document.getElementById('splitList');
+    if (!el) return;
+    el.innerHTML = _splitItems.map((it, i) =>
+      '<div class="sp-item">'
+      + '<input type="checkbox" ' + (it.on ? 'checked' : '') + ' onchange="_splitItems[' + i + '].on=this.checked;renderSplitSum()">'
+      + '<input class="nm" value="' + _escapeHtml(it.name) + '" oninput="_splitItems[' + i + '].name=this.value">'
+      + '<input class="mn" type="number" min="5" max="240" step="5" value="' + it.min + '" oninput="_splitItems[' + i + '].min=parseInt(this.value)||0;renderSplitSum()">'
+      + '<span class="unit">分</span>'
+      + '</div>'
+    ).join('') + '<div class="sp-sum" id="splitSum"></div>';
+    renderSplitSum();
+  }
+  function renderSplitSum() {
+    const el = document.getElementById('splitSum');
+    if (!el) return;
+    const on = _splitItems.filter(x => x.on);
+    const sum = on.reduce((a, x) => a + (x.min || 0), 0);
+    const t = tasks.find(x => x.id === _splitTaskId);
+    const estH = t && typeof t['(C)見込み/h'] === 'number' ? t['(C)見込み/h'] : 0;
+    el.textContent = on.length + '件 / 合計 ' + fmtMinShort(sum)
+      + (estH > 0 ? '（元の見込み ' + fmtMinShort(Math.round(estH * 60)) + '）' : '');
+  }
+
+  async function applySplit() {
+    const parent = tasks.find(x => x.id === _splitTaskId);
+    if (!parent) return closeSplitPop();
+    const picked = _splitItems.filter(x => x.on && x.name.trim());
+    if (!picked.length) { alert('作成する手順を1つ以上選んでください。'); return; }
+    const btn = document.getElementById('splitApplyBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '作成中…'; }
+
+    const created = [];
+    picked.forEach((it, i) => {
+      const nt = {
+        id: (Date.now() + i).toString(),
+        _notionId: null,
+        _type: parent._type === 'time' ? 'time' : 'later',
+        name: it.name.trim(),
+        '(A)done': false,
+        '(A)実行日': parent['(A)実行日'] ? { ...parent['(A)実行日'] } : null,
+        '(B)種類': parent['(B)種類'] || null,
+        '(B)実行期間': parent['(B)実行期間'] || null,
+        '(C)見込み/h': Math.round((it.min / 60) * 100) / 100,
+        '(e)memo': '',
+        '(e)URL': '',
+        _repeatConfig: null,
+        _legacyTags: [],
+        _localLastEdited: new Date().toISOString(),
+      };
+      tasks.push(nt);
+      created.push(nt);
+    });
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    try { renderTimeline(); } catch(e) {}
+    try { renderLater(); } catch(e) {}
+    closeSplitPop();
+
+    // Notionへ登録。親アイテムのリレーションは作成時に一緒に送る（1リクエストで済む）
+    if (notionLinked() && notionSettings.dbId) {
+      const pp = (notionSettings.props && notionSettings.props.parent) || '(d)親アイテム';
+      for (const nt of created) {
+        try {
+          const props = taskToNotionProps(nt);
+          if (parent._notionId) props[pp] = { relation: [{ id: parent._notionId }] };
+          const page = await notionApiCall('/pages', 'POST', {
+            parent: { database_id: notionSettings.dbId },
+            properties: props,
+          });
+          if (page && page.id) {
+            nt._notionId = page.id; nt._source = 'notion';
+            // 親のサブアイテム欄に即座に出るよう、ローカルの relation も更新しておく
+            if (!Array.isArray(parent._subIds)) parent._subIds = [];
+            if (!parent._subIds.includes(page.id)) parent._subIds.push(page.id);
+            nt._parentIds = parent._notionId ? [parent._notionId] : [];
+          }
+        } catch (e) { console.error('サブタスク登録に失敗', e); }
+      }
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      try { renderTimeline(); renderLater(); } catch(e) {}
     }
   }
 
@@ -10530,6 +10828,16 @@
             +       (time ? ' ・ ' + _escapeHtml(time) : '')
             +       (isEnded && t._endedAt ? ' ・ 終了 ' + _escapeHtml(t._endedAt) : '')
             +     '</span>'
+            +     (function(){
+                    const av = repeatAvgMinutes(t);
+                    if (!av) return '<span class="rep-avg none">実績なし</span>';
+                    const est = (typeof t['(C)見込み/h'] === 'number' && t['(C)見込み/h'] > 0) ? Math.round(t['(C)見込み/h'] * 60) : 0;
+                    const over = est > 0 && av.min > est * 1.2;
+                    return '<span class="rep-avg' + (over ? ' over' : '') + '">平均 ' + fmtMinShort(av.min) + ''
+                      + '<span class="n">（' + av.n + '回）</span>'
+                      + (est ? '<span class="n"> 見込み ' + fmtMinShort(est) + '</span>' : '')
+                      + '</span>';
+                  })()
             +   '</span>'
             + '</div>'
             + (isEnded ? '' : '<button class="rep-del" onclick="openRepeatDeletePop(\'' + _escapeHtml(t.id) + '\')" aria-label="削除">'
