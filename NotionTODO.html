@@ -4346,6 +4346,67 @@
   // タスク変更を知らせるヘルパー（任意の場所から notifyTasksChanged() で全画面同期）
   function notifyTasksChanged(){ try{ window.dispatchEvent(new Event('tasks:changed')); }catch(e){ dbg('notify failed', e); } }
   window.notifyTasksChanged = notifyTasksChanged;
+
+  // ============================================================
+  // 追加(A): Notion削除アウトボックス（削除の取りこぼし防止）
+  //   ローカル削除は即確定するが、Notionアーカイブは投げっぱなしだと
+  //   オフライン/未接続/タブ閉じで取りこぼし、Notion側にだけ残る。
+  //   → 削除対象の page id を永続キューに積み、接続時に必ず再送して一致させる。
+  // ============================================================
+  const NOTION_ARCHIVE_QUEUE_KEY = 'notionArchiveQueue';
+  function _loadArchiveQueue(){ try{ var a=JSON.parse(localStorage.getItem(NOTION_ARCHIVE_QUEUE_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function _saveArchiveQueue(a){ try{ localStorage.setItem(NOTION_ARCHIVE_QUEUE_KEY, JSON.stringify(a||[])); }catch(e){ dbg('archive queue save failed', e); } }
+  // 削除するNotionページIDをキューに積む（重複排除）
+  function enqueueNotionArchive(ids){
+    if(!ids) return;
+    if(!Array.isArray(ids)) ids=[ids];
+    var q=_loadArchiveQueue();
+    ids.forEach(function(id){ if(id && q.indexOf(id)===-1) q.push(id); });
+    _saveArchiveQueue(q);
+  }
+  window.enqueueNotionArchive = enqueueNotionArchive;
+  // 取り消し等でアーカイブ予定をキャンセルする（まだ送っていなければ再アーカイブを防ぐ）
+  function dequeueNotionArchive(ids){
+    if(!ids) return;
+    if(!Array.isArray(ids)) ids=[ids];
+    var set={}; ids.forEach(function(id){ set[id]=1; });
+    _saveArchiveQueue(_loadArchiveQueue().filter(function(id){ return !set[id]; }));
+  }
+  window.dequeueNotionArchive = dequeueNotionArchive;
+  // 未処理のNotion削除件数（バッジ表示などに使える）
+  function pendingNotionArchiveCount(){ return _loadArchiveQueue().length; }
+  window.pendingNotionArchiveCount = pendingNotionArchiveCount;
+  // キューを消化：archived:true を再送。成功/既に消滅は外し、通信失敗のみ残して次回再試行。
+  var _flushingArchive=false;
+  async function flushNotionArchiveQueue(){
+    if(_flushingArchive) return;
+    var ns = (typeof notionSettings!=='undefined') ? notionSettings : null;
+    if(!(ns && (ns.token || ns.managed))) return;            // 未接続なら保持（消さない）
+    var q=_loadArchiveQueue();
+    if(!q.length) return;
+    _flushingArchive=true;
+    try{
+      var remain=[];
+      for(var i=0;i<q.length;i++){
+        var nid=q[i];
+        try{
+          await notionApiCall('/pages/'+nid, 'PATCH', { archived: true });   // 成功→外す
+        }catch(e){
+          var msg=String((e&&e.message)||e||'');
+          if(/could not find|not[ _-]?found|404|archived|is not a property|validation/i.test(msg)){
+            dbg('archive: already gone / drop', nid, msg);                   // 既に無い→外す
+          }else{
+            remain.push(nid);                                                // 通信失敗→次回再送
+            dbg('archive retry later', nid, msg);
+          }
+        }
+      }
+      _saveArchiveQueue(remain);
+    } finally { _flushingArchive=false; }
+  }
+  window.flushNotionArchiveQueue = flushNotionArchiveQueue;
+  // 接続が戻ったら自動で消化
+  try{ window.addEventListener('online', function(){ flushNotionArchiveQueue(); }); }catch(e){}
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -4650,6 +4711,8 @@
     notionBootstrapConfig().then(() => {
       // 獲得履歴DBから「貯めたコイン」を復元（Safari削除後も残高が飛ばない）
       try { rewardFetchEarned(); } catch(e) {}
+      // 未送信の削除（オフライン中/未接続中に消したもの）をここで消化してNotionと一致させる
+      try { flushNotionArchiveQueue(); } catch(e) {}
       if (notionSettings.autoSync && (notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
         setTimeout(() => notionFullSync(), 2000);
       }
@@ -7735,13 +7798,10 @@
 
     localStorage.setItem('tasks', JSON.stringify(tasks));
 
-    // Notion側もアーカイブ（削除）
-    if (notionSettings.token || notionSettings.managed) {
-      notionArchiveIds.forEach(nid => {
-        notionApiCall(`/pages/${nid}`, 'PATCH', { archived: true })
-          .catch(e => console.error('Notion削除失敗', e));
-      });
-    }
+    // Notion側もアーカイブ（削除）。取りこぼし防止のためキューに積んでから消化する
+    // （オフライン/未接続/送信前にタブを閉じても、次に繋がった時に必ずアーカイブされる）
+    enqueueNotionArchive(notionArchiveIds);
+    flushNotionArchiveQueue();
 
     closeModal();
     renderTimeline();
@@ -9484,10 +9544,8 @@
     if (idx < 0) return;
     const t = tasks[idx];
     const snapshot = { task: t, index: idx };
-    if (t._notionId && notionLinked()) {
-      notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
-        .catch(e => console.error('Notion削除失敗', e));
-    }
+    // Notionアーカイブはキュー経由（取りこぼし防止）
+    if (t._notionId) { enqueueNotionArchive(t._notionId); flushNotionArchiveQueue(); }
     tasks = tasks.filter(x => x.id !== id);
     localStorage.setItem('tasks', JSON.stringify(tasks));
     try { renderLater(); } catch(e) {}
@@ -9524,9 +9582,12 @@
     localStorage.setItem('tasks', JSON.stringify(tasks));
     try { renderLater(); } catch(e) {}
     try { renderTimeline(); } catch(e) {}
-    if (t._notionId && notionLinked()) {
-      try { await notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: false }); }
-      catch (e) { console.error('Notion復元失敗', e); }
+    if (t._notionId) {
+      dequeueNotionArchive(t._notionId);   // まだ送っていなければアーカイブ予約を取り消す
+      if (notionLinked()) {
+        try { await notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: false }); }
+        catch (e) { console.error('Notion復元失敗', e); }
+      }
     }
   }
 
@@ -10031,17 +10092,17 @@
     tasks = tasks.filter(t => !removeIds.has(t.id));
     localStorage.setItem('tasks', JSON.stringify(tasks));
 
-    let ng = 0;
-    if ((notionSettings.token || notionSettings.managed) && archiveIds.length) {
-      for (const nid of archiveIds) {
-        try { await notionApiCall(`/pages/${nid}`, 'PATCH', { archived: true }); }
-        catch (e) { ng++; console.error('一括削除:Notionアーカイブ失敗', e); }
-      }
-    }
+    // Notionアーカイブはキュー経由（取りこぼし防止）。未接続でも次の同期で必ず反映される
+    enqueueNotionArchive(archiveIds);
+    const pendingBefore = pendingNotionArchiveCount();
+    await flushNotionArchiveQueue();
+    const pendingAfter = pendingNotionArchiveCount();
     renderTimeline(); renderLater();
     if (currentScreen === 'routine') renderRoutineScreen();
     bulkDelClose();
-    alert(`${hit.length}件を削除しました。\nNotionアーカイブ: ${archiveIds.length - ng}件成功${ng ? ' / ' + ng + '件失敗' : ''}`);
+    const doneCnt = archiveIds.length - pendingAfter;
+    alert(`${hit.length}件を削除しました。\nNotionアーカイブ: ${Math.max(0, doneCnt)}件完了`
+      + (pendingAfter ? `\n（${pendingAfter}件は未接続/失敗のため保留 → 次回オンライン時に自動再送）` : ''));
   }
 
   function debugSyncHabitsToNotion() {
@@ -14466,6 +14527,8 @@
       notionSwitchTab('setup');
       return;
     }
+    // 保留中の削除（アーカイブ）をこの同期の最初に消化しておく
+    try { await flushNotionArchiveQueue(); } catch(e) {}
 
     const logEl = document.getElementById('notionSyncLog');
     const appendLog = msg => {
