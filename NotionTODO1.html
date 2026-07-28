@@ -3170,6 +3170,14 @@
         <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg> タイトル＋期間でまとめて削除
       </button>
 
+      <!-- 完了状態をNotionへ一括再送（ズレ修正・正しい端末で実行） -->
+      <button onclick="resyncAllDoneToNotion()" style="
+        width:100%;background:#4b3fd6;color:#fff;border:none;border-radius:14px;
+        padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+        <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg> 完了状態をNotionへ一括再送（この端末を正に）
+      </button>
+      <div id="resyncDoneLog" style="background:#eeecfb;border-radius:12px;padding:12px;font-size:12px;color:#4b3fd6;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">まだ実行していません</div>
+
       <!-- 一般の繰り返しをNotionへ実体化（手動・観察可能） -->
       <button onclick="materializeRepeatsToNotion()" style="
         width:100%;background:#0a7d55;color:#fff;border:none;border-radius:14px;
@@ -4575,6 +4583,75 @@
   window.flushNotionArchiveQueue = flushNotionArchiveQueue;
   // 接続が戻ったら自動で消化
   try{ window.addEventListener('online', function(){ flushNotionArchiveQueue(); }); }catch(e){}
+
+  // ============================================================
+  // 追加: Notion完了(done)同期アウトボックス（完了の取りこぼし防止）
+  //   完了トグルは即ローカル反映されるが、Notionへの送信が未接続/失敗だと
+  //   投げっぱなしで消えていた。→ 完了状態をキューに積み、接続時に必ず再送する。
+  // ============================================================
+  const NOTION_DONE_QUEUE_KEY = 'notionDoneQueue';
+  function _loadDoneQueue(){ try{ var o=JSON.parse(localStorage.getItem(NOTION_DONE_QUEUE_KEY)||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
+  function _saveDoneQueue(o){ try{ localStorage.setItem(NOTION_DONE_QUEUE_KEY, JSON.stringify(o||{})); }catch(e){ dbg('done queue save failed', e); } }
+  // notionId → done(bool) を積む（同じページは最新の値で上書き＝last-write-wins）
+  function enqueueNotionDone(notionId, done){ if(!notionId) return; var q=_loadDoneQueue(); q[notionId]=!!done; _saveDoneQueue(q); }
+  window.enqueueNotionDone = enqueueNotionDone;
+  function dequeueNotionDone(notionId){ if(!notionId) return; var q=_loadDoneQueue(); if(notionId in q){ delete q[notionId]; _saveDoneQueue(q); } }
+  function pendingNotionDoneCount(){ return Object.keys(_loadDoneQueue()).length; }
+  window.pendingNotionDoneCount = pendingNotionDoneCount;
+  var _flushingDone=false;
+  async function flushNotionDoneQueue(){
+    if(_flushingDone) return;
+    var ns=(typeof notionSettings!=='undefined')?notionSettings:null;
+    if(!(ns && (ns.token || ns.managed))) return;                 // 未接続なら保持
+    var props = (ns && ns.props) || (typeof NOTION_PROP_DEFAULT!=='undefined' ? NOTION_PROP_DEFAULT : null);
+    if(!props || !props.done) return;
+    var q=_loadDoneQueue(); var ids=Object.keys(q);
+    if(!ids.length) return;
+    _flushingDone=true;
+    try{
+      for(var i=0;i<ids.length;i++){
+        var nid=ids[i], val=!!q[nid];
+        try{
+          var body={ properties:{} }; body.properties[props.done]={ checkbox: val };
+          await notionApiCall('/pages/'+nid, 'PATCH', body);
+          dequeueNotionDone(nid);                                 // 成功→外す
+        }catch(e){
+          var msg=String((e&&e.message)||e||'');
+          if(/could not find|not[ _-]?found|404/i.test(msg)){ dequeueNotionDone(nid); dbg('done: page gone', nid); }
+          else { dbg('done retry later', nid, msg); }             // 通信失敗→残す
+        }
+      }
+    } finally { _flushingDone=false; }
+  }
+  window.flushNotionDoneQueue = flushNotionDoneQueue;
+
+  // 過去のズレ一括修正: ローカルの完了状態(done)を「正」として、Notionリンク済み全タスクを
+  // 完了キューに積んで一括再送する。ローカルは書き換えず、Notion側だけをローカルに合わせる。
+  // ※ 必ず「正しい方の端末（完了操作をした端末）」で実行すること。
+  async function resyncAllDoneToNotion(){
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
+      alert('Notion設定を先に保存してください'); return;
+    }
+    const linked = (tasks||[]).filter(t => t && t._notionId);
+    if (!confirm(
+      'この端末の「完了/未完了」を正として、Notionリンク済みタスク ' + linked.length + ' 件を Notion に一括で送り直します。\n\n'
+      + '※ 必ず「完了操作をした正しい端末」で実行してください（古い端末で実行するとNotionが古い状態に戻ります）。\n'
+      + '※ 事前に「⬇️ データを書き出す」でバックアップ推奨。\n\n実行しますか？')) return;
+    const logEl = document.getElementById('resyncDoneLog');
+    const log = m => { if (logEl) logEl.textContent = (logEl.textContent === 'まだ実行していません' ? '' : logEl.textContent) + m + '\n'; };
+    if (logEl) logEl.textContent = '';
+    // 全リンク済みタスクの現在のdoneをキューへ積む
+    linked.forEach(t => enqueueNotionDone(t._notionId, !!t['(A)done']));
+    log('① ' + linked.length + ' 件をキューに登録しました。送信中…');
+    const before = pendingNotionDoneCount();
+    await flushNotionDoneQueue();
+    const after = pendingNotionDoneCount();
+    const sent = before - after;
+    log('② 送信完了: ' + Math.max(0, sent) + ' 件反映' + (after ? ' / ' + after + ' 件は失敗・保留（次回オンライン時に自動再送）' : ''));
+    log('完了。Notion側の完了チェックが揃っているか確認してください。');
+  }
+  window.resyncAllDoneToNotion = resyncAllDoneToNotion;
+  try{ window.addEventListener('online', function(){ flushNotionDoneQueue(); }); }catch(e){}
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -4881,6 +4958,8 @@
       try { rewardFetchEarned(); } catch(e) {}
       // 未送信の削除（オフライン中/未接続中に消したもの）をここで消化してNotionと一致させる
       try { flushNotionArchiveQueue(); } catch(e) {}
+      // 未送信の完了(done)を消化してNotionと一致させる
+      try { flushNotionDoneQueue(); } catch(e) {}
       // 繰り返しテンプレを全端末で共有：起動時に最新を取り込む
       try { tplCloudPull(); } catch(e) {}
       const _canNotion = (notionSettings.token || notionSettings.managed) && notionSettings.dbId;
@@ -6117,6 +6196,9 @@
   // 週1以上に間隔が空くもの（月1など）だけ、直近1週間以内の分に限って拾う。
   const LATE_ROUTINE_MIN_INTERVAL = 7;   // これ以上の間隔なら対象
   const LATE_ROUTINE_WINDOW_DAYS  = 7;   // 何日前までさかのぼるか
+  // 期限切れ（時刻指定タスク）を「あとで」に載せる範囲。これより古い期限切れは出さない。
+  // ※ iPhone版に合わせて数値を調整してください（直近だけ表示するための窓）。
+  const LATE_OVERDUE_WINDOW_DAYS  = 14;
   function isCatchUpRoutine(t, today0) {
     if (!t || !isRoutineKind(t)) return false;
     if (t._type !== 'time') return false;
@@ -6147,13 +6229,16 @@
       if (t._projectOnly) return false; // プロジェクト表示専用（日付・実行期間なし）はあとでやるに出さない
       // 習慣は基本的に振り分けないが、間隔の空くルーチン（月1など）のやり逃しは拾う
       if (isRoutineKind(t)) return isCatchUpRoutine(t, today0);
-      // プロジェクトのタスクで日付が無いものは、プロジェクト画面で管理する（あとでやるを埋めない）
-      if (t._type === 'later' && taskHasProject(t)) return false;
+      // プロジェクトに属するタスクは「あとで」に出さない（日付の有無に関わらず、プロジェクト画面で管理する）
+      if (taskHasProject(t)) return false;
       if (t._type === 'later') return true;
       if (t._type === 'time') {
         try {
           const td = new Date(t['(A)実行日'].start); td.setHours(0,0,0,0);
-          return td < today0; // 前日以前（終日／時刻なしも含む）
+          if (td >= today0) return false;                 // 当日・未来は対象外
+          // 直近のものだけ「あとで」に載せる（古すぎる期限切れは除外）
+          const daysAgo = Math.round((today0 - td) / 86400000);
+          return daysAgo <= LATE_OVERDUE_WINDOW_DAYS;
         } catch(e) { return false; }
       }
       if (t._type === 'repeat') {
@@ -14845,6 +14930,8 @@
     }
     // 保留中の削除（アーカイブ）をこの同期の最初に消化しておく
     try { await flushNotionArchiveQueue(); } catch(e) {}
+    // 保留中の完了(done)も消化しておく
+    try { await flushNotionDoneQueue(); } catch(e) {}
 
     const logEl = document.getElementById('notionSyncLog');
     const appendLog = msg => {
@@ -14986,14 +15073,18 @@
 
   // --- 完了状態の変更をNotionに送る ---
   async function notionUpdateDone(notionId, done) {
-    if (!notionId || !notionLinked()) return;
+    if (!notionId) return;
+    // 未接続なら送らずキューへ（次に繋がった時に再送される）
+    if (!notionLinked()) { enqueueNotionDone(notionId, done); return; }
     const props = notionSettings.props || NOTION_PROP_DEFAULT;
     try {
       await notionApiCall(`/pages/${notionId}`, 'PATCH', {
         properties: { [props.done]: { checkbox: done } }
       });
+      dequeueNotionDone(notionId);                 // 成功→キューに残っていれば消す
     } catch(e) {
       console.error('Notion完了更新失敗', e);
+      enqueueNotionDone(notionId, done);           // 失敗→キューへ（次回再送）
     }
   }
 
