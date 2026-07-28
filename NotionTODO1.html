@@ -4430,7 +4430,9 @@
   //   ・空データで他端末のテンプレを消さない（安全ガード）
   //   ・Workerに未実装/未接続なら静かに何もしない
   // ============================================================
-  const TPL_SYNC_URL = NOTION_PROXY + '/state/templates';
+  // NOTION_PROXY はこのスクリプトの後方で定義される const のため、ここで参照すると
+  // TDZ(初期化前アクセス)でスクリプト全体が停止する。実行時に解決する関数にする。
+  function _tplSyncUrl(){ return NOTION_PROXY + '/state/templates'; }
   function _tplAuthHeaders(){ var t=notionSettings.token; return { 'Authorization':'Bearer '+(t||'managed'), 'Content-Type':'application/json' }; }
   function _isTpl(t){ return !!(t && (t._type==='repeat' || t._type==='repeat_ended')); }
   function _collectTemplates(){ return (tasks||[]).filter(_isTpl); }
@@ -4454,7 +4456,7 @@
   async function tplCloudPull(){
     if(!(notionSettings.token || notionSettings.managed)) return;
     try{
-      var r=await fetch(TPL_SYNC_URL, { method:'GET', headers:_tplAuthHeaders() });
+      var r=await fetch(_tplSyncUrl(), { method:'GET', headers:_tplAuthHeaders() });
       if(!r.ok) return;                       // 未実装(404)/未保存なら何もしない
       var blob=await r.json();
       if(!blob || !Array.isArray(blob.templates)) return;
@@ -4495,7 +4497,7 @@
         var meta=_tplMeta();
         if(meta.syncedHash===hash) return;    // 変化なし → 送らない
         var updatedAt=Date.now();
-        var r=await fetch(TPL_SYNC_URL, { method:'PUT', headers:_tplAuthHeaders(), body:JSON.stringify({ updatedAt:updatedAt, templates:list }) });
+        var r=await fetch(_tplSyncUrl(), { method:'POST', headers:_tplAuthHeaders(), body:JSON.stringify({ updatedAt:updatedAt, templates:list }) });
         if(!r.ok){ dbg('tplCloudPush non-ok', r.status); return; }
         meta.syncedAt=updatedAt; meta.syncedHash=hash; _saveTplMeta(meta);
       }catch(e){ dbg('tplCloudPush failed', e); }
