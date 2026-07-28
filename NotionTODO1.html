@@ -44,6 +44,15 @@
   @media (min-width: 480px) {
     body { box-shadow: 0 0 48px rgba(0,0,0,0.10); }
   }
+  /* iPad / 大画面: スマホ枠を丸ごと等倍拡大して見やすくする。
+     内部レイアウト（px指定）はそのまま。height を zoom で割って縦がはみ出ないよう補正。
+     拡大率が強すぎ/弱すぎなら、下の zoom の数値だけ変えればOK。 */
+  @media (min-width: 700px) {
+    body { zoom: 1.3; height: calc(100dvh / 1.3); }
+  }
+  @media (min-width: 1080px) {
+    body { zoom: 1.55; height: calc(100dvh / 1.55); }
+  }
 
 
   /* 絵文字の代わりに使うシンプル線アイコン（下部ナビと同じテイスト） */
@@ -8614,11 +8623,13 @@
     if (!key) return;
     const s = getRewardStore();
     if (s.completions.some(c => c.key === key && c.dateStr === dateStr)) return;
-    const amt = Math.max(1, Math.round(coins != null ? coins : 10));
+    const base = Math.max(1, Math.round(coins != null ? coins : 10));
+    const roll = rollCoinBonus(base);                 // ★当たり抽選（ベースはそのまま、上に運を乗せる）
+    const amt = roll.total;
     s.completions.push({ key, name: name || '', dateStr, ts: new Date().toISOString(), coins: amt });
     s.coins = (s.coins || 0) + amt;
     saveRewardStore(s);
-    showCoinToast(amt);
+    showCoinToast(amt, roll.tier, base);              // ★当たり演出つき
     // Notion 獲得履歴へ自動バックアップ（pageIdを後で完了ログに紐付け）
     if (earnedConfigured()) {
       earnedCreate(name || '', amt, key, dateStr).then(pageId => {
@@ -8670,10 +8681,38 @@
     clearTimeout(window._coinToastTimer);
     window._coinToastTimer = setTimeout(() => { t.style.display = 'none'; t.classList.remove('show'); }, 1500);
   }
-  function showCoinToast(amt) {
+  // ===== 変動報酬（当たり）: taskCoins のベースは変えず、上に"運"を乗せる =====
+  // ベースの公平さ（頑張ったタスクほど多い）は壊さず、たまに当たりでドーパミンを出す。
+  // 合計(total)を completions に保存するので、取り消し・Notionバックアップとも整合する。
+  function rollCoinBonus(base) {
+    base = Math.max(1, Math.round(base || 1));
+    const r = Math.random();
+    if (r < 0.62) {                 // 62% 通常（当たりなし）
+      return { total: base, tier: 'normal' };
+    } else if (r < 0.88) {          // 26% ちょい当たり（+α）
+      const bonus = Math.max(2, Math.round(base * 0.4)) + Math.floor(Math.random() * 3);
+      return { total: base + bonus, tier: 'small' };
+    } else if (r < 0.97) {          // 9% 2倍
+      return { total: base * 2, tier: 'big' };
+    } else {                        // 3% ジャックポット
+      return { total: base * 3, tier: 'jackpot' };
+    }
+  }
+
+  function showCoinToast(amt, tier, base) {
     updateCoinDisplays();
     var praise = (window.__randomPraise ? window.__randomPraise() : 'やったね！');
+    var head = '';
+    if (tier === 'jackpot') {
+      praise = 'ジャックポット！！';
+      head = '<div style="font-size:12px;font-weight:800;color:#e0b400;letter-spacing:.04em;">★ 3倍 ★</div>';
+    } else if (tier === 'big') {
+      head = '<div style="font-size:12px;font-weight:800;color:#e0b400;">2倍あたり！</div>';
+    } else if (tier === 'small') {
+      head = '<div style="font-size:11px;font-weight:700;color:#c79a12;">ちょい当たり +' + ((amt||0)-(base||0)) + '</div>';
+    }
     showToast('<div style="display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;">'
+      + head
       + '<div style="font-size:14px;font-weight:700;">' + praise + '</div>'
       + '<div><span class="coin-ico"></span> +' + (amt != null ? amt : 1) + ' コイン</div>'
       + '</div>');
