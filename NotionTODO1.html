@@ -44,13 +44,13 @@
   @media (min-width: 480px) {
     body { box-shadow: 0 0 48px rgba(0,0,0,0.10); }
   }
-  /* iPad 対応: 画面の「高さ」に応じて拡大率を変える。
-     横画面は高さが低いので控えめ、縦画面は高いので大きめに自動調整。
-     min-width:700 で「タブレット以上」に限定（スマホの横向きは除外）。
-     height を zoom で割って縦がはみ出ないよう補正。数値だけ変えれば調整可。 */
-  @media (min-width: 700px) and (min-height: 700px)  { body { zoom: 1.15; height: calc(100dvh / 1.15); } }
-  @media (min-width: 700px) and (min-height: 1000px) { body { zoom: 1.35; height: calc(100dvh / 1.35); } }
-  @media (min-width: 700px) and (min-height: 1300px) { body { zoom: 1.55; height: calc(100dvh / 1.55); } }
+  /* iPad(11インチ)対応: 画面に収まる幅へ広げ、読みやすいよう少しだけ拡大する。
+     11インチは 縦=834pt / 横=1194pt。max-width×zoom がそのどちらも超えないので
+     横スクロールは出ない。数値(720 / 1.15)を変えれば好みに調整できる。
+     transform で position:fixed の子（ナビ/＋/オーバーレイ）をこのカラム基準に揃える。 */
+  @media (min-width: 700px) {
+    body { max-width: 720px; zoom: 1.15; height: calc(100dvh / 1.15); transform: translateZ(0); }
+  }
 
 
   /* 絵文字の代わりに使うシンプル線アイコン（下部ナビと同じテイスト） */
