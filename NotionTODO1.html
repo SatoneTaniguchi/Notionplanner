@@ -1175,7 +1175,9 @@
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.45);
-    z-index: 600;
+    /* タスク編集モーダル(--z-modal:9650)や下部ナビ(9700)より前面に出す。
+       モーダルから開く時刻ピッカー/今すぐが後ろに隠れてタップできない問題の対策。 */
+    z-index: 9750;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -5690,9 +5692,9 @@
           : `${mikomimin}分`)
         : '';
 
-      // 並列時の最小高さ: 時刻行(16)+名前行(折り返し考慮)+所要時間行(14)+padding
-      const nameLines = Math.ceil(t.name.length / 6) || 1;
-      const minNarrowH = 12 + 16 + (nameLines * 17) + (durLabel2 ? 16 : 0) + 12;
+      // 並列時の最小高さ: 名前の長さに依存させず固定にする（同じ所要時間なら高さを揃える）。
+      // 2行ぶんを確保しておき、短い名前でも同じ高さになるようにする。
+      const minNarrowH = 12 + 16 + (2 * 17) + (durLabel2 ? 16 : 0) + 12;
       const cardMinH = isNarrow ? Math.max(minNarrowH, 48) : 40;
 
       // カードの高さ: finalH（時間ベース）を使う。並列時は最小高さも確保
