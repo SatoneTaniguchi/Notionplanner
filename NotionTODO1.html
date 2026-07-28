@@ -44,15 +44,13 @@
   @media (min-width: 480px) {
     body { box-shadow: 0 0 48px rgba(0,0,0,0.10); }
   }
-  /* iPad / 大画面: スマホ枠を丸ごと等倍拡大して見やすくする。
-     内部レイアウト（px指定）はそのまま。height を zoom で割って縦がはみ出ないよう補正。
-     拡大率が強すぎ/弱すぎなら、下の zoom の数値だけ変えればOK。 */
-  @media (min-width: 700px) {
-    body { zoom: 1.3; height: calc(100dvh / 1.3); }
-  }
-  @media (min-width: 1080px) {
-    body { zoom: 1.55; height: calc(100dvh / 1.55); }
-  }
+  /* iPad 対応: 画面の「高さ」に応じて拡大率を変える。
+     横画面は高さが低いので控えめ、縦画面は高いので大きめに自動調整。
+     min-width:700 で「タブレット以上」に限定（スマホの横向きは除外）。
+     height を zoom で割って縦がはみ出ないよう補正。数値だけ変えれば調整可。 */
+  @media (min-width: 700px) and (min-height: 700px)  { body { zoom: 1.15; height: calc(100dvh / 1.15); } }
+  @media (min-width: 700px) and (min-height: 1000px) { body { zoom: 1.35; height: calc(100dvh / 1.35); } }
+  @media (min-width: 700px) and (min-height: 1300px) { body { zoom: 1.55; height: calc(100dvh / 1.55); } }
 
 
   /* 絵文字の代わりに使うシンプル線アイコン（下部ナビと同じテイスト） */
@@ -3153,12 +3151,30 @@
         <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 今すぐ同期
       </button>
 
+      <!-- 端末間コピー（全データのバックアップ/復元・繰り返しテンプレ含む） -->
+      <div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:12px;background:#fafafa;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">端末間コピー（バックアップ / 復元）</div>
+        <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">繰り返しテンプレ・履歴・設定まで含めて丸ごと書き出し／読み込みします。別端末（iPad等）へ完全に移せます。<br>移行手順: いま使えている端末で「書き出す」→ そのファイルをiPadに送る → iPadで「読み込む」。</div>
+        <button onclick="exportAllData()" style="width:100%;background:#fff;color:#1c1c1e;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">⬇️ データを書き出す（バックアップ）</button>
+        <label style="display:block;width:100%;background:#fff;color:#1c1c1e;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;box-sizing:border-box;">⬆️ データを読み込む（復元）
+          <input type="file" accept="application/json,.json" onchange="importAllData(this)" style="display:none;">
+        </label>
+      </div>
+
       <!-- タイトル＋期間で一括削除 -->
       <button onclick="bulkDeleteByTitle()" style="
         width:100%;background:#fff;color:#e0483c;border:1.5px solid #f0c3be;border-radius:14px;
         padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:12px;">
         <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg> タイトル＋期間でまとめて削除
       </button>
+
+      <!-- 一般の繰り返しをNotionへ実体化（手動・観察可能） -->
+      <button onclick="materializeRepeatsToNotion()" style="
+        width:100%;background:#0a7d55;color:#fff;border:none;border-radius:14px;
+        padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+        <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg> 繰り返しタスクをNotionへ実体化（前後2週間）
+      </button>
+      <div id="materializeLog" style="background:#eef7f2;border-radius:12px;padding:12px;font-size:12px;color:#2c6b52;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">まだ実行していません</div>
 
       <!-- 習慣タスクをNotionへ強制登録（デバッグ/救済用） -->
       <button onclick="debugSyncHabitsToNotion()" style="
@@ -4357,6 +4373,145 @@
   window.notifyTasksChanged = notifyTasksChanged;
 
   // ============================================================
+  // 追加: 端末間フルコピー（全データのバックアップ/復元）
+  //   localStorage を丸ごと書き出し/読み込みするので、繰り返しテンプレ・履歴・設定を含め
+  //   別端末(iPad等)へ完全に移せる。Notionのロスあり変換を経由しないため絞り込みも一致する。
+  // ============================================================
+  function exportAllData(){
+    try{
+      var dump={};
+      for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); dump[k]=localStorage.getItem(k); }
+      var payload={ _kind:'notion-todo-backup', _version:(typeof APP_VERSION!=='undefined'?APP_VERSION:''), _exportedAt:new Date().toISOString(), data:dump };
+      var blob=new Blob([JSON.stringify(payload)], {type:'application/json'});
+      var url=URL.createObjectURL(blob);
+      var pad=function(n){ return String(n).padStart(2,'0'); };
+      var d=new Date();
+      var a=document.createElement('a');
+      a.href=url;
+      a.download='notion-todo-backup-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes())+'.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    }catch(e){ alert('書き出しに失敗しました: '+((e&&e.message)||e)); }
+  }
+  window.exportAllData = exportAllData;
+
+  function _importAllDataFromText(text){
+    var parsed;
+    try{ parsed=JSON.parse(text); }catch(e){ alert('ファイルの形式が正しくありません（JSONではありません）'); return; }
+    var data = (parsed && parsed.data && typeof parsed.data==='object') ? parsed.data : parsed; // 生ダンプも許容
+    if(!data || typeof data!=='object'){ alert('データが見つかりません'); return; }
+    var keys=Object.keys(data);
+    if(!keys.length){ alert('データが空です'); return; }
+    var cnt='?';
+    try{ if(data.tasks) cnt=JSON.parse(data.tasks).length; }catch(e){}
+    if(!confirm('この端末のデータを、読み込むバックアップで置き換えます。\n（タスク約'+cnt+'件）\n\nこの端末の現在のデータは上書きされます。よろしいですか？')) return;
+    try{
+      keys.forEach(function(k){ if(data[k]!=null) localStorage.setItem(k, data[k]); });
+      alert('読み込み完了。アプリを再読み込みします。');
+      location.reload();
+    }catch(e){ alert('読み込みに失敗しました: '+((e&&e.message)||e)); }
+  }
+  function importAllData(input){
+    var f = input && input.files && input.files[0];
+    if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){ _importAllDataFromText(String(r.result||'')); };
+    r.onerror=function(){ alert('ファイルの読み込みに失敗しました'); };
+    r.readAsText(f);
+    try{ input.value=''; }catch(e){}
+  }
+  window.importAllData = importAllData;
+
+  // ============================================================
+  // 追加: 繰り返しテンプレートの端末間クラウド同期（Worker経由）
+  //   単体タスク/インスタンスは従来どおり Notion 同期。
+  //   繰り返しの「テンプレ」(_type=repeat/repeat_ended)だけを Worker に保存し、全端末で共有する。
+  //   ・テンプレ以外のタスクには一切触れない
+  //   ・空データで他端末のテンプレを消さない（安全ガード）
+  //   ・Workerに未実装/未接続なら静かに何もしない
+  // ============================================================
+  const TPL_SYNC_URL = NOTION_PROXY + '/state/templates';
+  function _tplAuthHeaders(){ var t=notionSettings.token; return { 'Authorization':'Bearer '+(t||'managed'), 'Content-Type':'application/json' }; }
+  function _isTpl(t){ return !!(t && (t._type==='repeat' || t._type==='repeat_ended')); }
+  function _collectTemplates(){ return (tasks||[]).filter(_isTpl); }
+  function _tplHash(list){
+    try{ return JSON.stringify(list.map(function(t){ return [t.id,t.name,t._type,!!t['(A)done'],JSON.stringify(t._repeatConfig||null),t['(B)種類']||null]; }).sort()); }
+    catch(e){ return 'h'+Math.random(); }
+  }
+  function _tplMeta(){ try{ return JSON.parse(localStorage.getItem('tplSyncMeta')||'{}')||{}; }catch(e){ return {}; } }
+  function _saveTplMeta(m){ try{ localStorage.setItem('tplSyncMeta', JSON.stringify(m||{})); }catch(e){} }
+
+  function _applyTemplatesAuthoritative(remote){
+    // ローカルのテンプレのみ入れ替え（テンプレ以外は保持）
+    tasks = (tasks||[]).filter(function(t){ return !_isTpl(t); });
+    remote.forEach(function(t){ if(t && t.id) tasks.push(t); });
+  }
+  function _mergeAddTemplates(remote){
+    var have={}; _collectTemplates().forEach(function(t){ have[t.id]=1; });
+    remote.forEach(function(t){ if(t && t.id && !have[t.id]) tasks.push(t); });
+  }
+
+  async function tplCloudPull(){
+    if(!(notionSettings.token || notionSettings.managed)) return;
+    try{
+      var r=await fetch(TPL_SYNC_URL, { method:'GET', headers:_tplAuthHeaders() });
+      if(!r.ok) return;                       // 未実装(404)/未保存なら何もしない
+      var blob=await r.json();
+      if(!blob || !Array.isArray(blob.templates)) return;
+      var meta=_tplMeta();
+      var localHash=_tplHash(_collectTemplates());
+      var noLocalChanges = (meta.syncedHash===localHash);
+      var remoteNewer = (blob.updatedAt||0) > (meta.syncedAt||0);
+      if(!remoteNewer) return;
+      var changed=false;
+      if(noLocalChanges && blob.templates.length>0){
+        // 未送信のローカル変更なし & リモートが空でない → 権威的に置き換え（削除も反映）
+        _applyTemplatesAuthoritative(blob.templates);
+        changed=true;
+        meta.syncedAt=blob.updatedAt; meta.syncedHash=_tplHash(_collectTemplates()); _saveTplMeta(meta);
+      } else {
+        // ローカルに未送信変更あり or リモートが空 → 消さずに不足分だけ取り込む（安全側）
+        var before=_collectTemplates().length;
+        _mergeAddTemplates(blob.templates);
+        changed = (_collectTemplates().length!==before);
+        if(changed) tplCloudPush(true);       // マージ結果をローカル優先で押し上げ
+      }
+      if(changed){
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        try{ if(typeof expandAllHabitsAndSync==='function') expandAllHabitsAndSync(); }catch(e){}
+        try{ notifyTasksChanged(); }catch(e){}
+      }
+    }catch(e){ dbg('tplCloudPull failed', e); }
+  }
+  window.tplCloudPull = tplCloudPull;
+
+  var _tplPushTimer=null;
+  function tplCloudPush(immediate){
+    if(!(notionSettings.token || notionSettings.managed)) return;
+    var doPush=async function(){
+      try{
+        var list=_collectTemplates();
+        var hash=_tplHash(list);
+        var meta=_tplMeta();
+        if(meta.syncedHash===hash) return;    // 変化なし → 送らない
+        var updatedAt=Date.now();
+        var r=await fetch(TPL_SYNC_URL, { method:'PUT', headers:_tplAuthHeaders(), body:JSON.stringify({ updatedAt:updatedAt, templates:list }) });
+        if(!r.ok){ dbg('tplCloudPush non-ok', r.status); return; }
+        meta.syncedAt=updatedAt; meta.syncedHash=hash; _saveTplMeta(meta);
+      }catch(e){ dbg('tplCloudPush failed', e); }
+    };
+    if(immediate){ doPush(); return; }
+    clearTimeout(_tplPushTimer); _tplPushTimer=setTimeout(doPush, 2500);   // デバウンス
+  }
+  window.tplCloudPush = tplCloudPush;
+
+  // テンプレが変わったら自動で押し上げ（既存の tasks:changed を利用。ハッシュ一致なら送らない）
+  try{ window.addEventListener('tasks:changed', function(){ tplCloudPush(false); }); }catch(e){}
+  // 他端末から戻ってきたら最新を取り込む
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') tplCloudPull(); }); }catch(e){}
+  try{ window.addEventListener('online', function(){ tplCloudPull(); }); }catch(e){}
+
+  // ============================================================
   // 追加(A): Notion削除アウトボックス（削除の取りこぼし防止）
   //   ローカル削除は即確定するが、Notionアーカイブは投げっぱなしだと
   //   オフライン/未接続/タブ閉じで取りこぼし、Notion側にだけ残る。
@@ -4722,8 +4877,16 @@
       try { rewardFetchEarned(); } catch(e) {}
       // 未送信の削除（オフライン中/未接続中に消したもの）をここで消化してNotionと一致させる
       try { flushNotionArchiveQueue(); } catch(e) {}
-      if (notionSettings.autoSync && (notionSettings.token || notionSettings.managed) && notionSettings.dbId) {
+      // 繰り返しテンプレを全端末で共有：起動時に最新を取り込む
+      try { tplCloudPull(); } catch(e) {}
+      const _canNotion = (notionSettings.token || notionSettings.managed) && notionSettings.dbId;
+      if (notionSettings.autoSync && _canNotion) {
         setTimeout(() => notionFullSync(), 2000);
+      } else if (_canNotion) {
+        // autoSyncが無効でも、繰り返し（ルーチン）インスタンスを確実にNotionへ登録するため
+        // 設定が整ったこのタイミングで1回だけ同期する。
+        // notionFullSync は「pull → 展開 → 未登録のみpush」の順で動くので重複を作らない。
+        setTimeout(() => { try { notionFullSync(); } catch(e){ dbg('startup reconcile failed', e); } }, 2500);
       }
     });
 
@@ -5037,6 +5200,8 @@
         // 終日の繰り返し（ルーチン）は終日エリアで表示するのでタイムライン本体からは除外
         if (t._allDay || (t._repeatConfig && t._repeatConfig.allDay)) return false;
         const cur = new Date(dayStr);
+        // 実体化済み（この日にインスタンスがある）なら仮想は出さない（重複防止）
+        if (hasInstanceForRepeat(t, ymd(cur))) return false;
         const rc = t._repeatConfig || {};
         if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (cur < rs) return false; }
         if (rc.end)   { const re = new Date(rc.end);   re.setHours(23,59,59,999); if (cur > re) return false; }
@@ -5993,6 +6158,8 @@
         if (repeatIntervalDays(t._repeatConfig) < LATE_ROUTINE_MIN_INTERVAL) return false;
         const occ = lastRepeatOccurrence(t, today0, LATE_ROUTINE_WINDOW_DAYS);
         if (!occ) return false;
+        // 実体化済み（その日にインスタンスがある）なら、実体側で扱うので仮想は出さない
+        if (hasInstanceForRepeat(t, ymd(occ))) return false;
         return !isHabitDoneOn(t.id, ymd(occ));   // その日ぶんが済んでいなければ出す
       }
       return false;
@@ -10020,6 +10187,111 @@
     if (created.length) localStorage.setItem('tasks', JSON.stringify(tasks));
     return created;
   }
+
+  // ============================================================
+  // Phase B: 一般の繰り返し（仕事など・非ルーチン）を Notion へ実体化する
+  //   ・出現判定はタイムラインと同一ロジック（_repeatOccursOnDay）
+  //   ・重複防止は「名前 or _habitTemplateId」＋表示日で照合（Notion往復で _habitTemplateId が消えても効く）
+  //   ・手動ボタンから実行（バルク作成を観察可能にする）。展開範囲は ±HABIT_*_DAYS
+  // ============================================================
+  function _repeatOccursOnDay(t, cur) {
+    cur = new Date(cur); cur.setHours(0,0,0,0);
+    const rc = t._repeatConfig || {};
+    if (rc.start) { const rs = new Date(rc.start); rs.setHours(0,0,0,0); if (cur < rs) return false; }
+    if (rc.end)   { const re = new Date(rc.end);   re.setHours(23,59,59,999); if (cur > re) return false; }
+    if (Array.isArray(rc.daysOfWeek) && rc.daysOfWeek.length > 0) return rc.daysOfWeek.includes(cur.getDay());
+    if (rc.type === 'monthly') return _rMatchMonthly(rc, cur);
+    if (rc.type === 'yearly')  return _rMatchYearly(rc, cur);
+    return true; // daily / 指定なし
+  }
+  // そのテンプレの、指定日の実体（インスタンス）が既にあるか（名前 or テンプレID ＋ 表示日で照合）
+  function hasInstanceForRepeat(t, dateStr) {
+    if (!t) return false;
+    const nm = String(t.name || '').trim();
+    return (tasks || []).some(function(x) {
+      if (!x || x === t) return false;
+      if (x._type === 'repeat' || x._type === 'repeat_ended') return false; // テンプレ本体は除外
+      const linked = (x._habitTemplateId && x._habitTemplateId === t.id) || (nm && String(x.name || '').trim() === nm);
+      if (!linked) return false;
+      const j = x['(A)実行日'];
+      return !!(j && j.start && j.start.substring(0, 10) === dateStr);
+    });
+  }
+  window.hasInstanceForRepeat = hasInstanceForRepeat;
+
+  function _makeRepeatInstance(tpl, ds) {
+    const rc = tpl._repeatConfig || {};
+    const allDay = rc.allDay || tpl._allDay;
+    let jisseki;
+    if (allDay) { jisseki = { start: ds, end: ds }; }
+    else {
+      const pad = n => String(n).padStart(2, '0');
+      const parts = String(rc.time || '09:00').split(':').map(Number);
+      const sh = parts[0] || 9, sm = parts[1] || 0;
+      const durMin = Math.round((tpl['(C)見込み/h'] || 0) * 60);
+      const endMin = sh * 60 + sm + durMin, eh = Math.floor(endMin / 60) % 24, em = endMin % 60;
+      jisseki = { start: `${ds}T${pad(sh)}:${pad(sm)}`, end: `${ds}T${pad(eh)}:${pad(em)}` };
+    }
+    return {
+      id: 'rep_' + tpl.id + '_' + ds,
+      _notionId: null,
+      _type: 'time',
+      _allDay: !!allDay,
+      name: tpl.name,
+      '(A)done': false,
+      '(A)実行日': jisseki,
+      '(B)種類': tpl['(B)種類'] || null,
+      '(B)実行期間': tpl['(B)実行期間'] || null,
+      '(C)見込み/h': tpl['(C)見込み/h'] || 0,
+      '(e)memo': tpl['(e)memo'] || '',
+      '(e)URL': tpl['(e)URL'] || '',
+      _repeatConfig: null,
+      _habitTemplateId: tpl.id,
+      _habitDate: ds,
+      _source: null,
+      _localLastEdited: new Date().toISOString(),
+    };
+  }
+
+  // 手動実行: 非ルーチンの繰り返しを ±2週間ぶん実体化して Notion 登録
+  async function materializeRepeatsToNotion() {
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
+      alert('Notion設定を先に保存してください'); return;
+    }
+    if (!confirm('仕事などの繰り返しタスクを、前後2週間ぶん個別タスクとしてNotionに登録します。\n\n※ 念のため先に「⬇️ データを書き出す」でバックアップを取ることを推奨します。\n実行しますか？')) return;
+    const logEl = document.getElementById('materializeLog');
+    const log = m => { if (logEl) logEl.textContent = (logEl.textContent === 'まだ実行していません' ? '' : logEl.textContent) + m + '\n'; };
+    if (logEl) logEl.textContent = '';
+    log('① まずNotionから最新を取得（重複防止のため）…');
+    try { await notionFullSync(); } catch (e) { log('⚠️ 同期エラー: ' + (e.message || e)); }
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const startD = new Date(today); startD.setDate(today.getDate() - HABIT_PAST_DAYS);
+    const endD = new Date(today); endD.setDate(today.getDate() + HABIT_FUTURE_DAYS);
+    const templates = (tasks || []).filter(t => t && t._type === 'repeat' && !isRoutineKind(t) && !t._habitTemplateId);
+    log(`② 対象の繰り返しテンプレ: ${templates.length}件`);
+    let created = 0;
+    templates.forEach(tpl => {
+      let cur = new Date(startD);
+      while (cur <= endD) {
+        if (_repeatOccursOnDay(tpl, cur)) {
+          const ds = ymd(cur);
+          if (!hasInstanceForRepeat(tpl, ds)) {
+            const inst = _makeRepeatInstance(tpl, ds);
+            tasks.push(inst);
+            pushHabitInstanceToNotion(inst); // _notionId が付くまで多重pushはガード済み
+            created++;
+          }
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    try { notifyTasksChanged(); } catch (e) {}
+    log(`③ 生成: ${created}件（Notion登録はバックグラウンドで進行）`);
+    log('完了。数十秒後にNotion側をご確認ください。重複が見えたら「⬆️ 読み込む」でバックアップから戻せます。');
+  }
+  window.materializeRepeatsToNotion = materializeRepeatsToNotion;
 
   // 全テンプレートを展開（起動時の補充用）し、新規分をNotionへPush
   function expandAllHabitsAndSync() {
@@ -16737,7 +17009,16 @@
     return arr.filter(function(t){
       if(!t) return false;
       if(t._type==='time'){ var dd=t['(A)実行日']; if(!dd||!dd.start) return false; return dateStrOf(t)===dayStr; }
-      if(t._type==='repeat' && !isRoutineKind(t)){ return repeatOccursOn(t,d); }
+      if(t._type==='repeat' && !isRoutineKind(t)){
+        try{
+          if(window.hasInstanceForRepeat){
+            var _p=function(n){return String(n).padStart(2,'0');};
+            var _ds=d.getFullYear()+'-'+_p(d.getMonth()+1)+'-'+_p(d.getDate());
+            if(window.hasInstanceForRepeat(t,_ds)) return false;   // 実体化済みは仮想を出さない
+          }
+        }catch(e){}
+        return repeatOccursOn(t,d);
+      }
       return false;
     });
   }
