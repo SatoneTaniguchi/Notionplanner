@@ -3170,6 +3170,17 @@
         <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg> タイトル＋期間でまとめて削除
       </button>
 
+      <!-- ★セーフモード＆復旧（複製が起きた端末の安全な立て直し用） -->
+      <div style="border:1.5px solid #ef4444;border-radius:14px;padding:12px;margin-bottom:12px;background:#fff5f5;">
+        <div style="font-size:13px;font-weight:800;color:#b91c1c;margin-bottom:4px;">🛟 セーフモード（Notionへの書き込みを停止中）</div>
+        <div style="font-size:11px;color:#9b6b6b;margin-bottom:10px;line-height:1.6;">この端末が複製などで壊れた場合の立て直し用。今は自動書き込みを止めているので、Notionを汚さずに操作できます。<br>下のボタンで「この端末を捨ててNotionから取り直し」ます（Notionへは一切書き込みません）。</div>
+        <button onclick="restoreFromNotionDiscardLocal()" style="
+          width:100%;background:#ef4444;color:#fff;border:none;border-radius:12px;
+          padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+          ローカルを破棄してNotionから復元
+        </button>
+      </div>
+
       <!-- 完了状態をNotionへ一括再送（ズレ修正・正しい端末で実行） -->
       <button onclick="resyncAllDoneToNotion()" style="
         width:100%;background:#4b3fd6;color:#fff;border:none;border-radius:14px;
@@ -4718,7 +4729,14 @@
       const tm = new Date(ds).getTime();
       return isNaN(tm) ? true : (tm >= cutoff);
     };
-    const targets = (tasks||[]).filter(t => t && t._notionId && recentEnough(t));
+    // 対象: 普通のタスクのみ。繰り返し実体化インスタンス(_habitTemplateId付き)や
+    // テンプレは、別端末での二重生成の原因になるので一括再送から除外する。
+    const targets = (tasks||[]).filter(t =>
+      t && t._notionId && recentEnough(t)
+      && !t._habitTemplateId
+      && t._type !== 'repeat' && t._type !== 'repeat_ended'
+      && !isRoutineKind(t)
+    );
     if (!targets.length) { alert('対象タスクが見つかりませんでした。'); return; }
 
     if (!confirm(
@@ -4753,6 +4771,31 @@
     } finally { _resyncDatesRunning = false; }
   }
   window.resyncAllDatesToNotion = resyncAllDatesToNotion;
+
+  // 復旧用: この端末のローカルタスクを破棄し、Notionから引き直す（Notionへは一切書き込まない）。
+  // 複製などローカルが壊れた端末を、正しいNotionの状態に戻すためのもの。
+  async function restoreFromNotionDiscardLocal(){
+    if (!window.SAFE_MODE) {
+      if (!confirm('注意: 今セーフモードがOFFです。復元中に書き込みが起きる恐れがあります。\nセーフモードONで実行することを強く推奨します。\nこのまま続けますか？')) return;
+    }
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) { alert('Notion設定を先に保存してください'); return; }
+    if (!confirm('この端末のローカルのタスクを破棄し、Notionから丸ごと取り直します。\n（Notion側には何も書き込みません＝安全な一方通行）\n\n複製などで壊れた表示を、正しいNotionの状態に戻します。実行しますか？')) return;
+    try {
+      // タスクだけ破棄（設定・コイン等は残す）。習慣インスタンスの再展開キャッシュも消す。
+      tasks = [];
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      try { localStorage.removeItem('notionEditQueue'); } catch(e){}
+      try { localStorage.removeItem('notionDoneQueue'); } catch(e){}
+      try { localStorage.removeItem('notionArchiveQueue'); } catch(e){}
+      alert('ローカルを破棄しました。Notionから取り込みます…（完了後に自動で再読み込みします）');
+      // GETのみのフル同期でNotionから取得（SAFE_MODEなのでpushは全てスキップされる）
+      try { await notionFullSync(); } catch(e){ console.error('復元中エラー', e); }
+      location.reload();
+    } catch(e) {
+      alert('復元に失敗しました: ' + ((e && e.message) || e));
+    }
+  }
+  window.restoreFromNotionDiscardLocal = restoreFromNotionDiscardLocal;
   try{ window.addEventListener('online', function(){ flushNotionDoneQueue(); }); }catch(e){}
 
   // ============================================================
@@ -14491,10 +14534,22 @@
   // --- Notion API（Cloudflare Workerプロキシ経由） ---
   const NOTION_PROXY = 'https://little-sea-b29e.fituni19taniguchi.workers.dev';
 
+  // セーフモード: Notionへの書き込み(POST/PATCH/DELETE)を全面ブロックし、読み取り(GET)のみ許可する。
+  // 複製などの不整合が起きた端末で、Notionを汚さずに状態確認・復元するための保険。
+  // 復旧後に window.SAFE_MODE=false（またはこの行を false に）すれば通常動作に戻る。
+  window.SAFE_MODE = (window.SAFE_MODE !== undefined) ? window.SAFE_MODE : true;
+
   async function notionApiCall(path, method, body) {
     const token = notionSettings.token;
     // managed=true のときは Worker 側がトークンを注入するため、ブラウザ側トークンは不要
     if (!token && !notionSettings.managed) throw new Error('Notion Tokenが未設定です');
+
+    // ★セーフモード中は書き込みを行わない（読み取りだけ通す）
+    const _m = (method || 'GET').toUpperCase();
+    if (window.SAFE_MODE && _m !== 'GET') {
+      if (typeof dbg === 'function') dbg('SAFE_MODE: skip write', _m, path);
+      return { _safeModeSkipped: true };   // 呼び出し側がエラーにならないようダミーを返す
+    }
 
     const url = NOTION_PROXY + '/v1' + path;
 
