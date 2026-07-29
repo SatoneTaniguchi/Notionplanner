@@ -3178,6 +3178,14 @@
       </button>
       <div id="resyncDoneLog" style="background:#eeecfb;border-radius:12px;padding:12px;font-size:12px;color:#4b3fd6;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">まだ実行していません</div>
 
+      <!-- 日付（実行日）をNotionへ一括再送（ズレ修正・正しい端末で実行） -->
+      <button onclick="resyncAllDatesToNotion()" style="
+        width:100%;background:#c2410c;color:#fff;border:none;border-radius:14px;
+        padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+        <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg> 日付をNotionへ一括再送（この端末を正に）
+      </button>
+      <div id="resyncDatesLog" style="background:#fdece3;border-radius:12px;padding:12px;font-size:12px;color:#c2410c;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">まだ実行していません</div>
+
       <!-- 一般の繰り返しをNotionへ実体化（手動・観察可能） -->
       <button onclick="materializeRepeatsToNotion()" style="
         width:100%;background:#0a7d55;color:#fff;border:none;border-radius:14px;
@@ -4688,7 +4696,159 @@
     } finally { _resyncRunning = false; }
   }
   window.resyncAllDoneToNotion = resyncAllDoneToNotion;
+
+  // 日付ズレ一括修正: この端末のローカルを「正」として、直近のNotionリンク済みタスクの
+  // 内容（実行日＝日付クリア含む・名前など）をNotionへ一括再送する。
+  // ・1件ずつ間隔をあけて送信（Load failed/レート制限回避）
+  // ・1件ごとに成否をログ、失敗しても止まらず残りは編集キュー保持で後日自動再送
+  let _resyncDatesRunning = false;
+  async function resyncAllDatesToNotion(){
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
+      alert('Notion設定を先に保存してください'); return;
+    }
+    if (_resyncDatesRunning) { alert('再送を実行中です。しばらくお待ちください。'); return; }
+    const logEl = document.getElementById('resyncDatesLog');
+    const log = m => { if (logEl) logEl.textContent = (logEl.textContent === 'まだ実行していません' ? '' : logEl.textContent) + m + '\n'; };
+
+    const today0 = new Date(); today0.setHours(0,0,0,0);
+    const cutoff = today0.getTime() - RESYNC_WINDOW_DAYS * 86400000;
+    const recentEnough = t => {
+      const ds = (t['(A)実行日'] && t['(A)実行日'].start) || t._habitDate || '';
+      if (!ds) return true;                       // 日付なし（クリア済み等）は対象に含める
+      const tm = new Date(ds).getTime();
+      return isNaN(tm) ? true : (tm >= cutoff);
+    };
+    const targets = (tasks||[]).filter(t => t && t._notionId && recentEnough(t));
+    if (!targets.length) { alert('対象タスクが見つかりませんでした。'); return; }
+
+    if (!confirm(
+      'この端末の日付（実行日）を「正」として、直近' + RESYNC_WINDOW_DAYS + '日ぶんの ' + targets.length + ' 件を Notion に送り直します。\n'
+      + '（日付をクリアしたものは、Notion側も空にします）\n\n'
+      + '※ 必ず「正しい方の端末」で実行してください。\n'
+      + '※ 1件ずつ送るので少し時間がかかります。\n'
+      + '※ 事前に「⬇️ データを書き出す」でバックアップ推奨。\n\n実行しますか？')) return;
+
+    if (logEl) logEl.textContent = '';
+    _resyncDatesRunning = true;
+    let ok = 0, ng = 0;
+    log('送信開始: ' + targets.length + '件（1件ずつ）…');
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        try {
+          await notionApiCall('/pages/' + t._notionId, 'PATCH', { properties: taskToNotionProps(t) });
+          dequeueNotionEdit(t._notionId);
+          ok++;
+        } catch(e) {
+          ng++;
+          enqueueNotionEdit(t._notionId);         // 失敗分は編集キューに残す（後で自動再送）
+          const msg = String((e && e.message) || e || '');
+          if (ng <= 5) log('  ✕ ' + (t.name || '') + ' : ' + msg.slice(0, 40));
+        }
+        if ((i + 1) % 20 === 0) log('  …' + (i + 1) + '/' + targets.length + ' 件処理');
+        await new Promise(r => setTimeout(r, 350));
+      }
+      log('完了: 反映 ' + ok + ' 件' + (ng ? ' / 失敗 ' + ng + ' 件（キュー保持→次回オンライン時に自動再送）' : ''));
+      log('Notion側の日付が揃ったか確認してください。');
+    } finally { _resyncDatesRunning = false; }
+  }
+  window.resyncAllDatesToNotion = resyncAllDatesToNotion;
   try{ window.addEventListener('online', function(){ flushNotionDoneQueue(); }); }catch(e){}
+
+  // ============================================================
+  // 追加: Notion編集(タスク更新)同期アウトボックス（編集の取りこぼし防止）
+  //   日付クリア・名前変更などの編集が、未接続/失敗だと投げっぱなしで消えていた。
+  //   → 対象タスクの notionId をキューに積み、接続時に「その時点の最新内容」を再送する。
+  //     （中身はスナップショットせず、送信時に taskToNotionProps(live) を作るので last-write-wins）
+  // ============================================================
+  const NOTION_EDIT_QUEUE_KEY = 'notionEditQueue';
+  // バックオフ用の遅延テーブル（失敗回数 → 次回まで待つミリ秒）
+  const BACKOFF_MS = [0, 60000, 300000, 1800000, 7200000, 21600000]; // 即,1分,5分,30分,2時間,6時間
+  function _backoffDelay(fails){ return BACKOFF_MS[Math.min(fails||0, BACKOFF_MS.length-1)]; }
+  // キュー形式: { [notionId]: { fails: n, next: epochMs } }。旧形式(配列)からも移行。
+  function _loadEditQueue(){
+    try{
+      var raw=JSON.parse(localStorage.getItem(NOTION_EDIT_QUEUE_KEY)||'{}');
+      if(Array.isArray(raw)){ var o={}; raw.forEach(function(id){ o[id]={fails:0,next:0}; }); return o; }
+      return (raw&&typeof raw==='object')?raw:{};
+    }catch(e){ return {}; }
+  }
+  function _saveEditQueue(o){ try{ localStorage.setItem(NOTION_EDIT_QUEUE_KEY, JSON.stringify(o||{})); }catch(e){ dbg('edit queue save failed', e); } }
+  function enqueueNotionEdit(notionId){ if(!notionId) return; var q=_loadEditQueue(); if(!q[notionId]) q[notionId]={fails:0,next:0}; _saveEditQueue(q); }
+  window.enqueueNotionEdit = enqueueNotionEdit;
+  function dequeueNotionEdit(notionId){ if(!notionId) return; var q=_loadEditQueue(); if(notionId in q){ delete q[notionId]; _saveEditQueue(q); } }
+  function pendingNotionEditCount(){ return Object.keys(_loadEditQueue()).length; }
+  window.pendingNotionEditCount = pendingNotionEditCount;
+  var _flushingEdit=false;
+  async function flushNotionEditQueue(){
+    if(_flushingEdit) return;
+    var ns=(typeof notionSettings!=='undefined')?notionSettings:null;
+    if(!(ns && (ns.token || ns.managed))) return;                 // 未接続なら保持
+    if(typeof taskToNotionProps!=='function') return;
+    var q=_loadEditQueue(); var now=Date.now();
+    // 今すぐ送れる（バックオフ待ちでない）ものだけ対象にする＝無駄打ちしない
+    var ids=Object.keys(q).filter(function(id){ return (q[id].next||0) <= now; });
+    if(!ids.length) return;
+    _flushingEdit=true;
+    try{
+      for(var i=0;i<ids.length;i++){
+        var nid=ids[i];
+        var task=(tasks||[]).find(function(t){ return t && t._notionId===nid; });
+        if(!task){ dequeueNotionEdit(nid); continue; }             // ローカルに無い→外す
+        try{
+          await notionApiCall('/pages/'+nid, 'PATCH', { properties: taskToNotionProps(task) });
+          dequeueNotionEdit(nid);                                  // 成功→外す
+        }catch(e){
+          var msg=String((e&&e.message)||e||'');
+          if(/could not find|not[ _-]?found|404/i.test(msg)){ dequeueNotionEdit(nid); dbg('edit: page gone', nid); }
+          else {
+            var cur=_loadEditQueue(); var rec=cur[nid]||{fails:0}; rec.fails=(rec.fails||0)+1; rec.next=Date.now()+_backoffDelay(rec.fails); cur[nid]=rec; _saveEditQueue(cur);
+            dbg('edit retry later (backoff)', nid, rec.fails, msg);
+          }
+        }
+        await new Promise(function(r){ setTimeout(r, 200); });     // レート制限回避
+      }
+    } finally { _flushingEdit=false; }
+  }
+  window.flushNotionEditQueue = flushNotionEditQueue;
+  try{ window.addEventListener('online', function(){ flushNotionEditQueue(); }); }catch(e){}
+
+  // ============================================================
+  // 追加: 変更検知の保険（経路に依存せず、どの編集でもNotionへ確実に記録する）
+  //   一部の編集経路が notionUpdateTask を呼び忘れても、内容の変化を検知して
+  //   自動で編集キューに積む。さらに定期的に全キューを自動再送する。
+  // ============================================================
+  const _taskSigMap = {};   // notionId -> 直近シグネチャ
+  function _taskSig(t){
+    try{
+      var j=t['(A)実行日']||{};
+      return [t.name||'', j.start||'', j.end||'', !!t['(A)done'], t['(B)種類']||'', t['(B)実行期間']||'', (t['(C)見込み/h']!=null?t['(C)見込み/h']:''), t['(e)memo']||'', t['(e)URL']||''].join('\u0001');
+    }catch(e){ return 'sig'+Math.random(); }
+  }
+  function checkDirtyAndQueue(){
+    try{
+      (tasks||[]).forEach(function(t){
+        if(!t || !t._notionId) return;
+        var sig=_taskSig(t);
+        var prev=_taskSigMap[t._notionId];
+        _taskSigMap[t._notionId]=sig;
+        if(prev!==undefined && prev!==sig){ enqueueNotionEdit(t._notionId); }  // 変化を検知→キューへ
+      });
+    }catch(e){ dbg('dirty check failed', e); }
+  }
+  window.checkDirtyAndQueue = checkDirtyAndQueue;
+  // タスクが変わるたびに変更検知（3秒デバウンス＝多発しても1回にまとめる。初回は記録のみ）
+  var _dirtyTimer=null;
+  try{ window.addEventListener('tasks:changed', function(){ clearTimeout(_dirtyTimer); _dirtyTimer=setTimeout(function(){ try{ checkDirtyAndQueue(); flushNotionEditQueue(); }catch(e){} }, 3000); }); }catch(e){}
+  // 保険の定期再送は5分ごと。各flushは「キューが空/バックオフ待ちなら即return」なので、
+  // 平常時はNotion APIを叩かない（=容量・通信を無駄に食わない）。
+  try{
+    setInterval(function(){
+      try{ flushNotionEditQueue(); }catch(e){}
+      try{ flushNotionDoneQueue(); }catch(e){}
+      try{ flushNotionArchiveQueue(); }catch(e){}
+    }, 300000);
+  }catch(e){}
   // ============================================================
   // データ構造 (Notionプロパティ名に対応)
   // ============================================================
@@ -4997,6 +5157,10 @@
       try { flushNotionArchiveQueue(); } catch(e) {}
       // 未送信の完了(done)を消化してNotionと一致させる
       try { flushNotionDoneQueue(); } catch(e) {}
+      // 未送信の編集（日付クリア・名前変更など）を消化
+      try { flushNotionEditQueue(); } catch(e) {}
+      // 変更検知の基準シグネチャを初期化（これ以降の編集を確実に拾う）
+      try { checkDirtyAndQueue(); } catch(e) {}
       // 繰り返しテンプレを全端末で共有：起動時に最新を取り込む
       try { tplCloudPull(); } catch(e) {}
       const _canNotion = (notionSettings.token || notionSettings.managed) && notionSettings.dbId;
@@ -6270,12 +6434,11 @@
       if (taskHasProject(t)) return false;
       if (t._type === 'later') return true;
       if (t._type === 'time') {
+        // 普通の（1回きりの）タスクは、過去日でも「あとで」に出す（日数制限はかけない）。
+        // 直近○日の制限をかけるのは繰り返し/ルーチンだけ、という仕様。
         try {
           const td = new Date(t['(A)実行日'].start); td.setHours(0,0,0,0);
-          if (td >= today0) return false;                 // 当日・未来は対象外
-          // 直近のものだけ「あとで」に載せる（古すぎる期限切れは除外）
-          const daysAgo = Math.round((today0 - td) / 86400000);
-          return daysAgo <= LATE_OVERDUE_WINDOW_DAYS;
+          return td < today0;
         } catch(e) { return false; }
       }
       if (t._type === 'repeat') {
@@ -14969,6 +15132,8 @@
     try { await flushNotionArchiveQueue(); } catch(e) {}
     // 保留中の完了(done)も消化しておく
     try { await flushNotionDoneQueue(); } catch(e) {}
+    // 保留中の編集（日付クリア等）も消化
+    try { await flushNotionEditQueue(); } catch(e) {}
 
     const logEl = document.getElementById('notionSyncLog');
     const appendLog = msg => {
@@ -15127,13 +15292,17 @@
 
   // --- プロパティ変更をNotionに送る ---
   async function notionUpdateTask(notionId, task) {
-    if (!notionId || !notionLinked()) return;
+    if (!notionId) return;
+    // 未接続なら送らずキューへ（次に繋がった時に最新内容で再送）
+    if (!notionLinked()) { enqueueNotionEdit(notionId); return; }
     try {
       await notionApiCall(`/pages/${notionId}`, 'PATCH', {
         properties: taskToNotionProps(task)
       });
+      dequeueNotionEdit(notionId);                 // 成功→キューに残っていれば消す
     } catch(e) {
       console.error('Notion更新失敗', e);
+      enqueueNotionEdit(notionId);                 // 失敗→キューへ（次回再送）
     }
   }
 
