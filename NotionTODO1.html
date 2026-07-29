@@ -14544,9 +14544,13 @@
     // managed=true のときは Worker 側がトークンを注入するため、ブラウザ側トークンは不要
     if (!token && !notionSettings.managed) throw new Error('Notion Tokenが未設定です');
 
-    // ★セーフモード中は書き込みを行わない（読み取りだけ通す）
+    // ★セーフモード中は「書き込み」だけブロックする。
+    //   ただし Notion のデータ取得は POST /databases/{id}/query で行うため、query は許可する。
+    //   ブロック対象＝ページ作成/更新(pages への POST/PATCH)・削除(DELETE)など実際の書き込み。
     const _m = (method || 'GET').toUpperCase();
-    if (window.SAFE_MODE && _m !== 'GET') {
+    const _isQuery = /\/query(\?|$)/.test(path) || /\/databases\/[^/]+\/query/.test(path);
+    const _isRead = (_m === 'GET') || (_m === 'POST' && _isQuery);
+    if (window.SAFE_MODE && !_isRead) {
       if (typeof dbg === 'function') dbg('SAFE_MODE: skip write', _m, path);
       return { _safeModeSkipped: true };   // 呼び出し側がエラーにならないようダミーを返す
     }
