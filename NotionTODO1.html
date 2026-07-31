@@ -14343,6 +14343,9 @@
     // 開始日時 / 終了日時 は書き込み可能な Date プロパティ（Notionの開始/終了ボタンが入れていたもの）
     start:    '(c)開始日時',
     end:      '(c)終了日時',
+    // 繰り返し/習慣インスタンスの「テンプレ紐づけ」保存用テキストプロパティ。
+    // "templateId|YYYY-MM-DD" を書き込み、往復しても _habitTemplateId/_habitDate が消えないようにする（複製防止）。
+    dedup:    '重複防止',
     // 実働分: 休止を除いた正味作業分を書き込む任意の Number プロパティ（無ければ空のまま＝書き込まない）
     netmin:   '',
     // 以下は Notion 側の formula（読み取り専用・アプリは書き込まない。表示にのみ使う）
@@ -14796,7 +14799,22 @@
       _repeatConfig: null,
       _legacyTags: [],
       _source: 'notion',
+      // 重複防止プロパティ("templateId|YYYY-MM-DD")からテンプレ紐づけを復元
+      ..._restoreDedup(readPlainText(getProp('dedup'))),
     };
+  }
+
+  // "templateId|YYYY-MM-DD" を { _habitTemplateId, _habitDate } に戻す（空なら何も付けない）
+  function _restoreDedup(sig){
+    try{
+      if(!sig) return {};
+      var parts=String(sig).split('|');
+      var tid=parts[0]||''; var hd=parts[1]||'';
+      var out={};
+      if(tid) out._habitTemplateId=tid;
+      if(hd)  out._habitDate=hd;
+      return out;
+    }catch(e){ return {}; }
   }
 
   // --- ローカルタスクをNotionプロパティ形式に変換 ---
@@ -14845,6 +14863,15 @@
     // URL
     if (task['(e)URL']) {
       result[props.url] = { url: task['(e)URL'] };
+    }
+
+    // 重複防止: 繰り返し/習慣インスタンスの紐づけ（"templateId|YYYY-MM-DD"）を保存。
+    // 往復しても _habitTemplateId/_habitDate を復元できるので、別端末での二重生成を防ぐ。
+    if (props.dedup) {
+      const _tid = task._habitTemplateId || '';
+      const _hd  = task._habitDate || (task['(A)実行日'] && task['(A)実行日'].start ? String(task['(A)実行日'].start).substring(0,10) : '');
+      const _sig = _tid ? (_tid + '|' + _hd) : '';
+      result[props.dedup] = { rich_text: _sig ? [{ text: { content: _sig } }] : [] };
     }
 
     return result;
