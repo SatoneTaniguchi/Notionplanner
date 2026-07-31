@@ -10657,26 +10657,48 @@
     return allCreated;
   }
 
-  // インスタンスをNotionへ登録（通常タスクとして）
+  // インスタンスをNotionへ登録（1件ずつ間隔をあけて送る＝レート制限で落ちないように）
+  const _instPushQueue = [];
+  let _instPushRunning = false;
+  async function _drainInstPushQueue() {
+    if (_instPushRunning) return;
+    _instPushRunning = true;
+    try {
+      while (_instPushQueue.length) {
+        if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) break;
+        const inst = _instPushQueue.shift();
+        if (!inst || inst._notionId) continue;
+        inst._notionPushing = true;
+        try {
+          const page = await notionApiCall('/pages', 'POST', {
+            parent: { database_id: notionSettings.dbId },
+            properties: taskToNotionProps(inst),
+          });
+          if (page && page._safeModeSkipped) { delete inst._notionPushing; break; } // セーフモード中は書かない
+          inst._notionId = page.id;
+          inst._source = 'notion';
+          delete inst._notionPushing;
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+        } catch (e) {
+          delete inst._notionPushing;
+          inst._instPushFails = (inst._instPushFails || 0) + 1;
+          console.error('習慣インスタンスNotion登録失敗', e);
+          if (inst._instPushFails <= 5) {
+            _instPushQueue.push(inst); // 末尾に戻して後で再試行
+          } else {
+            window._habitSyncErrors = window._habitSyncErrors || [];
+            window._habitSyncErrors.push({ name: inst.name, date: inst._habitDate || (inst['(A)実行日'] && inst['(A)実行日'].start), error: String(e && e.message || e) });
+          }
+        }
+        await new Promise(r => setTimeout(r, 400)); // レート制限回避の間隔
+      }
+    } finally { _instPushRunning = false; }
+  }
   function pushHabitInstanceToNotion(inst) {
     if (!inst || inst._notionId || inst._notionPushing) return;
     if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) return;
-    inst._notionPushing = true;
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-    notionApiCall('/pages', 'POST', {
-      parent: { database_id: notionSettings.dbId },
-      properties: taskToNotionProps(inst),
-    }).then(page => {
-      inst._notionId = page.id;
-      inst._source = 'notion';
-      delete inst._notionPushing;
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-    }).catch(e => {
-      delete inst._notionPushing;
-      console.error('習慣インスタンスNotion登録失敗', e);
-      window._habitSyncErrors = window._habitSyncErrors || [];
-      window._habitSyncErrors.push({ name: inst.name, date: inst._habitDate || (inst['(A)実行日']&&inst['(A)実行日'].start), error: String(e && e.message || e) });
-    });
+    if (_instPushQueue.indexOf(inst) === -1) _instPushQueue.push(inst);
+    _drainInstPushQueue();
   }
 
   // デバッグ: 未登録の習慣タスクを数え、強制的にNotion登録を試みる。結果を画面に表示。
