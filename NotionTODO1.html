@@ -10663,6 +10663,27 @@
     });
     log('② Notion実物: ' + notionTasks.length + '件（紐づけ情報あり: ' + Object.keys(dedupMap).length + '件）');
 
+    // 非ルーチンの繰り返し（仕事の曜日指定など）は、実体化していないとインスタンスが無く登録対象にならない。
+    // ここで前後 HABIT_*_DAYS ぶんを曜日どおりに生成しておく（_repeatOccursOnDay は daysOfWeek 対応）。
+    try {
+      const _t0 = new Date(); _t0.setHours(0,0,0,0);
+      const _s = new Date(_t0); _s.setDate(_t0.getDate() - HABIT_PAST_DAYS);
+      const _e = new Date(_t0); _e.setDate(_t0.getDate() + HABIT_FUTURE_DAYS);
+      const _reptpls = (tasks||[]).filter(t => t && t._type === 'repeat' && !isRoutineKind(t) && !t._habitTemplateId);
+      let _made = 0;
+      _reptpls.forEach(tpl => {
+        let cur = new Date(_s);
+        while (cur <= _e) {
+          if (_repeatOccursOnDay(tpl, cur)) {
+            const ds = ymd(cur);
+            if (!hasInstanceForRepeat(tpl, ds)) { tasks.push(_makeRepeatInstance(tpl, ds)); _made++; }
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+      });
+      if (_made > 0) { localStorage.setItem('tasks', JSON.stringify(tasks)); log('・繰り返し(曜日指定など)を展開: ' + _made + '件生成'); }
+    } catch(e) { log('展開スキップ: ' + ((e&&e.message)||e)); }
+
     const insts = tasks.filter(t => t && t._habitTemplateId && t._type !== 'repeat' && t._type !== 'repeat_ended');
     let ghosts = 0, relinked = 0, needReg = 0;
     insts.forEach(t => {
