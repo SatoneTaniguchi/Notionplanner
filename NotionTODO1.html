@@ -14624,7 +14624,7 @@
   // セーフモード: Notionへの書き込み(POST/PATCH/DELETE)を全面ブロックし、読み取り(GET)のみ許可する。
   // 複製などの不整合が起きた端末で、Notionを汚さずに状態確認・復元するための保険。
   // 復旧後に window.SAFE_MODE=false（またはこの行を false に）すれば通常動作に戻る。
-  window.SAFE_MODE = (window.SAFE_MODE !== undefined) ? window.SAFE_MODE : true;
+  window.SAFE_MODE = (window.SAFE_MODE !== undefined) ? window.SAFE_MODE : false;
 
   async function notionApiCall(path, method, body) {
     const token = notionSettings.token;
