@@ -10458,6 +10458,22 @@
 
   // テンプレートから個別インスタンスを生成（不足分のみ追加）
   // 戻り値: 新規生成したインスタンス配列
+  // 時刻つき実行日 {start,end} を安全に組み立てる。
+  //  ・終了が深夜0時をまたぐ場合は終了日を翌日に繰り上げる（Notionの "start must be before end" 対策）
+  //  ・所要0分でも最低1分後にして start<end を保証する
+  function _buildTimedJisseki(ds, startHHMM, durMin){
+    const pad = n => String(n).padStart(2,'0');
+    const parts = String(startHHMM || '07:00').split(':').map(Number);
+    const sh = parts[0] || 0, sm = parts[1] || 0;
+    const startMin = sh*60 + sm;
+    const endMinTotal = startMin + Math.max(1, Math.round(durMin || 0));
+    let endDs = ds;
+    const off = Math.floor(endMinTotal / 1440);
+    if (off > 0) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + off); endDs = ymd(d); }
+    const eMin = endMinTotal % 1440;
+    return { start: `${ds}T${pad(sh)}:${pad(sm)}`, end: `${endDs}T${pad(Math.floor(eMin/60))}:${pad(eMin%60)}` };
+  }
+
   function expandHabitTemplate(template) {
     if (!template || !isRoutineKind(template) || template._type !== 'repeat') return [];
     const rc = template._repeatConfig || {};
@@ -10486,16 +10502,9 @@
           if (allDay) {
             jisseki = { start: ds, end: ds };
           } else {
-            // 時刻つき: ds(YYYY-MM-DD) + time(HH:MM) から開始・終了を組み立て
-            const pad = n => n.toString().padStart(2,'0');
-            const [sh, sm] = (time || '07:00').split(':').map(Number);
+            // 時刻つき: ds(YYYY-MM-DD) + time(HH:MM) から開始・終了を組み立て（深夜またぎ対応）
             const durMin = Math.round((template['(C)見込み/h'] || 0) * 60);
-            const endMin = sh*60 + sm + durMin;
-            const eh = Math.floor(endMin/60) % 24, em = endMin % 60;
-            jisseki = {
-              start: `${ds}T${pad(sh)}:${pad(sm)}`,
-              end:   `${ds}T${pad(eh)}:${pad(em)}`
-            };
+            jisseki = _buildTimedJisseki(ds, time, durMin);
           }
           const inst = {
             id: 'habit_' + template.id + '_' + ds,
@@ -10566,12 +10575,8 @@
     let jisseki;
     if (allDay) { jisseki = { start: ds, end: ds }; }
     else {
-      const pad = n => String(n).padStart(2, '0');
-      const parts = String(rc.time || '09:00').split(':').map(Number);
-      const sh = parts[0] || 9, sm = parts[1] || 0;
       const durMin = Math.round((tpl['(C)見込み/h'] || 0) * 60);
-      const endMin = sh * 60 + sm + durMin, eh = Math.floor(endMin / 60) % 24, em = endMin % 60;
-      jisseki = { start: `${ds}T${pad(sh)}:${pad(sm)}`, end: `${ds}T${pad(eh)}:${pad(em)}` };
+      jisseki = _buildTimedJisseki(ds, (rc.time || '09:00'), durMin);
     }
     return {
       id: 'rep_' + tpl.id + '_' + ds,
@@ -11003,10 +11008,7 @@
       if (rc.allDay) {
         newJisseki = { start: ds, end: ds };
       } else {
-        const [sh, sm] = (rc.time || '07:00').split(':').map(Number);
-        const endMin = sh*60 + sm + durMin;
-        const eh = Math.floor(endMin/60) % 24, em = endMin % 60;
-        newJisseki = { start: `${ds}T${pad(sh)}:${pad(sm)}`, end: `${ds}T${pad(eh)}:${pad(em)}` };
+        newJisseki = _buildTimedJisseki(ds, (rc.time || '07:00'), durMin);
       }
       const cur = t['(A)実行日'] || {};
       if (cur.start !== newJisseki.start || cur.end !== newJisseki.end) {
