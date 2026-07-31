@@ -10689,6 +10689,21 @@
         for (let i = 0; i < toReg.length; i++) {
           const t = toReg[i];
           if (t._notionId) { continue; }
+          // 送信前に、実行日が壊れている(開始>=終了 等)なら組み直す。
+          try {
+            const j = t['(A)実行日'];
+            if (j && j.start && j.end && !t._allDay) {
+              const s = new Date(j.start), e = new Date(j.end);
+              if (!(s < e)) {
+                // テンプレの所要から作り直す（深夜またぎ対応の _buildTimedJisseki を使用）
+                const tpl = tasks.find(x => x.id === t._habitTemplateId);
+                const durMin = Math.round(((tpl && tpl['(C)見込み/h']) || t['(C)見込み/h'] || 0) * 60);
+                const ds = (t._habitDate || String(j.start).substring(0,10));
+                const startHHMM = String(j.start).substring(11,16) || '07:00';
+                t['(A)実行日'] = _buildTimedJisseki(ds, startHHMM, durMin);
+              }
+            }
+          } catch(_e) {}
           try {
             const page = await notionApiCall('/pages', 'POST', {
               parent: { database_id: notionSettings.dbId },
@@ -14758,11 +14773,19 @@
   function jissekiToNotionDate(jisseki) {
     if (!jisseki || !jisseki.start) return null;
     const startN = localDateStrToNotion(jisseki.start);
-    const endN   = jisseki.end ? localDateStrToNotion(jisseki.end) : null;
+    let endN     = jisseki.end ? localDateStrToNotion(jisseki.end) : null;
+    // 保険: 終了が開始より後でない（同一 or 逆転）なら end を送らない。
+    // これで "start date must be before end" のエラーをどの経路でも防ぐ。
+    if (endN) {
+      try {
+        const sT = new Date(jisseki.start).getTime();
+        const eT = new Date(jisseki.end).getTime();
+        if (!(eT > sT)) endN = null;
+      } catch(_e) { if (endN === startN) endN = null; }
+    }
     return {
       start: startN,
-      // start と end が同一日時なら end を送らない（Notion上の 今日→今日 表記を防ぐ）
-      end:   (endN && endN !== startN) ? endN : null,
+      end:   endN,
     };
   }
 
