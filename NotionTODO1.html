@@ -10677,9 +10677,32 @@
     if (needReg > 0) {
       if (window.SAFE_MODE) { log('⚠️ セーフモードON中は登録できません。window.SAFE_MODE を false にして再実行してください。'); }
       else {
-        log('④ 未登録 ' + needReg + '件を1件ずつ登録中…（件数が多いと数分かかります）');
-        insts.filter(t => !t._notionId).forEach(t => pushHabitInstanceToNotion(t));
-        log('登録キューに投入しました。Notionで増えていくか確認してください。');
+        const toReg = insts.filter(t => !t._notionId);
+        log('④ 未登録 ' + toReg.length + '件を1件ずつ登録します…');
+        const props = notionSettings.props || NOTION_PROP_DEFAULT;
+        let ok = 0, ng = 0;
+        for (let i = 0; i < toReg.length; i++) {
+          const t = toReg[i];
+          if (t._notionId) { continue; }
+          try {
+            const page = await notionApiCall('/pages', 'POST', {
+              parent: { database_id: notionSettings.dbId },
+              properties: taskToNotionProps(t),
+            });
+            if (page && page._safeModeSkipped) { log('  ✕ セーフモードで送信されませんでした'); break; }
+            t._notionId = page.id; t._source = 'notion';
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            ok++;
+            if (ok <= 3 || ok % 10 === 0) log('  ✓ ' + ok + '件目 登録: ' + (t.name || '') + ' (' + (t._habitDate || '') + ')');
+          } catch(e) {
+            ng++;
+            const msg = String((e && e.message) || e || '');
+            if (ng <= 8) log('  ✕ 失敗: ' + (t.name || '') + ' → ' + msg.slice(0, 60));
+          }
+          await new Promise(r => setTimeout(r, 400));
+        }
+        log('完了: 登録 ' + ok + '件 / 失敗 ' + ng + '件');
+        if (ng > 0) log('※ 失敗が多い場合は Notion/Worker の通信不良です。少し待って再実行してください。');
       }
     } else {
       log('④ 未登録なし。すべてNotionと一致しています。');
