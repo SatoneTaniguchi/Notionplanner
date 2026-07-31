@@ -3205,6 +3205,14 @@
       </button>
       <div id="materializeLog" style="background:#eef7f2;border-radius:12px;padding:12px;font-size:12px;color:#2c6b52;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">まだ実行していません</div>
 
+      <!-- Notionと突き合わせて習慣/繰り返しを修復（幽霊登録の直し・重複を作らず再登録） -->
+      <button onclick="reconcileInstancesWithNotion()" style="
+        width:100%;background:#0369a1;color:#fff;border:none;border-radius:14px;
+        padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+        <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg> Notionと突き合わせて習慣/繰り返しを修復
+      </button>
+      <div id="reconcileLog" style="background:#e6f2f9;border-radius:12px;padding:12px;font-size:12px;color:#0369a1;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">まだ実行していません</div>
+
       <!-- 習慣タスクをNotionへ強制登録（デバッグ/救済用） -->
       <button onclick="debugSyncHabitsToNotion()" style="
         width:100%;background:#6c5ce7;color:#fff;border:none;border-radius:14px;
@@ -10625,6 +10633,60 @@
     log('完了。数十秒後にNotion側をご確認ください。重複が見えたら「⬆️ 読み込む」でバックアップから戻せます。');
   }
   window.materializeRepeatsToNotion = materializeRepeatsToNotion;
+
+  // Notionと突き合わせて習慣/繰り返しインスタンスを修復する。
+  //  ・幽霊登録(ローカルは_notionIdありだがNotionに実物なし)→ _notionIdをクリアして再登録対象に
+  //  ・Notionに実物あり(重複防止 or 名前+日付で一致)→ そのページにリンク(重複作成しない)
+  //  ・未登録→ 1件ずつ登録(レート制限対応)
+  async function reconcileInstancesWithNotion() {
+    if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) { alert('Notion設定を先に保存してください'); return; }
+    const logEl = document.getElementById('reconcileLog');
+    const log = m => { if (logEl) logEl.textContent = (logEl.textContent === 'まだ実行していません' ? '' : logEl.textContent) + m + '\n'; };
+    if (logEl) logEl.textContent = '';
+    log('① Notionから全件取得中…');
+    let notionTasks;
+    try { notionTasks = await notionFetchTasks(); } catch(e){ log('取得エラー: ' + ((e&&e.message)||e)); return; }
+    if (!Array.isArray(notionTasks)) { log('取得に失敗しました'); return; }
+
+    const notionIdSet = new Set(notionTasks.map(t => t._notionId));
+    const dedupMap = {};     // "tid|date" -> notionId（重複防止プロパティ由来）
+    const nameDateMap = {};  // "name|date" -> notionId（フォールバック）
+    notionTasks.forEach(t => {
+      const d = (t['(A)実行日'] && t['(A)実行日'].start) ? t['(A)実行日'].start.substring(0,10) : (t._habitDate || '');
+      if (t._habitTemplateId && (t._habitDate || d)) dedupMap[t._habitTemplateId + '|' + (t._habitDate || d)] = t._notionId;
+      if (d) nameDateMap[String(t.name||'').trim() + '|' + d] = t._notionId;
+    });
+    log('② Notion実物: ' + notionTasks.length + '件（紐づけ情報あり: ' + Object.keys(dedupMap).length + '件）');
+
+    const insts = tasks.filter(t => t && t._habitTemplateId && t._type !== 'repeat' && t._type !== 'repeat_ended');
+    let ghosts = 0, relinked = 0, needReg = 0;
+    insts.forEach(t => {
+      const d = t._habitDate || (t['(A)実行日'] && t['(A)実行日'].start ? t['(A)実行日'].start.substring(0,10) : '');
+      const sig = t._habitTemplateId + '|' + d;
+      const hit = dedupMap[sig] || nameDateMap[String(t.name||'').trim() + '|' + d];
+      if (hit) {
+        if (t._notionId !== hit) { t._notionId = hit; t._source = 'notion'; relinked++; }  // 実物にリンク
+      } else if (t._notionId && !notionIdSet.has(t._notionId)) {
+        t._notionId = null; delete t._notionPushing; ghosts++;   // 幽霊→クリア
+      }
+      if (!t._notionId) needReg++;
+    });
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    log('③ 幽霊クリア: ' + ghosts + '件 / 実物に再リンク: ' + relinked + '件 / 未登録: ' + needReg + '件');
+
+    if (needReg > 0) {
+      if (window.SAFE_MODE) { log('⚠️ セーフモードON中は登録できません。window.SAFE_MODE を false にして再実行してください。'); }
+      else {
+        log('④ 未登録 ' + needReg + '件を1件ずつ登録中…（件数が多いと数分かかります）');
+        insts.filter(t => !t._notionId).forEach(t => pushHabitInstanceToNotion(t));
+        log('登録キューに投入しました。Notionで増えていくか確認してください。');
+      }
+    } else {
+      log('④ 未登録なし。すべてNotionと一致しています。');
+    }
+    try { notifyTasksChanged(); } catch(e){}
+  }
+  window.reconcileInstancesWithNotion = reconcileInstancesWithNotion;
 
   // 全テンプレートを展開（起動時の補充用）し、新規分をNotionへPush
   function expandAllHabitsAndSync() {
