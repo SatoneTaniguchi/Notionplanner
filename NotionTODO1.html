@@ -3170,6 +3170,14 @@
         <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg> タイトル＋期間でまとめて削除
       </button>
 
+      <!-- テンプレ(繰り返し/ルーチン定義)の端末間同期。別端末でルーチン/繰り返しが出ない時に使う -->
+      <div style="border:1px solid #d8d8de;border-radius:14px;padding:12px;margin-bottom:12px;background:#fafafa;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:6px;">繰り返し/ルーチンのテンプレ同期</div>
+        <button onclick="tplForcePull()" style="width:100%;background:#1c1c1e;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">⬇️ テンプレをWorkerから取得（この端末に反映）</button>
+        <button onclick="tplCloudPush(true)" style="width:100%;background:#fff;color:#1c1c1e;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">⬆️ テンプレをWorkerへ送信（この端末を元に）</button>
+        <div id="tplPullLog" style="background:#eef;border-radius:10px;padding:10px;font-size:12px;color:#334;min-height:32px;white-space:pre-wrap;line-height:1.6;margin-top:8px;">まだ実行していません</div>
+      </div>
+
       <!-- ★セーフモード＆復旧（複製が起きた端末の安全な立て直し用） -->
       <div style="border:1.5px solid #ef4444;border-radius:14px;padding:12px;margin-bottom:12px;background:#fff5f5;">
         <div style="font-size:13px;font-weight:800;color:#b91c1c;margin-bottom:4px;">🛟 セーフモード（Notionへの書き込みを停止中）</div>
@@ -4501,20 +4509,22 @@
       var localHash=_tplHash(_collectTemplates());
       var noLocalChanges = (meta.syncedHash===localHash);
       var remoteNewer = (blob.updatedAt||0) > (meta.syncedAt||0);
-      if(!remoteNewer) return;
       var changed=false;
-      if(noLocalChanges && blob.templates.length>0){
-        // 未送信のローカル変更なし & リモートが空でない → 権威的に置き換え（削除も反映）
+      if(remoteNewer && noLocalChanges && blob.templates.length>0){
+        // 未送信のローカル変更なし & リモートが新しい → 権威的に置き換え（削除も反映）
         _applyTemplatesAuthoritative(blob.templates);
         changed=true;
-        meta.syncedAt=blob.updatedAt; meta.syncedHash=_tplHash(_collectTemplates()); _saveTplMeta(meta);
       } else {
-        // ローカルに未送信変更あり or リモートが空 → 消さずに不足分だけ取り込む（安全側）
+        // それ以外でも「リモートに有ってローカルに無いテンプレ」は常に追加する（取り込み漏れ防止）
         var before=_collectTemplates().length;
         _mergeAddTemplates(blob.templates);
         changed = (_collectTemplates().length!==before);
-        if(changed) tplCloudPush(true);       // マージ結果をローカル優先で押し上げ
+        if(changed && noLocalChanges===false) { try{ tplCloudPush(true); }catch(e){} } // ローカル変更があればマージ結果を押し上げ
       }
+      // メタは常に最新化（次回の判定用）
+      meta.syncedAt = Math.max(meta.syncedAt||0, blob.updatedAt||0);
+      meta.syncedHash = _tplHash(_collectTemplates());
+      _saveTplMeta(meta);
       if(changed){
         localStorage.setItem('tasks', JSON.stringify(tasks));
         try{ if(typeof expandAllHabitsAndSync==='function') expandAllHabitsAndSync(); }catch(e){}
@@ -4523,6 +4533,32 @@
     }catch(e){ dbg('tplCloudPull failed', e); }
   }
   window.tplCloudPull = tplCloudPull;
+
+  // 手動: Workerからテンプレを強制取得してローカルに反映（別端末でルーチン/繰り返しを出すため）
+  async function tplForcePull(){
+    const logEl = document.getElementById('tplPullLog');
+    const log = m => { if (logEl) logEl.textContent = (logEl.textContent === 'まだ実行していません' ? '' : logEl.textContent) + m + '\n'; };
+    if (logEl) logEl.textContent = '';
+    if (!(notionSettings.token || notionSettings.managed)) { log('Notion未接続です'); return; }
+    try {
+      log('Workerからテンプレ取得中…');
+      const r = await fetch(_tplSyncUrl(), { method:'GET', headers:_tplAuthHeaders() });
+      if (!r.ok) { log('取得失敗: HTTP ' + r.status + '（Workerの /state/templates を確認）'); return; }
+      const blob = await r.json();
+      if (!blob || !Array.isArray(blob.templates)) { log('テンプレが空/形式不正'); return; }
+      log('Worker上のテンプレ: ' + blob.templates.length + '件');
+      const before = _collectTemplates().length;
+      _mergeAddTemplates(blob.templates);          // 無いものだけ追加（重複しない）
+      const after = _collectTemplates().length;
+      const meta = _tplMeta(); meta.syncedAt = blob.updatedAt; meta.syncedHash = _tplHash(_collectTemplates()); _saveTplMeta(meta);
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      log('ローカルのテンプレ: ' + before + '件 → ' + after + '件（+' + (after - before) + '）');
+      try { if (typeof expandAllHabitsAndSync === 'function') expandAllHabitsAndSync(); } catch(e){}
+      try { notifyTasksChanged(); } catch(e){}
+      log('完了。ルーチン/繰り返し画面に出るか確認してください。');
+    } catch(e) { log('エラー: ' + ((e && e.message) || e)); }
+  }
+  window.tplForcePull = tplForcePull;
 
   var _tplPushTimer=null;
   function tplCloudPush(immediate){
@@ -4549,6 +4585,23 @@
   // 他端末から戻ってきたら最新を取り込む
   try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') tplCloudPull(); }); }catch(e){}
   try{ window.addEventListener('online', function(){ tplCloudPull(); }); }catch(e){}
+  // 追加: アプリに戻ったとき（iOS PWA/Safari は visibilitychange を取りこぼすことがある）
+  try{ window.addEventListener('focus', function(){ tplCloudPull(); }); }catch(e){}
+  try{ window.addEventListener('pageshow', function(){ tplCloudPull(); }); }catch(e){}
+  // 追加: 定期自動同期（両端末を開いたままでもルーチン/繰り返しが自動で揃う）
+  //   ・表示中 かつ オンライン のときだけ実行（無駄な通信を避ける）
+  //   ・tplCloudPull 内でハッシュ比較しているため、変化が無ければ実質何もしない（安全）
+  //   ・未接続なら関数側で即return
+  try{
+    var TPL_AUTO_SYNC_MS = 60000; // 60秒ごと
+    setInterval(function(){
+      try{
+        if (document.visibilityState !== 'visible') return;
+        if (navigator.onLine === false) return;
+        tplCloudPull();
+      }catch(e){ dbg('tpl auto sync tick failed', e); }
+    }, TPL_AUTO_SYNC_MS);
+  }catch(e){ dbg('tpl auto sync setup failed', e); }
 
   // ============================================================
   // 追加(A): Notion削除アウトボックス（削除の取りこぼし防止）
