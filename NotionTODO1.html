@@ -4488,15 +4488,68 @@
   function _tplMeta(){ try{ return JSON.parse(localStorage.getItem('tplSyncMeta')||'{}')||{}; }catch(e){ return {}; } }
   function _saveTplMeta(m){ try{ localStorage.setItem('tplSyncMeta', JSON.stringify(m||{})); }catch(e){} }
 
+  // テンプレの内容キー（idが違っても“同一ルーチン”かを判定）。
+  //  同名 × 同種(習慣/掃除/美容) × 同型(repeat/repeat_ended) × 同スケジュール を同一とみなす。
+  function _tplContentKey(t){
+    try{
+      return String((t&&t.name)||'').trim()
+        + '|' + ((t&&t['(B)種類'])||'')
+        + '|' + ((t&&t._type)||'')
+        + '|' + JSON.stringify((t&&t._repeatConfig)||null);
+    }catch(e){ return String((t&&t.name)||'')+'|'+((t&&t._type)||''); }
+  }
   function _applyTemplatesAuthoritative(remote){
-    // ローカルのテンプレのみ入れ替え（テンプレ以外は保持）
+    // ローカルのテンプレのみ入れ替え（テンプレ以外は保持）。remote内の内容重複は1つに畳む。
     tasks = (tasks||[]).filter(function(t){ return !_isTpl(t); });
-    remote.forEach(function(t){ if(t && t.id) tasks.push(t); });
+    var seen={};
+    remote.forEach(function(t){
+      if(!(t && t.id)) return;
+      var k=_tplContentKey(t);
+      if(seen[k]) return;         // 同一内容のテンプレは1つだけ採用（重複復活の元を断つ）
+      seen[k]=1; tasks.push(t);
+    });
   }
   function _mergeAddTemplates(remote){
-    var have={}; _collectTemplates().forEach(function(t){ have[t.id]=1; });
-    remote.forEach(function(t){ if(t && t.id && !have[t.id]) tasks.push(t); });
+    var haveId={}, haveKey={};
+    _collectTemplates().forEach(function(t){ haveId[t.id]=1; haveKey[_tplContentKey(t)]=1; });
+    remote.forEach(function(t){
+      if(!(t && t.id)) return;
+      if(haveId[t.id]) return;                 // 同一idは既に保持
+      var k=_tplContentKey(t);
+      if(haveKey[k]) return;                    // 同一内容のテンプレが既にある → 重複追加しない
+      haveId[t.id]=1; haveKey[k]=1; tasks.push(t);
+    });
   }
+
+  // ローカルに溜まった「同一内容の重複テンプレ」を1つに統合する（三重増殖の根本対策）。
+  //  ・敗者テンプレに紐づくインスタンスの _habitTemplateId を勝者へ付け替え
+  //  ・敗者テンプレはローカルから除去（テンプレはNotionへ出さない設計なのでアーカイブ不要）
+  //  ・戻り値: 統合で消したテンプレ数
+  function dedupeRoutineTemplates(){
+    var groups={};
+    (tasks||[]).forEach(function(t){
+      if(!_isTpl(t)) return;
+      var k=_tplContentKey(t);
+      (groups[k]=groups[k]||[]).push(t);
+    });
+    var removeIds={}; var remap={}; var dup=false, n=0;
+    Object.keys(groups).forEach(function(k){
+      var g=groups[k]; if(g.length<2) return;
+      dup=true;
+      // 勝者: Notionリンク済を優先、なければ先着
+      var winner=g.slice().sort(function(a,b){ return (b._notionId?1:0)-(a._notionId?1:0); })[0];
+      g.forEach(function(t){ if(t!==winner){ removeIds[t.id]=1; remap[t.id]=winner.id; n++; } });
+    });
+    if(!dup) return 0;
+    (tasks||[]).forEach(function(t){
+      if(t._habitTemplateId && remap[t._habitTemplateId]){ t._habitTemplateId=remap[t._habitTemplateId]; }
+    });
+    tasks=(tasks||[]).filter(function(t){ return !removeIds[t.id]; });
+    try{ localStorage.setItem('tasks', JSON.stringify(tasks)); }catch(e){}
+    try{ if(typeof tplCloudPush==='function') tplCloudPush(false); }catch(e){} // 掃除後の集合をWorkerへ反映
+    return n;
+  }
+  window.dedupeRoutineTemplates = dedupeRoutineTemplates;
 
   async function tplCloudPull(){
     if(!(notionSettings.token || notionSettings.managed)) return;
@@ -4527,6 +4580,9 @@
       _saveTplMeta(meta);
       if(changed){
         localStorage.setItem('tasks', JSON.stringify(tasks));
+        // 取得直後に重複を掃除してから展開する（同期経由での再増殖を止める）
+        try{ if(typeof dedupeRoutineTemplates==='function') dedupeRoutineTemplates(); }catch(e){}
+        try{ if(typeof cleanupHabitInstances==='function') cleanupHabitInstances(); }catch(e){}
         try{ if(typeof expandAllHabitsAndSync==='function') expandAllHabitsAndSync(); }catch(e){}
         try{ notifyTasksChanged(); }catch(e){}
       }
@@ -4550,6 +4606,8 @@
       const before = _collectTemplates().length;
       _mergeAddTemplates(blob.templates);          // 無いものだけ追加（重複しない）
       const after = _collectTemplates().length;
+      try { if (typeof dedupeRoutineTemplates === 'function') dedupeRoutineTemplates(); } catch(e){}
+      try { if (typeof cleanupHabitInstances === 'function') cleanupHabitInstances(); } catch(e){}
       const meta = _tplMeta(); meta.syncedAt = blob.updatedAt; meta.syncedHash = _tplHash(_collectTemplates()); _saveTplMeta(meta);
       localStorage.setItem('tasks', JSON.stringify(tasks));
       log('ローカルのテンプレ: ' + before + '件 → ' + after + '件（+' + (after - before) + '）');
@@ -5241,6 +5299,8 @@
   function init() {
     renderHeader();
     // 既存データの掃除（_habitDateズレ補正・重複インスタンス統合）→ 増殖の後始末
+    // まず同一内容の重複テンプレを1つに統合してから、インスタンスの重複を掃除する。
+    try { dedupeRoutineTemplates(); } catch(e) { console.error('テンプレ重複統合エラー', e); }
     try { cleanupHabitInstances(); } catch(e) { console.error('習慣クリーンアップエラー', e); }
     // 習慣テンプレートから不足インスタンスを補充（過去2週〜未来2週）
     try { expandAllHabitsAndSync(); } catch(e) { console.error('習慣展開エラー', e); }
@@ -10547,7 +10607,21 @@
           t['(A)実行日'] && t['(A)実行日'].start &&
           t['(A)実行日'].start.substring(0,10) === ds
         );
-        if (!existsByHabitDate && !existsByDisplayDate) {
+        // テンプレIDに依存しない内容照合：同名ルーチンが同日に既にあれば新規作成しない。
+        //  Notion往復で _habitTemplateId が失われたコピーや、同名の重複テンプレによる
+        //  二重・三重生成を根本から防ぐ。
+        const _tplNm = String(template.name || '').trim();
+        const existsByContent = tasks.some(t =>
+          t !== template &&
+          t._type !== 'repeat' && t._type !== 'repeat_ended' &&
+          isRoutineKind(t) &&
+          String(t.name || '').trim() === _tplNm &&
+          (
+            t._habitDate === ds ||
+            (t['(A)実行日'] && t['(A)実行日'].start && t['(A)実行日'].start.substring(0,10) === ds)
+          )
+        );
+        if (!existsByHabitDate && !existsByDisplayDate && !existsByContent) {
           // 時刻つきか終日かをテンプレートに合わせる
           const allDay = rc.allDay || template._allDay;
           const time = rc.time || '07:00';
@@ -11051,8 +11125,37 @@
       tasks = tasks.filter(t => !removeIds.has(t.id));
       changed = true;
     }
+    // 3) 内容ベースの重複統合（テンプレIDに依存しない）。
+    //    同名 × 同日 × 同(終日/時刻あり) のルーチンが複数あれば1つに統合する。
+    //    _habitTemplateId が無い/食い違うコピー（Notion往復・重複テンプレ由来）も対象にできる。
+    //    残す優先度: done > Notionリンク済 > テンプレ紐付きあり > 先着。
+    //    敗者がNotionにあればアーカイブして、再取得での復活を止める。
+    const seen2 = new Map();          // key: name|date|allDay -> task
+    const removeIds2 = new Set();
+    tasks.forEach(t => {
+      if (!isRoutineKind(t)) return;
+      if (t._type === 'repeat' || t._type === 'repeat_ended') return; // テンプレ本体は対象外
+      const ds = t._habitDate || ((t['(A)実行日'] && t['(A)実行日'].start) ? t['(A)実行日'].start.substring(0,10) : null);
+      if (!ds) return;
+      const key = String(t.name || '').trim() + '|' + ds + '|' + (t._allDay ? 'D' : 'T');
+      const prev = seen2.get(key);
+      if (!prev) { seen2.set(key, t); return; }
+      const score = x => (x['(A)done']?4:0) + (x._notionId?2:0) + (x._habitTemplateId?1:0);
+      const loser = score(t) > score(prev) ? prev : t;
+      const winner = loser === prev ? t : prev;
+      seen2.set(key, winner);
+      removeIds2.add(loser.id);
+      if (loser._notionId && notionLinked()) {
+        notionApiCall(`/pages/${loser._notionId}`, 'PATCH', { archived: true })
+          .catch(e => console.error('重複ルーチン削除失敗', e));
+      }
+    });
+    if (removeIds2.size) {
+      tasks = tasks.filter(t => !removeIds2.has(t.id));
+      changed = true;
+    }
     if (changed) localStorage.setItem('tasks', JSON.stringify(tasks));
-    return removeIds.size;
+    return removeIds.size + removeIds2.size;
   }
 
   function reconcileHabitInstances(template) {
@@ -15545,6 +15648,9 @@
       localStorage.setItem('tasks', JSON.stringify(_persist));
 
       // 3.5. 習慣テンプレートのインスタンスを補充し、未登録分をNotionへPush
+      //  展開の前に、Notionから取り込んだ重複（同名テンプレ由来・IDが失われたコピー）を掃除する。
+      try { dedupeRoutineTemplates(); } catch(e) {}
+      try { cleanupHabitInstances(); } catch(e) {}
       let habitCreated = 0;
       try {
         const created = expandAllHabitsAndSync();
