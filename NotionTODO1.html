@@ -2566,8 +2566,26 @@
   .challenge-cheer-ico { font-size: 24px; flex: none; }
   .challenge-cheer-msg { font-size: 13px; color: #5b586e; }
   .challenge-empty { font-size: 12px; color: #a8a5b8; text-align: center; padding: 18px 8px; line-height: 1.6; }
+  /* これまでの挑戦（履歴） */
+  .chist-wrap { margin-top: 6px; }
+  .chist-total { text-align: center; font-size: 13px; color: #8e8b9e; margin: 4px 0 10px; }
+  .chist-total b { font-size: 18px; color: #4a90e2; font-weight: 800; }
+  .chist-title { font-size: 13px; font-weight: 800; color: #6b6880; margin: 0 2px 8px; }
+  .chist-item {
+    display: flex; align-items: center; gap: 12px; background: #fff;
+    border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;
+    box-shadow: 0 1px 6px rgba(60,50,120,.04);
+  }
+  .chist-ring { width: 40px; height: 40px; flex: none; }
+  .chist-body { min-width: 0; flex: 1; }
+  .chist-name { font-size: 15px; font-weight: 700; color: #2d2b3a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chist-live { font-size: 10px; font-weight: 700; color: #34c759; background: #e7f8ec; border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+  .chist-meta { font-size: 12px; color: #a8a5b8; margin-top: 1px; }
+  .chist-range { font-size: 12px; color: #8e8b9e; margin-top: 2px; }
+  .chist-days { color: #6b6880; }
+  .chist-empty { font-size: 12px; color: #a8a5b8; text-align: center; padding: 16px 8px; line-height: 1.6; }
   .routine-view-toggle {
-    display: flex; gap: 6px; background: #efedfa; border-radius: 13px;
+    display: flex; gap: 4px; background: #efedfa; border-radius: 13px;
     padding: 3px; margin-bottom: 8px;
   }
   /* 集約コントロールバー */
@@ -2585,10 +2603,12 @@
   }
   .routine-view-toggle button {
     flex: 1; border: none; background: transparent; color: #8b88a0;
-    font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
-    padding: 7px 0; border-radius: 10px; transition: all .15s;
-    -webkit-tap-highlight-color: transparent;
+    font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+    padding: 7px 2px; border-radius: 10px; transition: all .15s;
+    -webkit-tap-highlight-color: transparent; white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; gap: 3px;
   }
+  .routine-view-toggle button .eic { width: 13px; height: 13px; flex: none; }
   .routine-view-toggle button.active {
     background: #fff; color: #6c5ce7; box-shadow: 0 2px 8px rgba(108,92,231,.18);
   }
@@ -3357,10 +3377,9 @@
 
 <!-- ===== ルーチン画面 ===== -->
 <div class="routine-screen" id="routineScreen">
-  <!-- 継続チャレンジ（単一ルーチンに集中）: トラッカー表示の最上部に出す -->
-  <div id="routineChallenge"></div>
-  <!-- 表示切替: トラッカー / 一覧・管理 -->
+  <!-- 表示切替: 継続 / トラッカー / 一覧・管理 / 繰り返し -->
   <div class="routine-view-toggle" id="routineViewToggle">
+    <button data-view="challenge" onclick="setRoutineView('challenge', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 1.5 1 2.5 2 2.5 1.2 0 1.5-1.2 1-3-.4-1.5-.4-3 0-4z"/></svg> 継続</button>
     <button class="active" data-view="tracker" onclick="setRoutineView('tracker', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V4M16 20v-6M2 20h20"/></svg> トラッカー</button>
     <button data-view="manage" onclick="setRoutineView('manage', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg> 一覧・管理</button>
     <button data-view="repeat" onclick="setRoutineView('repeat', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 繰り返し</button>
@@ -3389,6 +3408,8 @@
       </select>
     </span>
   </div>
+  <!-- 継続チャレンジ（独立タブ・全面表示） -->
+  <div id="routineChallenge"></div>
   <div id="routineList"></div>
 </div>
 
@@ -4647,10 +4668,17 @@
       var blob=await r.json();
       if(!blob || !Array.isArray(blob.templates)) return;
       var meta=_tplMeta();
-      var localHash=_tplHash(_collectTemplates());
+      var localHash=_combinedHash();
       var noLocalChanges = (meta.syncedHash===localHash);
       var remoteNewer = (blob.updatedAt||0) > (meta.syncedAt||0);
       var changed=false;
+      // チャレンジ状態の取り込み: focus/target はリモートが新しい時のみ、starts は常にマージ
+      try{
+        if(blob.challenge && typeof _applyChallengeStateFromSync==='function'){
+          var chCh = _applyChallengeStateFromSync(blob.challenge, remoteNewer);
+          if(chCh) changed=true;
+        }
+      }catch(e){}
       if(remoteNewer && noLocalChanges && blob.templates.length>0){
         // 未送信のローカル変更なし & リモートが新しい → 権威的に置き換え（削除も反映）
         _applyTemplatesAuthoritative(blob.templates);
@@ -4664,7 +4692,7 @@
       }
       // メタは常に最新化（次回の判定用）
       meta.syncedAt = Math.max(meta.syncedAt||0, blob.updatedAt||0);
-      meta.syncedHash = _tplHash(_collectTemplates());
+      meta.syncedHash = _combinedHash();
       _saveTplMeta(meta);
       if(changed){
         localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -4672,6 +4700,7 @@
         try{ if(typeof dedupeRoutineTemplates==='function') dedupeRoutineTemplates(); }catch(e){}
         try{ if(typeof cleanupHabitInstances==='function') cleanupHabitInstances(); }catch(e){}
         try{ if(typeof expandAllHabitsAndSync==='function') expandAllHabitsAndSync(); }catch(e){}
+        try{ if(typeof renderRoutineChallenge==='function') renderRoutineChallenge(); }catch(e){}
         try{ notifyTasksChanged(); }catch(e){}
       }
     }catch(e){ dbg('tplCloudPull failed', e); }
@@ -4696,7 +4725,7 @@
       const after = _collectTemplates().length;
       try { if (typeof dedupeRoutineTemplates === 'function') dedupeRoutineTemplates(); } catch(e){}
       try { if (typeof cleanupHabitInstances === 'function') cleanupHabitInstances(); } catch(e){}
-      const meta = _tplMeta(); meta.syncedAt = blob.updatedAt; meta.syncedHash = _tplHash(_collectTemplates()); _saveTplMeta(meta);
+      const meta = _tplMeta(); meta.syncedAt = blob.updatedAt; meta.syncedHash = _combinedHash(); _saveTplMeta(meta);
       localStorage.setItem('tasks', JSON.stringify(tasks));
       log('ローカルのテンプレ: ' + before + '件 → ' + after + '件（+' + (after - before) + '）');
       try { if (typeof expandAllHabitsAndSync === 'function') expandAllHabitsAndSync(); } catch(e){}
@@ -4707,16 +4736,23 @@
   window.tplForcePull = tplForcePull;
 
   var _tplPushTimer=null;
+  // テンプレ＋チャレンジ状態をまとめたハッシュ（チャレンジだけ変わっても送れるように）
+  function _combinedHash(){
+    try{ return _tplHash(_collectTemplates()) + '#' + ((typeof _challengeStateHash==='function') ? _challengeStateHash() : ''); }
+    catch(e){ return _tplHash(_collectTemplates()); }
+  }
   function tplCloudPush(immediate){
     if(!(notionSettings.token || notionSettings.managed)) return;
     var doPush=async function(){
       try{
         var list=_collectTemplates();
-        var hash=_tplHash(list);
+        var hash=_combinedHash();
         var meta=_tplMeta();
         if(meta.syncedHash===hash) return;    // 変化なし → 送らない
         var updatedAt=Date.now();
-        var r=await fetch(_tplSyncUrl(), { method:'POST', headers:_tplAuthHeaders(), body:JSON.stringify({ updatedAt:updatedAt, templates:list }) });
+        var body={ updatedAt:updatedAt, templates:list };
+        try{ if(typeof _challengeStateForSync==='function') body.challenge=_challengeStateForSync(); }catch(e){}
+        var r=await fetch(_tplSyncUrl(), { method:'POST', headers:_tplAuthHeaders(), body:JSON.stringify(body) });
         if(!r.ok){ dbg('tplCloudPush non-ok', r.status); return; }
         meta.syncedAt=updatedAt; meta.syncedHash=hash; _saveTplMeta(meta);
       }catch(e){ dbg('tplCloudPush failed', e); }
@@ -11719,6 +11755,19 @@
   let routineViewMode = 'tracker'; // 'tracker' | 'manage'
 
   function _routineApplyControlsVisibility() {
+    const challengeView = routineViewMode === 'challenge';
+    const list = document.getElementById('routineList');
+    const chal = document.getElementById('routineChallenge');
+    // 継続タブ: コントロールバーと一覧を隠し、チャレンジ枠だけ全面表示
+    if (challengeView) {
+      const bar0 = document.getElementById('routineCtrlBar');
+      if (bar0) bar0.style.display = 'none';
+      if (list) list.style.display = 'none';
+      if (chal) chal.style.display = '';
+      return;
+    }
+    if (list) list.style.display = '';
+    if (chal) chal.style.display = 'none';
     const repeatView = routineViewMode === 'repeat';
     // 繰り返しビューはルーチン用の絞り込みを一切使わないので、コントロールバーごと隠す
     const bar = document.getElementById('routineCtrlBar');
@@ -11822,7 +11871,11 @@
   function _getChallengeStarts(){ try{ return JSON.parse(localStorage.getItem(CHALLENGE_STARTS_KEY)||'{}'); }catch(e){ return {}; } }
   function ensureRoutineChallengeStart(taskId){
     const m=_getChallengeStarts();
-    if(!m[taskId]){ m[taskId]=ymd(new Date()); try{ localStorage.setItem(CHALLENGE_STARTS_KEY, JSON.stringify(m)); }catch(e){} }
+    if(!m[taskId]){
+      m[taskId]=ymd(new Date());
+      try{ localStorage.setItem(CHALLENGE_STARTS_KEY, JSON.stringify(m)); }catch(e){}
+      try{ if(typeof _pushChallengeState==='function') _pushChallengeState(); }catch(e){}  // 開始日を他端末へ共有
+    }
     return m[taskId];
   }
   // 開始日から「前方向」に、対象日(該当日)を count 個集める
@@ -11944,6 +11997,42 @@
   const CHALLENGE_FOCUS_KEY = 'challengeFocusId';
   const CHALLENGE_TARGET_KEY = 'challengeTarget';
 
+  // ── チャレンジ状態の端末間同期（テンプレ同期の blob に相乗り） ──
+  function _challengeStateForSync() {
+    return {
+      focusId: localStorage.getItem(CHALLENGE_FOCUS_KEY) || null,
+      target: getChallengeTarget(),
+      starts: _getChallengeStarts()
+    };
+  }
+  function _challengeStateHash() {
+    try { return JSON.stringify(_challengeStateForSync()); } catch(e) { return ''; }
+  }
+  // リモートのチャレンジ状態を取り込む。starts は「より早い開始日」を採用してマージ。
+  function _applyChallengeStateFromSync(remote, applyFocusTarget) {
+    if (!remote || typeof remote !== 'object') return false;
+    let changed = false;
+    if (applyFocusTarget) {
+      if (remote.focusId && remote.focusId !== localStorage.getItem(CHALLENGE_FOCUS_KEY)) {
+        localStorage.setItem(CHALLENGE_FOCUS_KEY, remote.focusId); changed = true;
+      }
+      const rt = parseInt(remote.target, 10);
+      if (rt && rt !== getChallengeTarget()) {
+        localStorage.setItem(CHALLENGE_TARGET_KEY, String(rt)); changed = true;
+      }
+    }
+    if (remote.starts && typeof remote.starts === 'object') {
+      const local = _getChallengeStarts(); let m = false;
+      Object.keys(remote.starts).forEach(k => {
+        const rv = remote.starts[k], lv = local[k];
+        if (rv && (!lv || rv < lv)) { local[k] = rv; m = true; }  // 早い方を採用
+      });
+      if (m) { try { localStorage.setItem(CHALLENGE_STARTS_KEY, JSON.stringify(local)); } catch(e){} changed = true; }
+    }
+    return changed;
+  }
+  function _pushChallengeState() { try { if (typeof tplCloudPush === 'function') tplCloudPush(false); } catch(e){} }
+
   function getChallengeTarget() {
     const n = parseInt(localStorage.getItem(CHALLENGE_TARGET_KEY) || '30', 10);
     return (isNaN(n) || n < 1) ? 30 : n;
@@ -11951,6 +12040,7 @@
   function setChallengeTarget(n) {
     const v = Math.max(1, Math.min(999, parseInt(n, 10) || 30));
     localStorage.setItem(CHALLENGE_TARGET_KEY, String(v));
+    _pushChallengeState();
     renderRoutineChallenge();
   }
   function promptChallengeTarget() {
@@ -11973,6 +12063,7 @@
   }
   function setChallengeFocus(id) {
     if (id) localStorage.setItem(CHALLENGE_FOCUS_KEY, id);
+    _pushChallengeState();
     renderRoutineChallenge();
   }
   // 中央タップ: 今日の達成を記録（対象日のみ）
@@ -11996,17 +12087,90 @@
     return { icon:'✨', msg:'あと少し！ゴールが見えてきた' };
   }
 
+  // 達成日数を数える（habitHistory[tplId] のうち [start,end] の範囲）
+  function countChallengeAchieved(taskId, startDs, endDs) {
+    let n = 0;
+    try {
+      const hist = JSON.parse(localStorage.getItem('habitHistory') || '{}');
+      const h = hist[taskId] || {};
+      Object.keys(h).forEach(ds => { if (h[ds] && ds >= startDs && ds <= endDs) n++; });
+    } catch(e) {}
+    return n;
+  }
+  // これまでの挑戦の記録（挑戦開始日を持つルーチンごと）。終了済みは終了日まで、継続中は今日まで。
+  function getChallengeRecords() {
+    const starts = _getChallengeStarts();
+    const target = getChallengeTarget();
+    const endedMap = (typeof getRoutineEndedMap === 'function') ? getRoutineEndedMap() : {};
+    let all = [];
+    try { all = getHabitTasks(true, ['習慣','掃除','美容']) || []; } catch(e) {}
+    const byId = {}; all.forEach(t => { if (t) byId[t.id] = t; });
+    const todayStr = ymd(new Date());
+    const recs = [];
+    Object.keys(starts).forEach(taskId => {
+      const start = starts[taskId];
+      const task = byId[taskId];
+      if (!task) return;                         // 削除済みルーチンは出さない
+      const endedAt = (task._endedAt) || endedMap[taskId] || null;
+      const endStr = endedAt || null;            // null=継続中
+      const days = countChallengeAchieved(taskId, start, endStr || todayStr);
+      recs.push({
+        taskId, name: task.name || '(無題)',
+        freq: (typeof routineFreqText === 'function') ? routineFreqText(task) : '',
+        start, end: endStr, days, target
+      });
+    });
+    // 継続中を上、その後は開始日の新しい順
+    recs.sort((a, b) => {
+      if ((a.end == null) !== (b.end == null)) return a.end == null ? -1 : 1;
+      return (b.start || '').localeCompare(a.start || '');
+    });
+    return recs;
+  }
+  function _fmtChallengeDate(ds) { return ds ? ds.replace(/-/g, '/').replace(/^(\d{4})\//, '$1/') : ''; }
+  function _challengeHistoryHTML() {
+    const recs = getChallengeRecords();
+    const total = recs.reduce((s, r) => s + r.days, 0);
+    let items = '';
+    if (!recs.length) {
+      items = '<div class="chist-empty">まだ挑戦の記録はありません。ルーチンを記録すると、ここに履歴が残ります。</div>';
+    } else {
+      recs.forEach(r => {
+        const ratio = Math.max(0, Math.min(1, r.target ? r.days / r.target : 0));
+        const R = 16, C = 2 * Math.PI * R, off = C * (1 - ratio);
+        const range = _fmtChallengeDate(r.start) + ' 〜 ' + (r.end ? _fmtChallengeDate(r.end) : '継続中');
+        items += '<div class="chist-item">'
+          + `<svg class="chist-ring" viewBox="0 0 40 40" aria-hidden="true">`
+          +   `<circle cx="20" cy="20" r="${R}" fill="none" stroke="#e6eefc" stroke-width="4"/>`
+          +   `<circle cx="20" cy="20" r="${R}" fill="none" stroke="#4a90e2" stroke-width="4" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 20 20)"/>`
+          + `</svg>`
+          + '<div class="chist-body">'
+          +   `<div class="chist-name">${_escapeHtml(r.name)}${r.end ? '' : ' <span class="chist-live">継続中</span>'}</div>`
+          +   `<div class="chist-meta">${_escapeHtml(r.freq)}</div>`
+          +   `<div class="chist-range">${_escapeHtml(range)}　<span class="chist-days">(${r.days} days)</span></div>`
+          + '</div>'
+          + '</div>';
+      });
+    }
+    return '<div class="chist-wrap">'
+      + `<div class="chist-total">累計日数：<b>${total}</b></div>`
+      + `<div class="chist-title">これまでの挑戦</div>`
+      + items
+      + '</div>';
+  }
+
   function renderRoutineChallenge() {
     const box = document.getElementById('routineChallenge');
     if (!box) return;
-    // トラッカー表示 かつ アクティブ状態のときだけ最上部に出す
-    const show = (routineViewMode === 'tracker') && (routineStatusMode !== 'ended');
+    // 独立タブ「継続」のときだけ全面表示
+    const show = (routineViewMode === 'challenge');
     if (!show) { box.style.display = 'none'; box.innerHTML = ''; return; }
     box.style.display = '';
 
     const list = _challengeRoutines();
     if (!list.length) {
-      box.innerHTML = '<div class="challenge-card"><div class="challenge-empty">ルーチンを作ると、ここで「まず1つ続ける」継続チャレンジができます。</div></div>';
+      box.innerHTML = '<div class="challenge-card"><div class="challenge-empty">ルーチンを作ると、ここで「まず1つ続ける」継続チャレンジができます。</div></div>'
+        + _challengeHistoryHTML();
       return;
     }
     const task = getChallengeFocusTask();
@@ -12059,11 +12223,13 @@
       +   `<span class="challenge-cheer-ico">${cheer.icon}</span>`
       +   `<span class="challenge-cheer-msg">${_escapeHtml(cheer.msg)}</span>`
       + '</div>'
-      + '</div>';
+      + '</div>'
+      + _challengeHistoryHTML();
   }
 
   function renderRoutineScreen() {
     try { renderRoutineChallenge(); } catch(e) { console.error('継続チャレンジ描画エラー', e); }
+    if (routineViewMode === 'challenge') { _routineApplyControlsVisibility(); return; }
     const container = document.getElementById('routineList');
     if (!container) return;
     container.className = ''; // 既定はグリッド（管理ビューで 'manage' に上書き）
