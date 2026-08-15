@@ -2584,6 +2584,40 @@
   .chist-range { font-size: 12px; color: #8e8b9e; margin-top: 2px; }
   .chist-days { color: #6b6880; }
   .chist-empty { font-size: 12px; color: #a8a5b8; text-align: center; padding: 16px 8px; line-height: 1.6; }
+  /* 通知設定 */
+  .chal-notify { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f2f0f9; }
+  .cn-enable {
+    display: block; width: 100%; font-family: inherit; font-size: 14px; font-weight: 700;
+    color: #4a90e2; background: #eef4fe; border: 1px solid #d7e6fb; border-radius: 12px;
+    padding: 11px; cursor: pointer;
+  }
+  .cn-enable:active { transform: scale(.99); }
+  .cn-hint { text-align: center; font-size: 11px; color: #a8a5b8; margin-top: 6px; }
+  .cn-row { display: flex; align-items: center; gap: 8px; }
+  .cn-title { font-size: 13px; font-weight: 800; color: #4a90e2; flex: 1; }
+  .cn-time {
+    font-family: inherit; font-size: 15px; color: #2d2b3a; background: #f6f5fb;
+    border: 1px solid #e7e4f2; border-radius: 9px; padding: 5px 8px;
+  }
+  .cn-off {
+    font-family: inherit; font-size: 12px; font-weight: 700; color: #8e8b9e;
+    background: #f2f1f7; border: none; border-radius: 9px; padding: 6px 10px; cursor: pointer;
+  }
+  .cn-row2 { font-size: 13px; color: #6b6880; margin-top: 8px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .cn-num {
+    width: 52px; font-family: inherit; font-size: 14px; text-align: center; color: #2d2b3a;
+    background: #f6f5fb; border: 1px solid #e7e4f2; border-radius: 8px; padding: 4px 4px;
+  }
+  .cn-today {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eceaf3;
+  }
+  .cn-today-label { font-size: 12px; font-weight: 700; color: #6b6880; flex: 1 1 100%; }
+  .cn-snooze {
+    font-family: inherit; font-size: 12px; font-weight: 700; color: #4a90e2;
+    background: #eef4fe; border: 1px solid #d7e6fb; border-radius: 9px; padding: 6px 10px; cursor: pointer;
+  }
+  .cn-snooze:active { transform: scale(.97); }
   .routine-view-toggle {
     display: flex; gap: 4px; background: #efedfa; border-radius: 13px;
     padding: 3px; margin-bottom: 8px;
@@ -4765,10 +4799,10 @@
   // テンプレが変わったら自動で押し上げ（既存の tasks:changed を利用。ハッシュ一致なら送らない）
   try{ window.addEventListener('tasks:changed', function(){ tplCloudPush(false); }); }catch(e){}
   // 他端末から戻ってきたら最新を取り込む
-  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') tplCloudPull(); }); }catch(e){}
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} } }); }catch(e){}
   try{ window.addEventListener('online', function(){ tplCloudPull(); }); }catch(e){}
   // 追加: アプリに戻ったとき（iOS PWA/Safari は visibilitychange を取りこぼすことがある）
-  try{ window.addEventListener('focus', function(){ tplCloudPull(); }); }catch(e){}
+  try{ window.addEventListener('focus', function(){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} }); }catch(e){}
   try{ window.addEventListener('pageshow', function(){ tplCloudPull(); }); }catch(e){}
   // 追加: 定期自動同期（両端末を開いたままでもルーチン/繰り返しが自動で揃う）
   //   ・表示中 かつ オンライン のときだけ実行（無駄な通信を避ける）
@@ -4781,6 +4815,7 @@
         if (document.visibilityState !== 'visible') return;
         if (navigator.onLine === false) return;
         tplCloudPull();
+        try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){}  // 通知予定も定期更新（済み日を除外）
       }catch(e){ dbg('tpl auto sync tick failed', e); }
     }, TPL_AUTO_SYNC_MS);
   }catch(e){ dbg('tpl auto sync setup failed', e); }
@@ -11986,6 +12021,7 @@
     setTimeout(()=>el.classList.remove('pop'), 400);
     if (!isHabitDoneOn(taskId, dateStr) && typeof spawnSparkles === 'function') spawnSparkles(el);
     toggleHabitDone(taskId, dateStr);
+    try { if (typeof syncChallengeNotifications === 'function') syncChallengeNotifications(); } catch(e){}
   }
 
   // ============================================================
@@ -12050,9 +12086,20 @@
     const n = parseInt(v, 10);
     if (!isNaN(n) && n >= 1) setChallengeTarget(n);
   }
+  // 「毎日」の繰り返しか判定（継続チャレンジは毎日のものだけ対象にする）
+  function isDailyRoutine(task) {
+    if (!task) return false;
+    const rc = task._repeatConfig;
+    if (rc) {
+      if (Array.isArray(rc.daysOfWeek) && rc.daysOfWeek.length) return rc.daysOfWeek.length === 7; // 全曜日なら実質毎日
+      return rc.type === 'daily';
+    }
+    const ov = (typeof getHabitFreqOverride === 'function') ? getHabitFreqOverride(task.id) : null;
+    return ov === 'daily';
+  }
   function _challengeRoutines() {
-    // アクティブなルーチン（習慣・掃除・美容）を候補にする
-    try { return getHabitTasks(false, ['習慣','掃除','美容']) || []; } catch(e) { return []; }
+    // 継続チャレンジの候補は「毎日の繰り返し」ルーチンのみ
+    try { return (getHabitTasks(false, ['習慣','掃除','美容']) || []).filter(isDailyRoutine); } catch(e) { return []; }
   }
   function getChallengeFocusTask() {
     const list = _challengeRoutines();
@@ -12064,6 +12111,7 @@
   function setChallengeFocus(id) {
     if (id) localStorage.setItem(CHALLENGE_FOCUS_KEY, id);
     _pushChallengeState();
+    try { syncChallengeNotifications(); } catch(e){}   // 挑戦対象が変わったら通知予定も更新
     renderRoutineChallenge();
   }
   // 中央タップ: 今日の達成を記録（対象日のみ）
@@ -12075,8 +12123,129 @@
       return; // 今日は対象日でない
     }
     try { toggleHabitDone(task.id, todayStr); } catch(e) { console.error('challenge toggle失敗', e); }
+    try { syncChallengeNotifications(); } catch(e){}   // 記録したら今日の残り通知を止める
     renderRoutineChallenge(); // toggleHabitDone内でも再描画されるが即時反映を保証
   }
+
+  // ===== 継続チャレンジの通知（既存のWeb Push基盤を再利用） =====
+  //  ・アプリを閉じていても Cloudflare Worker が指定時刻にプッシュ（タイマー機能と同じ仕組み）
+  //  ・「基本の時間」に、記録するまで数回くり返して通知（絶対気づけるように）
+  //  ・タイマーの予約と混ざらないよう、client を分けて登録
+  const CHAL_NOTIFY_KEY = 'challengeNotify';
+  const CHAL_VAPID = 'BMtHBfXHEXaT9svJDps-Mt1A2ErKA53wwDFVujoPnsr8IlV185JkqAf8SGh7kaF0CSRKLGHu2L20NFX3-h0pl9c';
+  function getChallengeNotify() {
+    const d = { enabled:false, time:'21:00', count:3, intervalMin:15 };
+    try { return Object.assign(d, JSON.parse(localStorage.getItem(CHAL_NOTIFY_KEY) || '{}')); } catch(e) { return d; }
+  }
+  function saveChallengeNotify(c) { try { localStorage.setItem(CHAL_NOTIFY_KEY, JSON.stringify(c)); } catch(e){} }
+  function _mzPush() { try { return JSON.parse(localStorage.getItem('mzPush') || 'null'); } catch(e) { return null; } }
+  function _chalPushUrl() { const p = _mzPush(); return (p && p.url) || NOTION_PROXY; }
+  function _chalClient() { const p = _mzPush(); const base = (p && p.client) || ('c-' + Math.random().toString(36).slice(2) + Date.now().toString(36)); return base + '-chal'; }
+  function _chalHeaders() { const p = _mzPush(); const h = { 'Content-Type':'application/json' }; if (p && p.token) h['X-Auth'] = p.token; return h; }
+  function _u8FromB64(b64) { const pad = '='.repeat((4 - b64.length % 4) % 4); const s = (b64 + pad).replace(/-/g,'+').replace(/_/g,'/'); const raw = atob(s); const out = new Uint8Array(raw.length); for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i); return out; }
+  // 既存の購読を再利用。無ければ購読を作成して mzPush にも保存（タイマーと共用）。
+  async function _ensurePushSub() {
+    let p = _mzPush() || { enabled:false, url:NOTION_PROXY, token:'', sub:null, client:'' };
+    if (p.sub) return p;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined')
+      throw new Error('この端末/ブラウザは通知に未対応です');
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') throw new Error('通知が許可されていません');
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(CHAL_VAPID) });
+    p.sub = sub.toJSON(); p.enabled = true;
+    if (!p.url) p.url = NOTION_PROXY;
+    if (!p.client) p.client = 'c-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try { localStorage.setItem('mzPush', JSON.stringify(p)); } catch(e){}
+    return p;
+  }
+  async function challengeNotifyEnable() {
+    try {
+      await _ensurePushSub();
+      const c = getChallengeNotify(); c.enabled = true; saveChallengeNotify(c);
+      await syncChallengeNotifications();
+      renderRoutineChallenge();
+      alert('通知をオンにしました。設定した時刻に、記録するまで数回お知らせします。\n\n※ iPhoneはホーム画面に追加したアプリ（PWA）で通知が届きます。');
+    } catch(e) {
+      alert('通知を有効にできませんでした: ' + (e && e.message || e));
+    }
+  }
+  function challengeNotifyDisable() {
+    const c = getChallengeNotify(); c.enabled = false; saveChallengeNotify(c);
+    try { fetch(_chalPushUrl() + '/cancel', { method:'POST', headers:_chalHeaders(), body:JSON.stringify({ client:_chalClient() }) }).catch(function(){}); } catch(e){}
+    renderRoutineChallenge();
+  }
+  function setChallengeNotifyField(field, val) {
+    const c = getChallengeNotify();
+    if (field === 'time') c.time = val || '21:00';
+    else if (field === 'count') c.count = Math.max(1, Math.min(10, parseInt(val, 10) || 3));
+    else if (field === 'interval') c.intervalMin = Math.max(1, Math.min(120, parseInt(val, 10) || 15));
+    saveChallengeNotify(c);
+    if (c.enabled) { try { syncChallengeNotifications(); } catch(e){} }
+    renderRoutineChallenge();
+  }
+  // 本日だけ通知時間を変更（その時間にできない時のリスケジュール）
+  function _todayEffectiveTime(c) {
+    const today = ymd(new Date());
+    if (c.override && c.override.date === today && c.override.time) return c.override.time;
+    return c.time || '21:00';
+  }
+  function setChallengeNotifyToday(val) {
+    if (!val) return;
+    const c = getChallengeNotify();
+    c.override = { date: ymd(new Date()), time: val };
+    saveChallengeNotify(c);
+    if (c.enabled) { try { syncChallengeNotifications(); } catch(e){} }
+    renderRoutineChallenge();
+  }
+  // 現在の本日時間から n 分ずらす（+30分／+1時間ボタン用）
+  function snoozeChallengeToday(min) {
+    const c = getChallengeNotify();
+    const cur = _todayEffectiveTime(c);
+    const parts = cur.split(':'); let mins = (parseInt(parts[0],10)||0) * 60 + (parseInt(parts[1],10)||0);
+    mins = Math.min(23 * 60 + 59, mins + min);
+    const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+    const mm = String(mins % 60).padStart(2, '0');
+    setChallengeNotifyToday(hh + ':' + mm);
+  }
+  // これから14日ぶんの通知予定を作ってサーバーに登録（済みの日・過去は除外）
+  async function syncChallengeNotifications() {
+    const cfg = getChallengeNotify();
+    const p = _mzPush();
+    if (!cfg.enabled || !p || !p.sub) return;
+    const task = (typeof getChallengeFocusTask === 'function') ? getChallengeFocusTask() : null;
+    if (!task) return;
+    const parts = (cfg.time || '21:00').split(':');
+    const hh = parseInt(parts[0], 10) || 0, mm = parseInt(parts[1], 10) || 0;
+    const now = Date.now();
+    const jobs = []; let n = 0;
+    const base = new Date(); base.setHours(0,0,0,0);
+    const todayStr0 = ymd(new Date());
+    const HORIZON = 14;
+    for (let d = 0; d < HORIZON; d++) {
+      const day = new Date(base); day.setDate(base.getDate() + d);
+      if (typeof habitOccursOn === 'function' && !habitOccursOn(task, day)) continue;  // 対象日のみ
+      const ds = ymd(day);
+      if (typeof isHabitDoneOn === 'function' && isHabitDoneOn(task.id, ds)) continue;  // 済みは通知しない
+      // 本日だけは時間変更（override）を優先
+      let h = hh, m = mm;
+      if (ds === todayStr0 && cfg.override && cfg.override.date === todayStr0 && cfg.override.time) {
+        const op = cfg.override.time.split(':'); h = parseInt(op[0],10) || 0; m = parseInt(op[1],10) || 0;
+      }
+      for (let i = 0; i < Math.max(1, cfg.count); i++) {
+        const when = new Date(day); when.setHours(h, m, 0, 0);
+        const t = when.getTime() + i * (cfg.intervalMin || 15) * 60000;
+        if (t <= now) continue;   // 過ぎた時刻は登録しない
+        const jid = 'chal' + (n++);
+        jobs.push({ id:jid, when:t, tag:jid, title:'⏰ 継続チャレンジ', body:'『' + (task.name || 'ルーチン') + '』の時間です。タップして今日を記録しよう' });
+      }
+    }
+    try {
+      await fetch(_chalPushUrl() + '/schedule', { method:'POST', headers:_chalHeaders(), body:JSON.stringify({ client:_chalClient(), sub:p.sub, replace:true, jobs:jobs }) });
+    } catch(e) {}
+  }
+  window.syncChallengeNotifications = syncChallengeNotifications;
   // 進捗に応じた応援メッセージとキャラ
   function _challengeCheer(streak, target) {
     if (streak >= target) return { icon:'🏆', msg:'目標達成！継続の力が身についたね' };
@@ -12111,9 +12280,11 @@
       const start = starts[taskId];
       const task = byId[taskId];
       if (!task) return;                         // 削除済みルーチンは出さない
+      if (!isDailyRoutine(task)) return;          // 継続チャレンジは毎日のものだけ
       const endedAt = (task._endedAt) || endedMap[taskId] || null;
       const endStr = endedAt || null;            // null=継続中
       const days = countChallengeAchieved(taskId, start, endStr || todayStr);
+      if (days <= 0) return;                     // 0daysは表示しない（実際に記録があるものだけ）
       recs.push({
         taskId, name: task.name || '(無題)',
         freq: (typeof routineFreqText === 'function') ? routineFreqText(task) : '',
@@ -12223,8 +12394,39 @@
       +   `<span class="challenge-cheer-ico">${cheer.icon}</span>`
       +   `<span class="challenge-cheer-msg">${_escapeHtml(cheer.msg)}</span>`
       + '</div>'
+      + _challengeNotifyHTML()
       + '</div>'
       + _challengeHistoryHTML();
+  }
+
+  // 通知設定のUI（継続カード内）
+  function _challengeNotifyHTML() {
+    const nf = getChallengeNotify();
+    if (!nf.enabled) {
+      return '<div class="chal-notify">'
+        + '<button class="cn-enable" onclick="challengeNotifyEnable()">🔔 この継続の通知をオンにする</button>'
+        + '<div class="cn-hint">設定した時刻に、記録するまで数回お知らせします</div>'
+        + '</div>';
+    }
+    const todayTime = _todayEffectiveTime(nf);
+    const overridden = !!(nf.override && nf.override.date === ymd(new Date()));
+    return '<div class="chal-notify on">'
+      + '<div class="cn-row">'
+      +   '<span class="cn-title">🔔 通知</span>'
+      +   `<input class="cn-time" type="time" value="${nf.time}" onchange="setChallengeNotifyField('time', this.value)">`
+      +   '<button class="cn-off" onclick="challengeNotifyDisable()">オフ</button>'
+      + '</div>'
+      + '<div class="cn-row2">記録するまで '
+      +   `<input class="cn-num" type="number" min="1" max="10" value="${nf.count}" onchange="setChallengeNotifyField('count', this.value)"> 回、`
+      +   `<input class="cn-num" type="number" min="1" max="120" value="${nf.intervalMin}" onchange="setChallengeNotifyField('interval', this.value)"> 分おきに通知`
+      + '</div>'
+      + '<div class="cn-today">'
+      +   `<span class="cn-today-label">🕒 今日はこの時間に${overridden ? '（変更中）' : ''}</span>`
+      +   `<input class="cn-time" type="time" value="${todayTime}" onchange="setChallengeNotifyToday(this.value)">`
+      +   '<button class="cn-snooze" onclick="snoozeChallengeToday(30)">+30分</button>'
+      +   '<button class="cn-snooze" onclick="snoozeChallengeToday(60)">+1時間</button>'
+      + '</div>'
+      + '</div>';
   }
 
   function renderRoutineScreen() {
