@@ -2537,7 +2537,7 @@
   .chal-hist-btn:active { transform: scale(.98); }
   /* 設定/履歴パネル（小さなボタンから遷移） */
   .chal-panel-mask { position: fixed; inset: 0; background: rgba(30,26,50,.32); z-index: 2400; }
-  .chal-panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2401; background: #faf9fd; border-radius: 20px 20px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); max-height: 82vh; overflow-y: auto; box-shadow: 0 -6px 24px rgba(40,30,80,.18); animation: chalSheetUp .22s ease; }
+  .chal-panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2401; background: #faf9fd; border-radius: 20px 20px 0 0; padding: 16px 16px calc(var(--navh, 60px) + env(safe-area-inset-bottom) + 24px); max-height: 82vh; overflow-y: auto; -webkit-overflow-scrolling: touch; box-shadow: 0 -6px 24px rgba(40,30,80,.18); animation: chalSheetUp .22s ease; }
   @keyframes chalSheetUp { from { transform: translateY(30px); opacity: .4; } to { transform: translateY(0); opacity: 1; } }
   .chal-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .chal-panel-head span { font-size: 16px; font-weight: 800; color: #2d2b3a; }
