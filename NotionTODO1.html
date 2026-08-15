@@ -2480,6 +2480,58 @@
     min-width: 0;
   }
   /* 表示切替（トラッカー / 一覧・管理） */
+  /* ── 継続チャレンジ（トップの大リング） ── */
+  .challenge-card {
+    background: #fff; border: 1px solid #eceaf6; border-radius: 18px;
+    padding: 16px 14px 14px; margin-bottom: 12px;
+    box-shadow: 0 2px 10px rgba(60,50,120,.05);
+  }
+  .challenge-head {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  .challenge-title { font-size: 13px; font-weight: 800; color: #4a90e2; flex: none; }
+  .challenge-select {
+    flex: 1; min-width: 0; font-size: 13px; font-family: inherit; color: #2d2b3a;
+    background: #f6f5fb; border: 1px solid #e7e4f2; border-radius: 9px;
+    padding: 6px 8px; outline: none;
+  }
+  .challenge-target {
+    flex: none; font-size: 11px; font-family: inherit; color: #8e8b9e;
+    background: #f6f5fb; border: 1px solid #e7e4f2; border-radius: 9px;
+    padding: 6px 8px; cursor: pointer;
+  }
+  .challenge-ring-wrap {
+    position: relative; width: 208px; height: 208px; margin: 8px auto 4px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .challenge-ring-wrap.disabled { cursor: default; }
+  .challenge-ring-wrap:active:not(.disabled) { transform: scale(.985); }
+  .challenge-ring { width: 100%; height: 100%; display: block; transition: stroke-dashoffset .5s ease; }
+  .challenge-ring circle { transition: stroke-dashoffset .5s ease; }
+  .challenge-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 0 26px;
+  }
+  .challenge-name {
+    font-size: 22px; font-weight: 800; color: #2d2b3a; line-height: 1.25;
+    max-width: 150px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .challenge-sub { font-size: 12px; color: #a8a5b8; margin-top: 6px; }
+  .challenge-count { font-size: 15px; color: #6b6880; margin-top: 2px; }
+  .challenge-count b { font-size: 20px; color: #4a90e2; font-weight: 800; }
+  .challenge-tap {
+    text-align: center; font-size: 12px; color: #4a90e2; margin-top: 4px; font-weight: 600;
+  }
+  .challenge-tap.done { color: #34c759; }
+  .challenge-tap.muted { color: #b8b5c6; font-weight: 500; }
+  .challenge-cheer {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid #f2f0f9;
+  }
+  .challenge-cheer-ico { font-size: 24px; flex: none; }
+  .challenge-cheer-msg { font-size: 13px; color: #5b586e; }
+  .challenge-empty { font-size: 12px; color: #a8a5b8; text-align: center; padding: 18px 8px; line-height: 1.6; }
   .routine-view-toggle {
     display: flex; gap: 6px; background: #efedfa; border-radius: 13px;
     padding: 3px; margin-bottom: 8px;
@@ -3271,6 +3323,8 @@
 
 <!-- ===== ルーチン画面 ===== -->
 <div class="routine-screen" id="routineScreen">
+  <!-- 継続チャレンジ（単一ルーチンに集中）: トラッカー表示の最上部に出す -->
+  <div id="routineChallenge"></div>
   <!-- 表示切替: トラッカー / 一覧・管理 -->
   <div class="routine-view-toggle" id="routineViewToggle">
     <button class="active" data-view="tracker" onclick="setRoutineView('tracker', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V4M16 20v-6M2 20h20"/></svg> トラッカー</button>
@@ -9547,21 +9601,27 @@
       if (!days.length) return;
       const tpl = tasks.find(t => t && t.id === tplId);
       const name = (tpl && tpl.name) || days._name || null;
-      // 最長連続
+      // 最長連続（1日の抜けは許容し、2日以上あいたら途切れ＝日付差が3日以上で切れる）
       let best = 1, run = 1;
       for (let i = 1; i < days.length; i++) {
         const prev = new Date(days[i-1] + 'T00:00:00');
         const cur  = new Date(days[i] + 'T00:00:00');
         const gap = Math.round((cur - prev) / 86400000);
-        if (gap === 1) { run++; best = Math.max(best, run); } else { run = 1; }
+        if (gap <= 2) { run++; best = Math.max(best, run); } else { run = 1; }
       }
-      // 現在の連続（今日か昨日から遡る）
+      // 現在の連続（今日か昨日から遡る。1日の抜けは許容、2日連続の抜けで途切れ）
       const t0 = new Date(); t0.setHours(0,0,0,0);
       const has = d => !!hist[tplId][ymd(d)];
-      let cur = 0;
+      const earliest = new Date(days[0] + 'T00:00:00'); earliest.setHours(0,0,0,0);
+      let cur = 0, miss = 0, guard = 0;
       const cursor = new Date(t0);
       if (!has(cursor)) cursor.setDate(cursor.getDate() - 1);   // 今日まだなら昨日から
-      while (has(cursor)) { cur++; cursor.setDate(cursor.getDate() - 1); }
+      while (guard < 2000 && cursor >= earliest) {
+        guard++;
+        if (has(cursor)) { cur++; miss = 0; }
+        else { miss++; if (miss >= 2) break; }  // 2日連続で落としたら途切れ
+        cursor.setDate(cursor.getDate() - 1);
+      }
       out.push({ id: tplId, name: name || '(名称不明)', cur, best: Math.max(best, cur), total: days.length, last: days[days.length-1] });
     });
     return out.sort((a, b) => b.cur - a.cur || b.best - a.best);
@@ -11478,25 +11538,35 @@
     if (currentScreen === 'todo') { renderTimeline(); renderLater(); }
   }
 
-  // 連続記録（ストリーク）を計算: 該当日のうち今日から遡って連続達成数
+  // 連続記録（ストリーク）を計算: 今日から遡り、対象日の達成を数える。
+  // 仕様: 対象日を「2日連続」で落としたら連続が途切れる（1日だけの抜けは許容して継続）。
+  //  ・今日の未達成はまだ実施できるので途切れ扱いにしない（ノーカウント）
+  //  ・1日だけの抜けは連続を切らずに跨いで数える（ただしその抜け日自体は加算しない）
+  //  ・対象日を2日連続で落とした時点で連続終了
+  //  ・開始日より前には遡らない
   function calcHabitStreak(task) {
     const today = new Date(); today.setHours(0,0,0,0);
+    const startD = getHabitStartDate(task);
     let streak = 0;
+    let consecMiss = 0;   // 直近で連続して落とした対象日の数
     let cursor = new Date(today);
     let guard = 0;
-    // 今日が該当日でまだ未達成なら今日はカウントせず昨日以前から
-    while (guard < 400) {
+    while (guard < 800) {
       guard++;
+      if (startD && cursor < startD) break;           // 開始日より前には遡らない
       if (habitOccursOn(task, cursor)) {
         if (isHabitDoneOn(task.id, ymd(cursor))) {
           streak++;
+          consecMiss = 0;
+        } else if (cursor.getTime() === today.getTime()) {
+          // 今日の未達成はまだ実施できるので途切れ扱いにしない
+          cursor.setDate(cursor.getDate() - 1);
+          continue;
         } else {
-          // 今日の未達成は連続を切らない（まだ実施できる）。それ以外は終了
-          if (cursor.getTime() === today.getTime()) {
-            cursor.setDate(cursor.getDate() - 1);
-            continue;
-          }
-          break;
+          // 過去の対象日を落とした: 1日までは許容、2日連続で途切れ
+          consecMiss++;
+          if (consecMiss >= 2) break;
+          // （1日の抜けは跨いで継続。この日は加算しない）
         }
       }
       cursor.setDate(cursor.getDate() - 1);
@@ -11794,7 +11864,135 @@
     toggleHabitDone(taskId, dateStr);
   }
 
+  // ============================================================
+  // 継続チャレンジ（まず1つのルーチンに集中して「続けられるか」を試す）
+  //  ・ルーチンタブのトラッカー表示の最上部に、大きなリングで表示
+  //  ・進捗リング = 現在の連続日数 / 目標日数（連続は「2日連続で落とすと途切れる」ルール）
+  //  ・中央タップで今日の達成を記録（対象日のみ）
+  // ============================================================
+  const CHALLENGE_FOCUS_KEY = 'challengeFocusId';
+  const CHALLENGE_TARGET_KEY = 'challengeTarget';
+
+  function getChallengeTarget() {
+    const n = parseInt(localStorage.getItem(CHALLENGE_TARGET_KEY) || '30', 10);
+    return (isNaN(n) || n < 1) ? 30 : n;
+  }
+  function setChallengeTarget(n) {
+    const v = Math.max(1, Math.min(999, parseInt(n, 10) || 30));
+    localStorage.setItem(CHALLENGE_TARGET_KEY, String(v));
+    renderRoutineChallenge();
+  }
+  function promptChallengeTarget() {
+    const cur = getChallengeTarget();
+    const v = prompt('継続チャレンジの目標日数を入力（例: 30）', String(cur));
+    if (v == null) return;
+    const n = parseInt(v, 10);
+    if (!isNaN(n) && n >= 1) setChallengeTarget(n);
+  }
+  function _challengeRoutines() {
+    // アクティブなルーチン（習慣・掃除・美容）を候補にする
+    try { return getHabitTasks(false, ['習慣','掃除','美容']) || []; } catch(e) { return []; }
+  }
+  function getChallengeFocusTask() {
+    const list = _challengeRoutines();
+    if (!list.length) return null;
+    const id = localStorage.getItem(CHALLENGE_FOCUS_KEY);
+    const found = id && list.find(t => t && t.id === id);
+    return found || list[0];   // 未設定/見つからなければ先頭を集中対象に
+  }
+  function setChallengeFocus(id) {
+    if (id) localStorage.setItem(CHALLENGE_FOCUS_KEY, id);
+    renderRoutineChallenge();
+  }
+  // 中央タップ: 今日の達成を記録（対象日のみ）
+  function challengeToggleToday() {
+    const task = getChallengeFocusTask();
+    if (!task) return;
+    const todayStr = ymd(new Date());
+    if (typeof habitOccursOn === 'function' && !habitOccursOn(task, new Date())) {
+      return; // 今日は対象日でない
+    }
+    try { toggleHabitDone(task.id, todayStr); } catch(e) { console.error('challenge toggle失敗', e); }
+    renderRoutineChallenge(); // toggleHabitDone内でも再描画されるが即時反映を保証
+  }
+  // 進捗に応じた応援メッセージとキャラ
+  function _challengeCheer(streak, target) {
+    if (streak >= target) return { icon:'🏆', msg:'目標達成！継続の力が身についたね' };
+    if (streak <= 0)      return { icon:'🌱', msg:'今日から始めよう。まずは最初の一歩！' };
+    if (streak === 1)     return { icon:'🎉', msg:'決まったー！記念すべき、最初の一歩！' };
+    if (streak < 7)       return { icon:'💪', msg:'いい調子！この調子で続けよう' };
+    if (streak < 21)      return { icon:'🔥', msg:'習慣になりつつある。continueしよう！' };
+    return { icon:'✨', msg:'あと少し！ゴールが見えてきた' };
+  }
+
+  function renderRoutineChallenge() {
+    const box = document.getElementById('routineChallenge');
+    if (!box) return;
+    // トラッカー表示 かつ アクティブ状態のときだけ最上部に出す
+    const show = (routineViewMode === 'tracker') && (routineStatusMode !== 'ended');
+    if (!show) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = '';
+
+    const list = _challengeRoutines();
+    if (!list.length) {
+      box.innerHTML = '<div class="challenge-card"><div class="challenge-empty">ルーチンを作ると、ここで「まず1つ続ける」継続チャレンジができます。</div></div>';
+      return;
+    }
+    const task = getChallengeFocusTask();
+    const target = getChallengeTarget();
+    const streak = (typeof calcHabitStreak === 'function') ? calcHabitStreak(task) : 0;
+    const ratio = Math.max(0, Math.min(1, target ? streak / target : 0));
+    const todayStr = ymd(new Date());
+    const isTargetToday = (typeof habitOccursOn === 'function') ? habitOccursOn(task, new Date()) : true;
+    const doneToday = (typeof isHabitDoneOn === 'function') ? isHabitDoneOn(task.id, todayStr) : false;
+    const done = streak >= target;
+    const cheer = _challengeCheer(streak, target);
+
+    // リング（SVG）
+    const R = 54, C = 2 * Math.PI * R;
+    const off = C * (1 - ratio);
+    const arcColor = done ? '#34c759' : '#4a90e2';
+
+    // 中央下の状態テキスト＆タップ可否
+    let tapLabel, tappable = true;
+    if (!isTargetToday) { tapLabel = '今日は対象日ではありません'; tappable = false; }
+    else if (doneToday) { tapLabel = '✓ 今日は記録済み（タップで取り消し）'; }
+    else { tapLabel = 'タップして今日を記録する'; }
+
+    // ルーチン選択のプルダウン
+    const opts = list.map(t =>
+      `<option value="${_escapeHtml(t.id)}"${t.id === task.id ? ' selected' : ''}>${_escapeHtml(t.name || '(無題)')}</option>`
+    ).join('');
+
+    box.innerHTML =
+      '<div class="challenge-card">'
+      + '<div class="challenge-head">'
+      +   '<span class="challenge-title">継続チャレンジ</span>'
+      +   `<select class="challenge-select" onchange="setChallengeFocus(this.value)" title="集中するルーチン">${opts}</select>`
+      +   `<button class="challenge-target" onclick="promptChallengeTarget()" title="目標日数を変更">目標 ${target}日 ✎</button>`
+      + '</div>'
+      + `<div class="challenge-ring-wrap${tappable ? '' : ' disabled'}"${tappable ? ' onclick="challengeToggleToday()"' : ''}>`
+      +   `<svg class="challenge-ring" viewBox="0 0 120 120" aria-hidden="true">`
+      +     `<circle cx="60" cy="60" r="${R}" fill="none" stroke="#e6eefc" stroke-width="8"/>`
+      +     `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${arcColor}" stroke-width="8" stroke-linecap="round"`
+      +       ` stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 60 60)"/>`
+      +   `</svg>`
+      +   '<div class="challenge-center">'
+      +     `<div class="challenge-name">${_escapeHtml(task.name || '(無題)')}</div>`
+      +     `<div class="challenge-sub">${done ? '達成！' : '次の挑戦へ'}</div>`
+      +     `<div class="challenge-count"><b>${streak}</b> / ${target}</div>`
+      +   '</div>'
+      + '</div>'
+      + `<div class="challenge-tap${doneToday ? ' done' : ''}${tappable ? '' : ' muted'}">${tapLabel}</div>`
+      + '<div class="challenge-cheer">'
+      +   `<span class="challenge-cheer-ico">${cheer.icon}</span>`
+      +   `<span class="challenge-cheer-msg">${_escapeHtml(cheer.msg)}</span>`
+      + '</div>'
+      + '</div>';
+  }
+
   function renderRoutineScreen() {
+    try { renderRoutineChallenge(); } catch(e) { console.error('継続チャレンジ描画エラー', e); }
     const container = document.getElementById('routineList');
     if (!container) return;
     container.className = ''; // 既定はグリッド（管理ビューで 'manage' に上書き）
