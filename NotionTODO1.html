@@ -2385,6 +2385,7 @@
   .rg2-cell.future { background: #f3f2f8; }
   .rg2-cell.miss   { background: #eceaf3; }
   .rg2-cell.done   { background: var(--rc-accent, #6c5ce7); }
+  #routineList .routine-card2.done-today { box-shadow: 0 0 0 2px var(--rc-accent, #6c5ce7) inset, 0 2px 10px rgba(60,50,120,.06); }
   .rg2-cell.today  { background: #fff; border: 2px dashed var(--rc-accent, #a9a4d6); }
   .rg2-cell.tappable { cursor: pointer; }
   .rg2-cell.today.tappable:active { transform: scale(.88); }
@@ -3048,6 +3049,9 @@
         <button id="gcalTabEvents" onclick="gcalSwitchTab('events')" style="
           flex:1;background:none;border:none;border-bottom:2px solid #1c1c1e;
           font-size:14px;font-weight:600;color:#1c1c1e;padding:8px 0;cursor:pointer;">イベント</button>
+        <button id="gcalTabMonth" onclick="gcalSwitchTab('month')" style="
+          flex:1;background:none;border:none;border-bottom:2px solid transparent;
+          font-size:14px;color:#8e8e93;padding:8px 0;cursor:pointer;">月</button>
         <button id="gcalTabCals" onclick="gcalSwitchTab('cals')" style="
           flex:1;background:none;border:none;border-bottom:2px solid transparent;
           font-size:14px;color:#8e8e93;padding:8px 0;cursor:pointer;">カレンダー選択</button>
@@ -3079,6 +3083,18 @@
       <div id="gcalTabCalsContent" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 32px;min-height:0;">
         <div style="font-size:12px;color:#8e8e93;margin-bottom:12px;">タイムラインに表示するカレンダーを選択</div>
         <div id="gcalCalList"></div>
+      </div>
+
+      <!-- 月間カレンダータブ（Googleの予定だけ） -->
+      <div id="gcalTabMonthContent" style="display:none;flex:1;overflow-y:auto;padding:0;min-height:0;flex-direction:column;">
+        <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <button onclick="gcalNavMonth(-1)" style="background:none;border:none;font-size:22px;color:#3a3a3c;cursor:pointer;padding:0 4px;">‹</button>
+          <div id="gcalMonthLabel" style="flex:1;text-align:center;font-size:15px;font-weight:700;color:#1c1c1e;"></div>
+          <button onclick="gcalNavMonth(1)" style="background:none;border:none;font-size:22px;color:#3a3a3c;cursor:pointer;padding:0 4px;">›</button>
+        </div>
+        <div id="gcalMonthGrid" style="padding:0 12px 12px;"></div>
+        <div id="gcalMonthDayList" style="padding:4px 16px 16px;border-top:1px solid #f2f2f7;"></div>
+        <div id="gcalBriefingSettings" style="padding:14px 16px calc(var(--navh,60px) + env(safe-area-inset-bottom) + 20px);border-top:8px solid #f2f2f7;"></div>
       </div>
     </div>
   </div>
@@ -4830,10 +4846,10 @@
   // テンプレが変わったら自動で押し上げ（既存の tasks:changed を利用。ハッシュ一致なら送らない）
   try{ window.addEventListener('tasks:changed', function(){ tplCloudPush(false); }); }catch(e){}
   // 他端末から戻ってきたら最新を取り込む
-  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} } }); }catch(e){}
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} } }); }catch(e){}
   try{ window.addEventListener('online', function(){ tplCloudPull(); }); }catch(e){}
   // 追加: アプリに戻ったとき（iOS PWA/Safari は visibilitychange を取りこぼすことがある）
-  try{ window.addEventListener('focus', function(){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} }); }catch(e){}
+  try{ window.addEventListener('focus', function(){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} }); }catch(e){}
   try{ window.addEventListener('pageshow', function(){ tplCloudPull(); }); }catch(e){}
   // 追加: 定期自動同期（両端末を開いたままでもルーチン/繰り返しが自動で揃う）
   //   ・表示中 かつ オンライン のときだけ実行（無駄な通信を避ける）
@@ -4847,6 +4863,7 @@
         if (navigator.onLine === false) return;
         tplCloudPull();
         try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){}  // 通知予定も定期更新（済み日を除外）
+        try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){}   // 明日の予定まとめ通知も更新
       }catch(e){ dbg('tpl auto sync tick failed', e); }
     }, TPL_AUTO_SYNC_MS);
   }catch(e){ dbg('tpl auto sync setup failed', e); }
@@ -10758,6 +10775,24 @@
         ymd(new Date(t['(A)実行日'].start)) === dateStr
       );
     }
+    // フォールバック: Notion往復などで _habitTemplateId / _habitDate が欠けたコピーも、
+    //  「同名テンプレ × 同じ表示日」のルーチンインスタンスとして拾う。
+    //  これでスケジュールに出ている実体を確実に掴み、完了状態が両画面で一致する。
+    const tpl = tasks.find(x => x && x.id === templateId && (x._type === 'repeat' || x._type === 'repeat_ended'));
+    const tplName = tpl ? String(tpl.name || '').trim() : null;
+    if (tplName) {
+      const byName = tasks.find(t =>
+        t !== tpl &&
+        isRoutineKind(t) &&
+        t._type !== 'repeat' && t._type !== 'repeat_ended' &&
+        String(t.name || '').trim() === tplName &&
+        (
+          t._habitDate === dateStr ||
+          (t['(A)実行日'] && t['(A)実行日'].start && ymd(new Date(t['(A)実行日'].start)) === dateStr)
+        )
+      );
+      if (byName) return byName;
+    }
     return null;
   }
 
@@ -12056,6 +12091,22 @@
     try { if (typeof syncChallengeNotifications === 'function') syncChallengeNotifications(); } catch(e){}
   }
 
+  // トラッカーのカード全体タップ = 今日を記録（小さいマスを狙わなくてもよい）。
+  //  今日が対象日でなければ編集を開く。
+  function onRoutineCardTap(e, taskId) {
+    const todayStr = ymd(new Date());
+    let task = null;
+    try { task = (getHabitTasks(true, ['習慣','掃除','美容']) || []).find(t => t && t.id === taskId); } catch(err) {}
+    if (task && (typeof habitOccursOn !== 'function' || habitOccursOn(task, new Date()))) {
+      if (!isHabitDoneOn(taskId, todayStr) && typeof spawnSparkles === 'function') { try { spawnSparkles(e.currentTarget); } catch(_){} }
+      toggleHabitDone(taskId, todayStr);   // 内部で再描画 → 今日のマスが種類カラーに変わる
+      try { if (typeof syncChallengeNotifications === 'function') syncChallengeNotifications(); } catch(_){}
+    } else if (typeof editTask === 'function') {
+      editTask(taskId);   // 今日が対象日でないルーチンは編集を開く
+    }
+  }
+  window.onRoutineCardTap = onRoutineCardTap;
+
   // ============================================================
   // 継続チャレンジ（まず1つのルーチンに集中して「続けられるか」を試す）
   //  ・ルーチンタブのトラッカー表示の最上部に、大きなリングで表示
@@ -12278,6 +12329,104 @@
     } catch(e) {}
   }
   window.syncChallengeNotifications = syncChallengeNotifications;
+
+  // ===== 明日の予定まとめ通知（既存Web Push基盤を再利用） =====
+  //  ・毎日きまった時刻に「翌日の予定（アプリのタスク＋Googleの予定）」を1通でまとめて通知
+  //  ・チャレンジ通知とは別 client（-brief）で管理して混ざらないようにする
+  const BRIEF_NOTIFY_KEY = 'briefingNotify';
+  function getBriefingNotify() {
+    const d = { enabled: false, time: '21:00' };
+    try { return Object.assign(d, JSON.parse(localStorage.getItem(BRIEF_NOTIFY_KEY) || '{}')); } catch(e) { return d; }
+  }
+  function saveBriefingNotify(c) { try { localStorage.setItem(BRIEF_NOTIFY_KEY, JSON.stringify(c)); } catch(e){} }
+  function _briefClient() { const p = _mzPush(); const base = (p && p.client) || ('c-' + Math.random().toString(36).slice(2)); return base + '-brief'; }
+  function _briefUrl() { const p = _mzPush(); return (p && p.url) || NOTION_PROXY; }
+
+  // 指定日の予定サマリー本文（Googleの選択カレンダーの予定のみ、時刻順）
+  function buildBriefingBody(targetDate) {
+    const items = [];
+    try {
+      const dstr = targetDate.toDateString();
+      (gcalEvents[dstr] || []).forEach(e => {
+        const lbl = e.startLabel || e.start || '';
+        items.push({ min: (e.startMin != null ? e.startMin : 0), label: `${lbl ? lbl + ' ' : ''}${e.title || ''}` });
+      });
+      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, label: `終日 ${e.title || ''}` }));
+    } catch(e){}
+    items.sort((a,b) => a.min - b.min);
+    if (!items.length) return '予定はありません';
+    const top = items.slice(0, 8).map(i => '・' + i.label).join('\n');
+    return top + (items.length > 8 ? `\n…ほか${items.length - 8}件` : '');
+  }
+
+  async function syncBriefingNotifications() {
+    const cfg = getBriefingNotify();
+    const p = _mzPush();
+    if (!cfg.enabled || !p || !p.sub) return;
+    const parts = (cfg.time || '21:00').split(':');
+    const hh = parseInt(parts[0],10) || 0, mm = parseInt(parts[1],10) || 0;
+    const now = Date.now();
+    const jobs = []; let n = 0;
+    const base = new Date(); base.setHours(0,0,0,0);
+    for (let d = 0; d < 7; d++) {
+      const evening = new Date(base); evening.setDate(base.getDate() + d); evening.setHours(hh, mm, 0, 0);
+      const t = evening.getTime();
+      if (t <= now) continue; // 過ぎた時刻はスキップ
+      const target = new Date(base); target.setDate(base.getDate() + d + 1); // 翌日
+      // Googleの予定をその日ぶん取得（サインイン時のみ）
+      try { if (typeof gcalAccessToken !== 'undefined' && gcalAccessToken && !gcalEvents[target.toDateString()]) await gcalFetchEvents(target); } catch(e){}
+      const body = buildBriefingBody(target);
+      const md = (target.getMonth()+1) + '/' + target.getDate();
+      jobs.push({ id: 'brief' + (n++), when: t, tag: 'brief' + d, title: `🗓 明日の予定（${md}）`, body: body });
+    }
+    try {
+      await fetch(_briefUrl() + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: _briefClient(), sub: p.sub, replace: true, jobs: jobs }) });
+    } catch(e){}
+  }
+  window.syncBriefingNotifications = syncBriefingNotifications;
+
+  async function briefingNotifyEnable() {
+    try {
+      await _ensurePushSub();
+      const c = getBriefingNotify(); c.enabled = true; saveBriefingNotify(c);
+      await syncBriefingNotifications();
+      renderBriefingUI();
+      alert('明日の予定まとめ通知をオンにしました。\n毎日 ' + c.time + ' 頃に、翌日の予定をまとめてお知らせします。\n\n※ iPhoneはホーム画面に追加したアプリ（PWA）で通知が届きます。');
+    } catch(e) {
+      alert('通知を有効にできませんでした: ' + (e && e.message || e));
+    }
+  }
+  function briefingNotifyDisable() {
+    const c = getBriefingNotify(); c.enabled = false; saveBriefingNotify(c);
+    try { fetch(_briefUrl() + '/cancel', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: _briefClient() }) }).catch(function(){}); } catch(e){}
+    renderBriefingUI();
+  }
+  function setBriefingTime(v) {
+    const c = getBriefingNotify(); c.time = v || '21:00'; saveBriefingNotify(c);
+    if (c.enabled) { try { syncBriefingNotifications(); } catch(e){} }
+    renderBriefingUI();
+  }
+  function renderBriefingUI() {
+    const box = document.getElementById('gcalBriefingSettings');
+    if (!box) return;
+    const c = getBriefingNotify();
+    if (!c.enabled) {
+      box.innerHTML = '<div style="font-size:13px;font-weight:800;color:#1c1c1e;margin-bottom:6px;">🔔 明日の予定をまとめて通知</div>'
+        + '<div style="font-size:12px;color:#8e8e93;margin-bottom:10px;line-height:1.5;">毎日きまった時刻に、翌日のGoogleカレンダー（選択中のカレンダー）の予定を1通でまとめてお知らせします。</div>'
+        + '<button onclick="briefingNotifyEnable()" style="width:100%;box-sizing:border-box;background:#eef4fe;color:#4a90e2;border:1px solid #d7e6fb;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">🔔 オンにする</button>';
+    } else {
+      box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
+        + '<span style="flex:1;font-size:13px;font-weight:800;color:#4a90e2;">🔔 明日の予定まとめ通知</span>'
+        + `<input type="time" value="${c.time}" onchange="setBriefingTime(this.value)" style="font-size:15px;border:1px solid #e7e4f2;border-radius:9px;padding:5px 8px;background:#f6f5fb;color:#1c1c1e;">`
+        + '<button onclick="briefingNotifyDisable()" style="font-size:12px;font-weight:700;color:#8e8b9e;background:#f2f1f7;border:none;border-radius:9px;padding:6px 10px;cursor:pointer;">オフ</button>'
+        + '</div>'
+        + `<div style="font-size:11.5px;color:#8e8e93;margin-top:8px;line-height:1.5;">毎日 ${c.time} 頃に翌日の予定をまとめて通知します。開くたびに最新の予定へ更新されます。</div>`;
+    }
+  }
+  window.briefingNotifyEnable = briefingNotifyEnable;
+  window.briefingNotifyDisable = briefingNotifyDisable;
+  window.setBriefingTime = setBriefingTime;
+  window.renderBriefingUI = renderBriefingUI;
   // 進捗に応じた応援メッセージとキャラ
   function _challengeCheer(streak, target) {
     if (streak >= target) return { icon:'🏆', msg:'目標達成！継続の力が身についたね' };
@@ -12703,8 +12852,8 @@
         editId = (todayMember || task._pseudoMembers[0]).id;
       }
       const ac = accent || '#6c5ce7';
-      // 2枚目のデザイン: マス目グリッド → 🔥連続数 → 名前（カード全体タップで編集、今日マスタップで達成）
-      return `<div class="routine-card2" style="--rc-accent:${ac};" onclick="editTask('${editId}')">`
+      // カード全体タップ = 今日を記録（達成でマスが種類カラーに変わる）。編集は「一覧・管理」から。
+      return `<div class="routine-card2${doneToday ? ' done-today' : ''}" style="--rc-accent:${ac};" onclick="onRoutineCardTap(event,'${task.id}')">`
         + buildRoutineGrid(task, { forward: true })
         + `<div class="rc2-streak${streak > 0 ? ' on' : ''}">`
         +   `<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 1.5 1 2.5 2 2.5 1.2 0 1.5-1.2 1-3-.4-1.5-.4-3 0-4z"/></svg>`
@@ -16985,21 +17134,166 @@
   function gcalSwitchTab(tab) {
     gcalCurrentTab = tab;
     const evBtn  = document.getElementById('gcalTabEvents');
+    const moBtn  = document.getElementById('gcalTabMonth');
     const calBtn = document.getElementById('gcalTabCals');
     const evArea = document.getElementById('gcalTabEventsContent');
+    const moArea = document.getElementById('gcalTabMonthContent');
     const calArea= document.getElementById('gcalTabCalsContent');
+    const _on = (b) => { if(!b) return; b.style.borderBottomColor='#1c1c1e'; b.style.color='#1c1c1e'; b.style.fontWeight='600'; };
+    const _off = (b) => { if(!b) return; b.style.borderBottomColor='transparent'; b.style.color='#8e8e93'; b.style.fontWeight='400'; };
 
     if (tab === 'events') {
-      evBtn.style.borderBottomColor  = '#1c1c1e'; evBtn.style.color  = '#1c1c1e'; evBtn.style.fontWeight = '600';
-      calBtn.style.borderBottomColor = 'transparent'; calBtn.style.color = '#8e8e93'; calBtn.style.fontWeight = '400';
-      evArea.style.display = 'flex'; calArea.style.display = 'none';
+      _on(evBtn); _off(moBtn); _off(calBtn);
+      evArea.style.display = 'flex'; if(moArea) moArea.style.display='none'; calArea.style.display = 'none';
+    } else if (tab === 'month') {
+      _off(evBtn); _on(moBtn); _off(calBtn);
+      evArea.style.display = 'none'; if(moArea) moArea.style.display='flex'; calArea.style.display = 'none';
+      gcalRenderMonth();
     } else {
-      calBtn.style.borderBottomColor = '#1c1c1e'; calBtn.style.color  = '#1c1c1e'; calBtn.style.fontWeight = '600';
-      evBtn.style.borderBottomColor  = 'transparent'; evBtn.style.color  = '#8e8e93'; evBtn.style.fontWeight = '400';
-      evArea.style.display = 'none'; calArea.style.display = 'block';
+      _off(evBtn); _off(moBtn); _on(calBtn);
+      evArea.style.display = 'none'; if(moArea) moArea.style.display='none'; calArea.style.display = 'block';
       gcalRenderCalList();
     }
   }
+
+  // ===== Googleの予定だけの月間カレンダー =====
+  let gcalMonthDate = new Date();
+  let gcalMonthData = {};      // 'YYYY-MM-DD' -> [{title,timeLabel,allDay,color,startMin}]
+  let gcalMonthSelected = null; // 'YYYY-MM-DD'
+  const _gpad2 = n => String(n).padStart(2, '0');
+  function _gcalKey(d) { return `${d.getFullYear()}-${_gpad2(d.getMonth()+1)}-${_gpad2(d.getDate())}`; }
+
+  async function gcalFetchMonth(baseDate) {
+    if (!gcalAccessToken) { gcalMonthData = {}; return; }
+    const enabledCals = gcalCalendars.filter(c => c.enabled);
+    if (enabledCals.length === 0) { gcalMonthData = {}; return; }
+    const y = baseDate.getFullYear(), m = baseDate.getMonth();
+    const fetchMin = new Date(y, m, 1);  fetchMin.setDate(fetchMin.getDate() - 7);
+    const fetchMax = new Date(y, m + 1, 0); fetchMax.setDate(fetchMax.getDate() + 7); fetchMax.setHours(23,59,59,999);
+    const data = {};
+    await Promise.all(enabledCals.map(async cal => {
+      try {
+        const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`);
+        url.searchParams.set('timeMin', fetchMin.toISOString());
+        url.searchParams.set('timeMax', fetchMax.toISOString());
+        url.searchParams.set('singleEvents', 'true');
+        url.searchParams.set('orderBy', 'startTime');
+        url.searchParams.set('maxResults', '2500');
+        const r = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + gcalAccessToken } });
+        if (r.status === 401) { gcalHandleExpired(); return; }
+        const j = await r.json();
+        (j.items || []).forEach(ev => {
+          if (ev.start && ev.start.dateTime) {
+            const s = new Date(ev.start.dateTime);
+            const key = _gcalKey(s);
+            (data[key] = data[key] || []).push({ title: ev.summary || '(タイトルなし)', allDay: false, color: cal.color, startMin: s.getHours()*60 + s.getMinutes(), timeLabel: `${_gpad2(s.getHours())}:${_gpad2(s.getMinutes())}` });
+          } else if (ev.start && ev.start.date) {
+            let cur = new Date(ev.start.date + 'T00:00:00');
+            const endD = new Date((ev.end && ev.end.date ? ev.end.date : ev.start.date) + 'T00:00:00');
+            let guard = 0;
+            do {
+              const key = _gcalKey(cur);
+              (data[key] = data[key] || []).push({ title: ev.summary || '(タイトルなし)', allDay: true, color: cal.color, startMin: -1, timeLabel: '終日' });
+              cur.setDate(cur.getDate() + 1); guard++;
+            } while (cur < endD && guard < 60);
+          }
+        });
+      } catch (e) { console.warn('[GCal month] fetch失敗', e); }
+    }));
+    Object.keys(data).forEach(k => data[k].sort((a,b) => a.startMin - b.startMin));
+    gcalMonthData = data;
+  }
+
+  async function gcalRenderMonth() {
+    const grid = document.getElementById('gcalMonthGrid');
+    if (!grid) return;
+    grid.innerHTML = '<div style="text-align:center;color:#8e8e93;padding:24px 0;font-size:13px;">読み込み中…</div>';
+    const dl = document.getElementById('gcalMonthDayList'); if (dl) dl.innerHTML = '';
+    await gcalFetchMonth(gcalMonthDate);
+    _gcalPaintMonth();
+  }
+
+  function _gcalPaintMonth() {
+    const label = document.getElementById('gcalMonthLabel');
+    const grid = document.getElementById('gcalMonthGrid');
+    if (!grid) return;
+    const y = gcalMonthDate.getFullYear(), m = gcalMonthDate.getMonth();
+    if (label) label.textContent = `${y}年${m+1}月`;
+    const first = new Date(y, m, 1);
+    const startDow = first.getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayKey = _gcalKey(new Date());
+    const wk = ['日','月','火','水','木','金','土'];
+    let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">';
+    wk.forEach((w,i) => html += `<div style="text-align:center;font-size:11px;color:${i===0?'#ff3b30':i===6?'#0a84ff':'#8e8e93'};padding:2px 0;">${w}</div>`);
+    html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
+    for (let i = 0; i < startDow; i++) html += '<div></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${y}-${_gpad2(m+1)}-${_gpad2(d)}`;
+      const evs = gcalMonthData[key] || [];
+      const dow = (startDow + d - 1) % 7;
+      const isToday = key === todayKey;
+      const isSel = key === gcalMonthSelected;
+      const numColor = isToday ? '#fff' : (dow===0?'#ff3b30':dow===6?'#0a84ff':'#1c1c1e');
+      let dots = '';
+      evs.slice(0,3).forEach(e => dots += `<span style="width:5px;height:5px;border-radius:50%;background:${e.color||'#4a90e2'};display:inline-block;"></span>`);
+      if (evs.length > 3) dots += `<span style="font-size:8px;color:#8e8e93;line-height:6px;">+${evs.length-3}</span>`;
+      html += `<div onclick="gcalSelectMonthDay('${key}')" style="min-height:46px;border-radius:9px;padding:3px 0 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;${isSel?'background:#eef4fe;box-shadow:0 0 0 1.5px #4a90e2 inset;':''}">`
+        + `<span style="width:22px;height:22px;line-height:22px;text-align:center;font-size:12.5px;border-radius:50%;color:${numColor};${isToday?'background:#4a90e2;font-weight:700;':''}">${d}</span>`
+        + `<span style="display:flex;gap:2px;align-items:center;min-height:6px;flex-wrap:wrap;justify-content:center;max-width:92%;">${dots}</span>`
+        + `</div>`;
+    }
+    html += '</div>';
+    grid.innerHTML = html;
+    const monthPrefix = `${y}-${_gpad2(m+1)}`;
+    gcalRenderMonthDayList(gcalMonthSelected || (todayKey.startsWith(monthPrefix) ? todayKey : null));
+    try { if (typeof renderBriefingUI === 'function') renderBriefingUI(); } catch(e){}
+  }
+
+  function gcalRenderMonthDayList(key) {
+    const box = document.getElementById('gcalMonthDayList');
+    if (!box) return;
+    if (!key) { box.innerHTML = '<div style="text-align:center;color:#b0b0b8;padding:16px 0;font-size:12.5px;">日付をタップすると予定が表示されます</div>'; return; }
+    const parts = key.split('-').map(Number);
+    const yy = parts[0], mm = parts[1], dd = parts[2];
+    const dObj = new Date(yy, mm-1, dd);
+    const dow = ['日','月','火','水','木','金','土'][dObj.getDay()];
+    const evs = gcalMonthData[key] || [];
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 8px;">`
+      + `<span style="font-size:14px;font-weight:700;color:#1c1c1e;">${mm}月${dd}日(${dow})</span>`
+      + `<button onclick="gcalOpenDayInEvents('${key}')" style="background:#eef4fe;color:#4a90e2;border:none;border-radius:9px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;">この日を開く ›</button>`
+      + `</div>`;
+    if (evs.length === 0) {
+      html += '<div style="color:#b0b0b8;padding:8px 0 14px;font-size:13px;">予定なし</div>';
+    } else {
+      evs.forEach(e => {
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f4f3f8;">`
+          + `<span style="width:8px;height:8px;border-radius:50%;background:${e.color||'#4a90e2'};flex:none;"></span>`
+          + `<span style="width:44px;font-size:12px;color:#8e8e93;flex:none;">${e.allDay?'終日':e.timeLabel}</span>`
+          + `<span style="font-size:14px;color:#1c1c1e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escapeHtml(e.title)}</span>`
+          + `</div>`;
+      });
+    }
+    box.innerHTML = html;
+  }
+
+  function gcalSelectMonthDay(key) { gcalMonthSelected = key; _gcalPaintMonth(); }
+  async function gcalNavMonth(delta) {
+    gcalMonthDate = new Date(gcalMonthDate.getFullYear(), gcalMonthDate.getMonth() + delta, 1);
+    gcalMonthSelected = null;
+    await gcalRenderMonth();
+  }
+  // 月表示の日 → イベントタブでその日を開く（追加・編集用）
+  async function gcalOpenDayInEvents(key) {
+    const parts = key.split('-').map(Number);
+    gcalPanelDate = new Date(parts[0], parts[1]-1, parts[2]);
+    gcalSwitchTab('events');
+    if (!gcalEvents[gcalPanelDate.toDateString()]) { try { await gcalFetchEvents(gcalPanelDate); } catch(e){} }
+    gcalRenderEventList();
+  }
+  window.gcalNavMonth = gcalNavMonth;
+  window.gcalSelectMonthDay = gcalSelectMonthDay;
+  window.gcalOpenDayInEvents = gcalOpenDayInEvents;
 
   // 日付ナビ
   async function gcalNavDay(delta) {
