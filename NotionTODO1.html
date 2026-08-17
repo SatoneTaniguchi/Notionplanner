@@ -3199,6 +3199,25 @@
         <div id="gcalEditCalArea"></div>
       </div>
 
+      <!-- アラーム／強調 -->
+      <div id="gcalEditAlarmSection">
+        <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:6px;">アラーム</label>
+        <div class="alarm-chips" id="gcalEditAlarmChips">
+          <button type="button" class="alarm-chip" data-pat="none" onclick="gcalEditSetAlarmPattern('none')">なし</button>
+          <button type="button" class="alarm-chip" data-pat="light" onclick="gcalEditSetAlarmPattern('light')">ゆるめ</button>
+          <button type="button" class="alarm-chip" data-pat="normal" onclick="gcalEditSetAlarmPattern('normal')">普通</button>
+          <button type="button" class="alarm-chip" data-pat="important" onclick="gcalEditSetAlarmPattern('important')">大事</button>
+        </div>
+        <div id="gcalEditAlarmTypeRow" style="display:none;margin-top:8px;">
+          <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">種別（文言）</div>
+          <div class="alarm-chips" id="gcalEditAlarmTypeChips">
+            <button type="button" class="alarm-chip type" data-typ="general" onclick="gcalEditSetAlarmType('general')">一般</button>
+            <button type="button" class="alarm-chip type" data-typ="outing" onclick="gcalEditSetAlarmType('outing')">おでかけ</button>
+          </div>
+        </div>
+        <div id="gcalEditAlarmPreview" style="display:none;margin-top:10px;"></div>
+      </div>
+
       <!-- アクション -->
       <button id="gcalEditSaveBtn" onclick="gcalSaveEdit()" style="
         margin-top:4px;background:#1c1c1e;color:#fff;border:none;border-radius:14px;
@@ -17374,6 +17393,11 @@
         // 初回はすべてON、保存済みpreferenceがあればそちらを使う
         enabled: gcalCalendarPrefs[cal.id] !== false
       }));
+      // 同一IDの重複を除去（重複すると「イベントが二重表示」「作成時に二重登録」の原因になる）
+      {
+        const _seen = Object.create(null);
+        gcalCalendars = gcalCalendars.filter(c => { if (_seen[c.id]) return false; _seen[c.id] = true; return true; });
+      }
       gcalRenderCalList();
       if (typeof gcalUpdateWriteUI === 'function') gcalUpdateWriteUI();
     } catch(e) { console.error('gcalFetchCalendars', e); }
@@ -17480,6 +17504,13 @@
 
     // フェッチ完了後にまとめてセット
     dayEvents.sort((a,b) => a.startTime.localeCompare(b.startTime));
+    // イベントIDの重複を除去（万一同じ予定が二重取得されても二重表示しない）
+    {
+      const seen = Object.create(null);
+      const uniq = [];
+      dayEvents.forEach(ev => { const k = ev.id || (ev.title + '|' + ev.startTime + '|' + ev.endTime); if (seen[k]) return; seen[k] = true; uniq.push(ev); });
+      dayEvents.length = 0; Array.prototype.push.apply(dayEvents, uniq);
+    }
     gcalEvents[dayStr] = dayEvents;
     Object.assign(gcalEvents, dayAllevents);
     gcalFetching[dayStr] = false;
@@ -17994,6 +18025,7 @@
     const allDay = gcalEditEl('gcalEditAllDay').checked;
     gcalEditEl('gcalEditTimedRow').style.display  = allDay ? 'none'  : 'block';
     gcalEditEl('gcalEditAllDayRow').style.display = allDay ? 'block' : 'none';
+    try { if (typeof gcalEditRenderAlarm === 'function') gcalEditRenderAlarm(); } catch(e){}
   }
 
   // カレンダー選択UIを描画（新規=複数選択 / 編集=固定表示）
@@ -18023,6 +18055,36 @@
       </label>`;
     }).join('');
   }
+
+  // 編集フォームのアラーム状態（保存時に反映）
+  let gcalEditAlarm = { pattern: 'none', type: 'general' };
+  function gcalEditSetAlarmPattern(p) { gcalEditAlarm.pattern = p; gcalEditRenderAlarm(); }
+  function gcalEditSetAlarmType(ty) { gcalEditAlarm.type = ty; gcalEditRenderAlarm(); }
+  window.gcalEditSetAlarmPattern = gcalEditSetAlarmPattern;
+  window.gcalEditSetAlarmType = gcalEditSetAlarmType;
+  function gcalEditRenderAlarm() {
+    const pw = document.getElementById('gcalEditAlarmChips');
+    if (pw) pw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === gcalEditAlarm.pattern));
+    const tw = document.getElementById('gcalEditAlarmTypeChips');
+    if (tw) tw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === gcalEditAlarm.type));
+    const typeRow = document.getElementById('gcalEditAlarmTypeRow');
+    if (typeRow) typeRow.style.display = (gcalEditAlarm.pattern === 'none') ? 'none' : 'block';
+    // プレビュー
+    const box = document.getElementById('gcalEditAlarmPreview');
+    if (box) {
+      const allDay = (function(){ const c = gcalEditEl('gcalEditAllDay'); return c ? c.checked : false; })();
+      const entries = (typeof alarmTimings === 'function') ? alarmTimings(gcalEditAlarm.pattern, allDay) : [];
+      if (gcalEditAlarm.pattern === 'none' || !entries.length) { box.style.display = 'none'; box.innerHTML = ''; }
+      else {
+        const titleEl = gcalEditEl('gcalEditTitleInput');
+        const title = (titleEl && titleEl.value.trim()) || 'この予定';
+        box.style.display = 'block';
+        box.innerHTML = '<div style="font-size:11px;color:#a8a5b8;margin-bottom:6px;line-height:1.5;">' + (allDay ? '前日はまとめ通知にお任せ。ここは当日の念押しです。' : '前日はまとめ通知、直前(5分/1分前)はGoogle。ここは当日の準備リマインドです。') + '</div>'
+          + entries.map(e => `<div class="alarm-prev-row"><span class="alarm-prev-when">${_alarmWhenLabel(e)}</span><span class="alarm-prev-msg">${_escapeHtml(_alarmMsg(gcalEditAlarm.type, e, title))}</span></div>`).join('');
+      }
+    }
+  }
+  window.gcalEditRenderAlarm = gcalEditRenderAlarm;
 
   function gcalEditSetLocked(locked) {
     gcalEditState.locked = locked;
@@ -18061,6 +18123,8 @@
     gcalEditEl('gcalEditEndDate').value   = gcalDateInputStr(base);
     gcalEditToggleAllDay();
     gcalEditRenderCalChoices();
+    gcalEditAlarm = { pattern: 'none', type: 'general' };  // 新規はアラームなしから
+    gcalEditRenderAlarm();
     gcalEditSetLocked(false);
     gcalOpenEditOverlay();
   }
@@ -18097,6 +18161,11 @@
     }
     gcalEditToggleAllDay();
     gcalEditRenderCalChoices();
+    // 保存済みのアラーム設定を反映（タスク由来のロック時は非表示）
+    gcalEditAlarm = locked ? { pattern:'none', type:'general' } : Object.assign({ pattern:'none', type:'general' }, getGcalAlarm(ev.id));
+    const alSec = document.getElementById('gcalEditAlarmSection');
+    if (alSec) alSec.style.display = locked ? 'none' : 'block';
+    gcalEditRenderAlarm();
     gcalEditSetLocked(locked);
     gcalOpenEditOverlay();
   }
@@ -18648,16 +18717,25 @@
     try {
       if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中…'; }
       if (gcalEditState.mode === 'new') {
-        const calIds = Array.from(document.querySelectorAll('[data-gcal-edit-cal]:checked')).map(i => i.dataset.gcalEditCal);
+        const calIds = Array.from(new Set(Array.from(document.querySelectorAll('[data-gcal-edit-cal]:checked')).map(i => i.dataset.gcalEditCal)));
         if (calIds.length === 0) { alert('追加先カレンダーを選択してください。'); return; }
-        for (const cid of calIds) { await gcalApiInsert(cid, body); }
+        const createdIds = [];
+        for (const cid of calIds) { const created = await gcalApiInsert(cid, body); if (created && created.id) createdIds.push(created.id); }
+        // アラーム設定を作成した予定に付与
+        if (gcalEditAlarm && gcalEditAlarm.pattern !== 'none') {
+          createdIds.forEach(id => setGcalAlarm(id, gcalEditAlarm.pattern, gcalEditAlarm.type));
+        }
       } else {
         const ev = gcalEditState.ev;
         // 終日↔時間指定の切替に対応するため、変更しない側のフィールドを明示的に消す
         if (allDay) { body.start = { date: body.start.date }; body.end = { date: body.end.date }; }
         await gcalApiPatch(ev.calendarId, ev.id, body);
+        // アラーム設定を反映（なし選択で解除）
+        if (gcalEditAlarm) setGcalAlarm(ev.id, gcalEditAlarm.pattern, gcalEditAlarm.type);
       }
       await gcalAfterWrite();
+      try { if (typeof syncGcalEventAlarms === 'function') syncGcalEventAlarms(); } catch(e){}
+      try { if (typeof renderTomorrowSummary === 'function') renderTomorrowSummary(); } catch(e){}
       gcalCloseEdit();
     } catch (err) {
       alert('保存に失敗しました: ' + (err.message || err));
