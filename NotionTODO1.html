@@ -12954,6 +12954,15 @@
   window.applyAppRoute = applyAppRoute;
   try { window.addEventListener('hashchange', routeFromHash); } catch(e){}
   try { if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function(e){ if (e && e.data && e.data.route) applyAppRoute(e.data.route); }); } catch(e){}
+  // SWにアプリ本体のURLを教える（通知タップ時、url未指定でも本体を開けるように）
+  try {
+    if ('serviceWorker' in navigator) {
+      var _sendAppUrl = function(){ try { var sw = (navigator.serviceWorker.controller); if (sw) sw.postMessage({ type:'app-url', url: location.href.split('#')[0] }); } catch(e){} };
+      navigator.serviceWorker.ready.then(function(reg){ try { var sw = reg.active || navigator.serviceWorker.controller; if (sw) sw.postMessage({ type:'app-url', url: location.href.split('#')[0] }); } catch(e){} }).catch(function(){});
+      navigator.serviceWorker.addEventListener('controllerchange', _sendAppUrl);
+      setTimeout(_sendAppUrl, 1500);
+    }
+  } catch(e){}
   setTimeout(routeFromHash, 400);
   // 進捗に応じた応援メッセージとキャラ
   function _challengeCheer(streak, target) {
