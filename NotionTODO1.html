@@ -3136,8 +3136,8 @@
   display:none;align-items:flex-end;justify-content:center;
 " onclick="if(event.target===this)gcalCloseEdit()">
   <div id="gcalEditPanel" style="
-    background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:430px;
-    max-height:90dvh;display:flex;flex-direction:column;overflow-y:auto;
+    background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:430px;box-sizing:border-box;
+    max-height:90dvh;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
     padding-bottom:calc(var(--navh, 60px) + 12px);
     transform:translateY(100%);transition:transform 0.28s cubic-bezier(.4,0,.2,1);
   ">
@@ -3170,11 +3170,11 @@
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始</label>
-            <input id="gcalEditStart" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;">
+            <input id="gcalEditStart" type="datetime-local" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
           </div>
           <div style="min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了</label>
-            <input id="gcalEditEnd" type="datetime-local" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;background:#fff;">
+            <input id="gcalEditEnd" type="datetime-local" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
           </div>
         </div>
       </div>
@@ -3184,11 +3184,11 @@
         <div style="display:flex;gap:10px;">
           <div style="flex:1;min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始日</label>
-            <input id="gcalEditStartDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
+            <input id="gcalEditStartDate" type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
           </div>
           <div style="flex:1;min-width:0;">
             <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了日（含む）</label>
-            <input id="gcalEditEndDate" type="date" style="width:100%;max-width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;padding:10px;font-size:14px;color:#1c1c1e;outline:none;">
+            <input id="gcalEditEndDate" type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
           </div>
         </div>
       </div>
@@ -18835,8 +18835,15 @@
         }
       } else {
         const ev = gcalEditState.ev;
-        // 終日↔時間指定の切替に対応するため、変更しない側のフィールドを明示的に消す
-        if (allDay) { body.start = { date: body.start.date }; body.end = { date: body.end.date }; }
+        // 終日⇄時間指定の切替に対応: PATCHは部分更新なので、反対側のフィールドを null で明示的に消す。
+        //  （消さないと date と dateTime が両立して「Invalid start time」400になる）
+        if (allDay) {
+          body.start = { date: body.start.date, dateTime: null, timeZone: null };
+          body.end   = { date: body.end.date,   dateTime: null, timeZone: null };
+        } else {
+          body.start = { dateTime: body.start.dateTime, timeZone: body.start.timeZone, date: null };
+          body.end   = { dateTime: body.end.dateTime,   timeZone: body.end.timeZone,   date: null };
+        }
         await gcalApiPatch(ev.calendarId, ev.id, body);
         // アラーム設定を反映（なし選択で解除）
         if (gcalEditAlarm) setGcalAlarm(ev.id, gcalEditAlarm.pattern, gcalEditAlarm.type);
