@@ -3998,20 +3998,20 @@
           <div class="pro-row" style="padding-top:0;border-top:none;">
             <div class="pro-label"><div class="pro-icon"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></div> アラーム</div>
           </div>
-          <div class="alarm-chips" id="alarmPatternChips">
+          <div class="alarm-chips js-alarm-pat" id="alarmPatternChips">
             <button type="button" class="alarm-chip" data-pat="none"      onclick="setTaskAlarmPattern('none', this)">なし</button>
             <button type="button" class="alarm-chip" data-pat="light"     onclick="setTaskAlarmPattern('light', this)">ゆるめ</button>
             <button type="button" class="alarm-chip" data-pat="normal"    onclick="setTaskAlarmPattern('normal', this)">普通</button>
             <button type="button" class="alarm-chip" data-pat="important" onclick="setTaskAlarmPattern('important', this)">大事</button>
           </div>
-          <div id="alarmTypeRow" style="display:none;margin-top:8px;">
+          <div id="alarmTypeRow" class="js-alarm-type-row" style="display:none;margin-top:8px;">
             <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">種別（通知の文言が変わります）</div>
-            <div class="alarm-chips" id="alarmTypeChips">
+            <div class="alarm-chips js-alarm-typ" id="alarmTypeChips">
               <button type="button" class="alarm-chip type" data-typ="general" onclick="setTaskAlarmType('general', this)">一般</button>
               <button type="button" class="alarm-chip type" data-typ="outing"  onclick="setTaskAlarmType('outing', this)">おでかけ</button>
             </div>
           </div>
-          <div id="alarmPreview" style="display:none;margin-top:10px;"></div>
+          <div id="alarmPreview" class="js-alarm-preview" style="display:none;margin-top:10px;"></div>
         </div>
       </div>
 
@@ -4290,6 +4290,28 @@
               毎年 <select id="repeatYearMonthSelect" class="rsel"></select> 月 <select id="repeatYearDaySelect" class="rsel"></select> 日
             </div>
           </div>
+        </div>
+
+        <!-- アラーム（繰り返し予定の各回に事前リマインド） -->
+        <div class="modal-section" id="alarmSectionRepeat">
+          <div class="pro-row" style="padding-top:0;border-top:none;">
+            <div class="pro-label"><div class="pro-icon"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></div> アラーム</div>
+          </div>
+          <div class="alarm-chips js-alarm-pat">
+            <button type="button" class="alarm-chip" data-pat="none"      onclick="setTaskAlarmPattern('none', this)">なし</button>
+            <button type="button" class="alarm-chip" data-pat="light"     onclick="setTaskAlarmPattern('light', this)">ゆるめ</button>
+            <button type="button" class="alarm-chip" data-pat="normal"    onclick="setTaskAlarmPattern('normal', this)">普通</button>
+            <button type="button" class="alarm-chip" data-pat="important" onclick="setTaskAlarmPattern('important', this)">大事</button>
+          </div>
+          <div class="js-alarm-type-row" style="display:none;margin-top:8px;">
+            <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">種別（通知の文言が変わります）</div>
+            <div class="alarm-chips js-alarm-typ">
+              <button type="button" class="alarm-chip type" data-typ="general" onclick="setTaskAlarmType('general', this)">一般</button>
+              <button type="button" class="alarm-chip type" data-typ="outing"  onclick="setTaskAlarmType('outing', this)">おでかけ</button>
+            </div>
+          </div>
+          <div class="js-alarm-preview" style="display:none;margin-top:10px;"></div>
+          <div style="font-size:11px;color:#b0b0b8;margin-top:8px;line-height:1.5;">毎回の予定時刻を基準に、今後の各回へ自動で通知を予約します。</div>
         </div>
 
         <!-- 月の日付を制限 -->
@@ -6423,8 +6445,11 @@
       const minNarrowH = 12 + 16 + (2 * 17) + (durLabel2 ? 16 : 0) + 12;
       const cardMinH = isNarrow ? Math.max(minNarrowH, 48) : 40;
 
-      // カードの高さ: finalH（時間ベース）を使う。並列時は最小高さも確保
-      const cardH = isNarrow ? Math.max(cardMinH, finalH) : finalH;
+      // カードの高さ: 並列時は「所要時間ベース(spanH)」で統一する。
+      //  以前は finalH（次スロット境界までクランプ）を使っていたため、同じ所要時間でも
+      //  開始位置（例 9:00 と 9:05）でクランプ量が変わり高さがズレていた。spanHは
+      //  occupy時間(=開始〜占有終了)ベースなので、同じ所要時間なら必ず同じ高さになる。
+      const cardH = isNarrow ? Math.max(cardMinH, spanH) : finalH;
       // 全カード共通: 開始時刻の線から上にOVERHANG分はみ出す（1時間未満も以上も同じ基準位置）
       const cardTop = cardTopBase;
 
@@ -8484,6 +8509,8 @@
           };
           Object.assign(task._repeatConfig, repeatExtraCfg());
           task._allDay = rAllday;
+          task._alarmPattern = _taskAlarmPattern;
+          task._alarmType = _taskAlarmType;
           task['(A)実行日'] = rAllday
             ? { start: new Date(currentDate).toDateString() }
             : buildJissekiDate(currentDate.toDateString(), rTime, drumSelectedMin);
@@ -8540,6 +8567,8 @@
         };
         Object.assign(task._repeatConfig, repeatExtraCfg());
         task._allDay = rAllday;
+        task._alarmPattern = _taskAlarmPattern;
+        task._alarmType = _taskAlarmType;
         // 今日の日付で実行日も設定（繰り返しは_repeatConfigが主）
         task['(A)実行日'] = rAllday
           ? { start: new Date(currentDate).toDateString() }
@@ -12622,48 +12651,54 @@
     return out;
   }
 
-  // モーダルUI
+  // モーダルUI（時間指定タブ・繰り返しタブの両方を更新）
+  function _alarmChipContainers(kind) {
+    // kind: 'pat' | 'typ' | 'typerow' | 'preview'
+    const cls = kind === 'pat' ? '.js-alarm-pat' : kind === 'typ' ? '.js-alarm-typ' : kind === 'typerow' ? '.js-alarm-type-row' : '.js-alarm-preview';
+    return Array.from(document.querySelectorAll(cls));
+  }
+  function _alarmCurAllDay() {
+    try {
+      if (typeof currentTab !== 'undefined' && currentTab === 'repeat') {
+        const t = document.getElementById('repeatAlldayToggle'); return !!(t && t.classList.contains('toggle-on'));
+      }
+    } catch(e){}
+    return (typeof isAlldayOn === 'function') ? isAlldayOn() : false;
+  }
   function setTaskAlarmPattern(pat, btn) {
     _taskAlarmPattern = pat;
-    const wrap = document.getElementById('alarmPatternChips');
-    if (wrap) wrap.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === pat));
-    const typeRow = document.getElementById('alarmTypeRow');
-    if (typeRow) typeRow.style.display = (pat === 'none') ? 'none' : 'block';
+    _alarmChipContainers('pat').forEach(w => w.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === pat)));
+    _alarmChipContainers('typerow').forEach(r => r.style.display = (pat === 'none') ? 'none' : 'block');
     if (pat !== 'none') { try { _ensurePushSub().catch(function(){}); } catch(e){} } // 通知許可（初回のみ）
     renderTaskAlarmPreview();
   }
   function setTaskAlarmType(typ, btn) {
     _taskAlarmType = typ;
-    const wrap = document.getElementById('alarmTypeChips');
-    if (wrap) wrap.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === typ));
+    _alarmChipContainers('typ').forEach(w => w.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === typ)));
     renderTaskAlarmPreview();
   }
   function renderTaskAlarmPreview() {
-    const box = document.getElementById('alarmPreview');
-    if (!box) return;
+    const boxes = _alarmChipContainers('preview');
+    if (!boxes.length) return;
     const pat = _taskAlarmPattern;
-    const allDay = (typeof isAlldayOn === 'function') ? isAlldayOn() : false;
+    const allDay = _alarmCurAllDay();
     const entries = alarmTimings(pat, allDay);
-    if (!pat || pat === 'none' || !entries.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
     const titleEl = document.getElementById('taskNameInput');
     const title = (titleEl && titleEl.value.trim()) || 'この予定';
-    let html = '<div style="font-size:11px;color:#a8a5b8;margin-bottom:6px;line-height:1.5;">' + (allDay ? '前日は「まとめ通知」にお任せ。ここは当日の念押しです。' : '前日は「まとめ通知」、直前（5分・1分前）はGoogleにお任せ。ここは当日の準備リマインドです。') + '</div>';
-    entries.forEach(e => {
-      html += `<div class="alarm-prev-row"><span class="alarm-prev-when">${_alarmWhenLabel(e)}</span><span class="alarm-prev-msg">${_escapeHtml(_alarmMsg(_taskAlarmType, e, title))}</span></div>`;
-    });
-    box.style.display = 'block';
-    box.innerHTML = html;
+    let html = '';
+    if (pat && pat !== 'none' && entries.length) {
+      html = '<div style="font-size:11px;color:#a8a5b8;margin-bottom:6px;line-height:1.5;">' + (allDay ? '前日は「まとめ通知」にお任せ。ここは当日の念押しです。' : '前日は「まとめ通知」、直前（5分・1分前）はGoogleにお任せ。ここは当日の準備リマインドです。') + '</div>'
+        + entries.map(e => `<div class="alarm-prev-row"><span class="alarm-prev-when">${_alarmWhenLabel(e)}</span><span class="alarm-prev-msg">${_escapeHtml(_alarmMsg(_taskAlarmType, e, title))}</span></div>`).join('');
+    }
+    boxes.forEach(box => { if (html) { box.style.display = 'block'; box.innerHTML = html; } else { box.style.display = 'none'; box.innerHTML = ''; } });
   }
   // モーダルを開いた時に状態を反映（新規はnone/general、編集はタスクの値）
   function initTaskAlarmUI(task) {
     _taskAlarmPattern = (task && task._alarmPattern) || 'none';
     _taskAlarmType = (task && task._alarmType) || 'general';
-    const pw = document.getElementById('alarmPatternChips');
-    if (pw) pw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === _taskAlarmPattern));
-    const tw = document.getElementById('alarmTypeChips');
-    if (tw) tw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === _taskAlarmType));
-    const typeRow = document.getElementById('alarmTypeRow');
-    if (typeRow) typeRow.style.display = (_taskAlarmPattern === 'none') ? 'none' : 'block';
+    _alarmChipContainers('pat').forEach(w => w.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === _taskAlarmPattern)));
+    _alarmChipContainers('typ').forEach(w => w.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === _taskAlarmType)));
+    _alarmChipContainers('typerow').forEach(r => r.style.display = (_taskAlarmPattern === 'none') ? 'none' : 'block');
     renderTaskAlarmPreview();
   }
   window.setTaskAlarmPattern = setTaskAlarmPattern;
@@ -12680,8 +12715,31 @@
     const jobs = []; let n = 0;
     try {
       tasks.forEach(t => {
-        if (!t || t._type === 'repeat' || t._type === 'repeat_ended') return;
+        if (!t) return;
         if (!t._alarmPattern || t._alarmPattern === 'none') return;
+        // 繰り返しテンプレート: 今後30日の各回に予約
+        if (t._type === 'repeat') {
+          const rc = t._repeatConfig || {};
+          const parts = (rc.time || '07:00').split(':');
+          const hh = parseInt(parts[0],10) || 0, mm = parseInt(parts[1],10) || 0;
+          const base = new Date(); base.setHours(0,0,0,0);
+          for (let d = 0; d < 14; d++) {
+            const day = new Date(base); day.setDate(base.getDate() + d);
+            if (typeof habitOccursOn === 'function' && !habitOccursOn(t, day)) continue;
+            const ds = ymd(day);
+            if (typeof isHabitDoneOn === 'function' && isHabitDoneOn(t.id, ds)) continue; // 済みは通知しない
+            const occ = new Date(day);
+            if (!rc.allDay) occ.setHours(hh, mm, 0, 0);
+            const fake = { _alarmPattern: t._alarmPattern, _alarmType: t._alarmType, _allDay: !!rc.allDay, name: t.name, '(A)実行日': { start: occ.toISOString() } };
+            computeTaskAlarms(fake).forEach(a => {
+              if (a.when <= now || a.when > horizon) return;
+              jobs.push({ id: 'task' + (n++), when: a.when, tag: 'rtask_' + (t.id || n) + '_' + a.when, url: '#schedule', title: a.title, body: a.body });
+            });
+          }
+          return;
+        }
+        if (t._type === 'repeat_ended') return;
+        // 単発の時間指定タスク
         const j = t['(A)実行日']; if (!j || !j.start) return;
         if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, new Date(j.start))) return; // 完了済みは除外
         computeTaskAlarms(t).forEach(a => {
