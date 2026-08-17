@@ -18059,7 +18059,11 @@
     });
     if (r.status === 401) { gcalHandleExpired(); throw new Error('認証の有効期限が切れています。再接続してください。'); }
     if (r.status === 403) { throw new Error('変更権限がありません。'); }
-    if (!r.ok) { throw new Error('変更に失敗 (' + r.status + ')'); }
+    if (!r.ok) {
+      let msg = '変更に失敗 (' + r.status + ')';
+      try { const j = await r.json(); if (j && j.error && j.error.message) msg += ': ' + j.error.message; } catch (e) {}
+      throw new Error(msg);
+    }
     return r.json();
   }
   async function gcalApiDelete(calId, eventId) {
