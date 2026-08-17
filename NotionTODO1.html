@@ -1519,7 +1519,7 @@
     margin-bottom: 12px;
   }
   /* 明日の予定まとめ（スケジュール上部） */
-  .tomorrow-summary { margin: 8px 12px 0; background: #fff; border: 1px solid #ececf0; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 6px rgba(40,30,80,.04); }
+  .tomorrow-summary { margin: 12px 12px 28px; background: #fff; border: 1px solid #ececf0; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 6px rgba(40,30,80,.04); }
   .tmr-head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .tmr-title { flex: 1; font-size: 14px; font-weight: 700; color: #2d2b3a; }
   .tmr-date { font-size: 12px; font-weight: 600; color: #8e8e93; margin-left: 4px; }
@@ -1532,6 +1532,9 @@
   .tmr-time { flex: none; width: 52px; font-size: 12px; font-weight: 700; color: #6b6880; }
   .tmr-name { flex: 1; font-size: 14px; color: #3a3746; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tmr-empty { padding: 12px 0; text-align: center; font-size: 13px; color: #b0b0b8; }
+  .gcal-al-btn { flex: none; align-self: center; font-family: inherit; font-size: 11px; font-weight: 700; color: #8e8b9e; background: #f2f1f7; border: 1px solid transparent; border-radius: 10px; padding: 5px 8px; cursor: pointer; margin-right: 2px; }
+  .gcal-al-btn.on { color: #6c5ce7; background: #efedfa; border-color: #d9d4f5; }
+  .gcal-al-btn:active { transform: scale(.96); }
   .alarm-chip {
     font-family: inherit; font-size: 14px; font-weight: 600; color: #6b6880;
     background: #f2f1f7; border: 1.5px solid transparent; border-radius: 20px;
@@ -3459,12 +3462,12 @@
 <div class="main-content" id="todoScreen">
   <!-- 終日エリア（スティッキー固定） -->
   <div id="alldaySticky" style="position:sticky;top:0;z-index:50;background:#fff;"></div>
-  <!-- 明日の予定まとめ -->
-  <div id="tomorrowSummary" class="tomorrow-summary" style="display:none;"></div>
   <div class="timeline-scroll" id="timelineScroll">
     <div class="timeline" id="timeline">
       <div class="timeline-line"></div>
     </div>
+    <!-- 明日の予定まとめ（タイムラインの下に配置） -->
+    <div id="tomorrowSummary" class="tomorrow-summary" style="display:none;"></div>
   </div>
 
   <!-- あとでやるパネル -->
@@ -4896,7 +4899,7 @@
   // テンプレが変わったら自動で押し上げ（既存の tasks:changed を利用。ハッシュ一致なら送らない）
   try{ window.addEventListener('tasks:changed', function(){ tplCloudPush(false); }); }catch(e){}
   // 他端末から戻ってきたら最新を取り込む
-  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} try{ if(typeof syncTaskAlarms==='function') syncTaskAlarms(); }catch(e){} } }); }catch(e){}
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} try{ if(typeof syncTaskAlarms==='function') syncTaskAlarms(); }catch(e){} try{ if(typeof syncGcalEventAlarms==='function') syncGcalEventAlarms(); }catch(e){} } }); }catch(e){}
   try{ window.addEventListener('online', function(){ tplCloudPull(); }); }catch(e){}
   // 追加: アプリに戻ったとき（iOS PWA/Safari は visibilitychange を取りこぼすことがある）
   try{ window.addEventListener('focus', function(){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} }); }catch(e){}
@@ -4915,6 +4918,7 @@
         try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){}  // 通知予定も定期更新（済み日を除外）
         try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){}   // 明日の予定まとめ通知も更新
         try{ if(typeof syncTaskAlarms==='function') syncTaskAlarms(); }catch(e){}   // 予定アラームも更新
+        try{ if(typeof syncGcalEventAlarms==='function') syncGcalEventAlarms(); }catch(e){}   // Googleイベントのアラームも更新
       }catch(e){ dbg('tpl auto sync tick failed', e); }
     }, TPL_AUTO_SYNC_MS);
   }catch(e){ dbg('tpl auto sync setup failed', e); }
@@ -12422,9 +12426,9 @@
       const dstr = targetDate.toDateString();
       (gcalEvents[dstr] || []).forEach(e => {
         const lbl = e.startLabel || e.start || '';
-        items.push({ min: (e.startMin != null ? e.startMin : 0), label: `${lbl ? lbl + ' ' : ''}${e.title || ''}`, imp: false });
+        items.push({ min: (e.startMin != null ? e.startMin : 0), label: `${lbl ? lbl + ' ' : ''}${e.title || ''}`, imp: gcalIsImportant(e.id) });
       });
-      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, label: `終日 ${e.title || ''}`, imp: false }));
+      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, label: `終日 ${e.title || ''}`, imp: gcalIsImportant(e.id) }));
     } catch(e){}
     // 「大事」に設定したアプリの予定を強調して含める
     try {
@@ -12675,6 +12679,102 @@
   }
   window.syncTaskAlarms = syncTaskAlarms;
 
+  // ===== Googleイベントのアラーム／強調（イベントIDにローカルで紐づけ）=====
+  function _gcalAlarms() { try { return JSON.parse(localStorage.getItem('gcalEventAlarms') || '{}') || {}; } catch(e) { return {}; } }
+  function getGcalAlarm(id) { const m = _gcalAlarms(); return m[id] || { pattern:'none', type:'general' }; }
+  function setGcalAlarm(id, pattern, type) {
+    const m = _gcalAlarms();
+    if (!pattern || pattern === 'none') delete m[id];
+    else m[id] = { pattern: pattern, type: type || 'general' };
+    try { localStorage.setItem('gcalEventAlarms', JSON.stringify(m)); } catch(e){}
+  }
+  function gcalIsImportant(id) { return id != null && getGcalAlarm(id).pattern === 'important'; }
+  function gcalHasAlarm(id) { return id != null && getGcalAlarm(id).pattern !== 'none'; }
+  window.getGcalAlarm = getGcalAlarm;
+  window.gcalIsImportant = gcalIsImportant;
+
+  let _gcalAlarmTarget = null; // {id,title,start,allDay}
+  function openGcalAlarmPicker(id, title, startISO, allDay) {
+    _gcalAlarmTarget = { id: id, title: title || '予定', start: startISO ? new Date(startISO) : new Date(), allDay: !!allDay };
+    renderGcalAlarmPicker();
+  }
+  function closeGcalAlarmPicker() { _gcalAlarmTarget = null; const el = document.getElementById('gcalAlarmPicker'); if (el) el.remove(); }
+  function _gcalPickPattern(p) { const t = _gcalAlarmTarget; if (!t) return; const cur = getGcalAlarm(t.id); setGcalAlarm(t.id, p, cur.type); renderGcalAlarmPicker(); _refreshGcalViews(); try { syncGcalEventAlarms(); } catch(e){} }
+  function _gcalPickType(ty) { const t = _gcalAlarmTarget; if (!t) return; const cur = getGcalAlarm(t.id); setGcalAlarm(t.id, cur.pattern === 'none' ? 'normal' : cur.pattern, ty); renderGcalAlarmPicker(); _refreshGcalViews(); try { syncGcalEventAlarms(); } catch(e){} }
+  window.openGcalAlarmPicker = openGcalAlarmPicker;
+  window.closeGcalAlarmPicker = closeGcalAlarmPicker;
+  window._gcalPickPattern = _gcalPickPattern;
+  window._gcalPickType = _gcalPickType;
+  function _refreshGcalViews() {
+    try { if (typeof gcalRenderEventList === 'function') gcalRenderEventList(); } catch(e){}
+    try { if (typeof _gcalPaintMonth === 'function' && gcalCurrentTab === 'month') _gcalPaintMonth(); } catch(e){}
+    try { if (typeof renderTomorrowSummary === 'function') renderTomorrowSummary(); } catch(e){}
+  }
+  function renderGcalAlarmPicker() {
+    const t = _gcalAlarmTarget;
+    let el = document.getElementById('gcalAlarmPicker');
+    if (!t) { if (el) el.remove(); return; }
+    const cur = getGcalAlarm(t.id);
+    if (!el) { el = document.createElement('div'); el.id = 'gcalAlarmPicker'; document.body.appendChild(el); }
+    const pchips = [['none','なし'],['light','ゆるめ'],['normal','普通'],['important','大事']]
+      .map(x => `<button class="alarm-chip${cur.pattern === x[0] ? ' selected' : ''}" onclick="_gcalPickPattern('${x[0]}')">${x[1]}</button>`).join('');
+    const tchips = [['general','一般'],['outing','おでかけ']]
+      .map(x => `<button class="alarm-chip type${cur.type === x[0] ? ' selected' : ''}" onclick="_gcalPickType('${x[0]}')">${x[1]}</button>`).join('');
+    let prev = '';
+    const entries = (typeof alarmTimings === 'function') ? alarmTimings(cur.pattern, t.allDay) : [];
+    if (cur.pattern !== 'none' && entries.length) {
+      prev = entries.map(e => `<div class="alarm-prev-row"><span class="alarm-prev-when">${_alarmWhenLabel(e)}</span><span class="alarm-prev-msg">${_escapeHtml(_alarmMsg(cur.type, e, t.title))}</span></div>`).join('');
+    }
+    const impNote = (cur.pattern === 'important') ? '<div style="font-size:11.5px;color:#e8590c;margin-top:8px;">🔴 まとめ通知と「明日の予定」で強調表示されます</div>' : '';
+    el.innerHTML = '<div style="position:fixed;inset:0;background:rgba(30,26,50,.35);z-index:9760;" onclick="closeGcalAlarmPicker()"></div>'
+      + '<div style="position:fixed;left:0;right:0;bottom:0;z-index:9761;background:#faf9fd;border-radius:20px 20px 0 0;padding:16px 16px calc(var(--navh,60px) + env(safe-area-inset-bottom) + 24px);max-height:80vh;overflow-y:auto;box-shadow:0 -6px 24px rgba(40,30,80,.18);">'
+      +   `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;"><span style="font-size:15px;font-weight:800;color:#2d2b3a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔔 ${_escapeHtml(t.title)}</span><button onclick="closeGcalAlarmPicker()" style="flex:none;font-size:13px;font-weight:700;color:#6c5ce7;background:#efedfa;border:none;border-radius:10px;padding:7px 12px;cursor:pointer;">閉じる</button></div>`
+      +   '<div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">アラーム</div>'
+      +   `<div class="alarm-chips">${pchips}</div>`
+      +   (cur.pattern !== 'none' ? `<div style="font-size:12px;color:#8e8e93;margin:12px 0 6px;">種別（文言）</div><div class="alarm-chips">${tchips}</div>` : '')
+      +   (prev ? `<div style="margin-top:12px;">${prev}</div>` : '')
+      +   impNote
+      + '</div>';
+  }
+
+  // Googleイベントのアラームを今後30日ぶんPush予約
+  async function syncGcalEventAlarms() {
+    const p = _mzPush(); if (!p || !p.sub) return;
+    const alarms = _gcalAlarms(); const ids = Object.keys(alarms);
+    const client = (p.client || '') + '-gcal';
+    if (!ids.length) { try { await fetch(_briefUrl() + '/cancel', { method:'POST', headers:_chalHeaders(), body:JSON.stringify({ client: client }) }); } catch(e){} return; }
+    if (typeof gcalAccessToken === 'undefined' || !gcalAccessToken) return;
+    const now = new Date(); const max = new Date(now); max.setDate(max.getDate() + 30);
+    const enabled = (typeof gcalCalendars !== 'undefined' ? gcalCalendars : []).filter(c => c.enabled);
+    const evMap = {};
+    await Promise.all(enabled.map(async cal => {
+      try {
+        const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`);
+        url.searchParams.set('timeMin', now.toISOString()); url.searchParams.set('timeMax', max.toISOString());
+        url.searchParams.set('singleEvents', 'true'); url.searchParams.set('orderBy', 'startTime'); url.searchParams.set('maxResults', '2500');
+        const r = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + gcalAccessToken } });
+        if (!r.ok) return; const j = await r.json();
+        (j.items || []).forEach(ev => {
+          if (!alarms[ev.id]) return;
+          if (ev.start && ev.start.dateTime) evMap[ev.id] = { title: ev.summary || '予定', start: new Date(ev.start.dateTime), allDay: false };
+          else if (ev.start && ev.start.date) evMap[ev.id] = { title: ev.summary || '予定', start: new Date(ev.start.date + 'T00:00:00'), allDay: true };
+        });
+      } catch(e){}
+    }));
+    const nowMs = Date.now(); const horizon = nowMs + 30 * 86400000; const jobs = []; let n = 0;
+    Object.keys(evMap).forEach(id => {
+      const info = evMap[id]; const a = alarms[id]; if (!a || a.pattern === 'none') return;
+      const fake = { _alarmPattern: a.pattern, _alarmType: a.type, _allDay: info.allDay, name: info.title, '(A)実行日': { start: info.start.toISOString() } };
+      computeTaskAlarms(fake).forEach(al => {
+        if (al.when <= nowMs || al.when > horizon) return;
+        jobs.push({ id: 'gcal' + (n++), when: al.when, tag: 'gcal_' + id + '_' + al.when, url: '#tomorrow', title: al.title, body: al.body });
+      });
+    });
+    jobs.sort((a,b) => a.when - b.when);
+    try { await fetch(_briefUrl() + '/schedule', { method:'POST', headers:_chalHeaders(), body:JSON.stringify({ client: client, sub: p.sub, replace: true, jobs: jobs.slice(0, 80) }) }); } catch(e){}
+  }
+  window.syncGcalEventAlarms = syncGcalEventAlarms;
+
   // ===== スケジュール上部：明日の予定まとめ表示 =====
   const TMR_OPEN_KEY = 'tomorrowSummaryOpen';
   function toggleTomorrowSummary() {
@@ -12687,27 +12787,15 @@
     const box = document.getElementById('tomorrowSummary');
     if (!box) return;
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0);
-    const ds = ymd(tomorrow);
     const dstr = tomorrow.toDateString();
+    const signedIn = (typeof gcalAccessToken !== 'undefined' && gcalAccessToken);
     // Googleの予定を取得（サインイン時・未キャッシュのみ）
-    if (typeof gcalAccessToken !== 'undefined' && gcalAccessToken) {
-      try { if (!gcalEvents[dstr]) { await gcalFetchEvents(tomorrow); } } catch(e){}
-    }
+    if (signedIn) { try { if (!gcalEvents[dstr]) { await gcalFetchEvents(tomorrow); } } catch(e){} }
+    // Googleカレンダー（選択中）の予定のみ
     const items = [];
     try {
-      (gcalEvents[dstr] || []).forEach(e => { const lbl = e.startLabel || e.start || ''; items.push({ min: (e.startMin != null ? e.startMin : 0), time: lbl, title: e.title || '', imp: false }); });
-      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, time: '終日', title: e.title || '', imp: false }));
-    } catch(e){}
-    try {
-      tasks.forEach(t => {
-        if (!t || t._type === 'repeat' || t._type === 'repeat_ended') return;
-        const j = t['(A)実行日']; if (!j || !j.start) return;
-        if (ymd(new Date(j.start)) !== ds) return;
-        if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, tomorrow)) return;
-        const dt = new Date(j.start); const allDay = !!t._allDay;
-        const hm = allDay ? '終日' : `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-        items.push({ min: allDay ? -1 : dt.getHours()*60 + dt.getMinutes(), time: hm, title: t.name || '予定', imp: t._alarmPattern === 'important', taskId: t.id });
-      });
+      (gcalEvents[dstr] || []).forEach(e => { const lbl = e.startLabel || e.start || ''; items.push({ min: (e.startMin != null ? e.startMin : 0), time: lbl, title: e.title || '', imp: gcalIsImportant(e.id) }); });
+      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, time: '終日', title: e.title || '', imp: gcalIsImportant(e.id) }));
     } catch(e){}
     items.sort((a,b) => a.min - b.min);
     const open = localStorage.getItem(TMR_OPEN_KEY) !== '0'; // 既定は開く
@@ -12716,8 +12804,9 @@
     let head = `<div class="tmr-head" onclick="toggleTomorrowSummary()"><span class="tmr-title">🗓 明日の予定 <span class="tmr-date">${md}(${wd})</span></span><span class="tmr-count">${items.length}件</span><span class="tmr-caret">${open ? '▾' : '▸'}</span></div>`;
     let body = '';
     if (open) {
-      if (!items.length) body = '<div class="tmr-empty">予定はありません</div>';
-      else body = items.map(i => `<div class="tmr-row${i.imp ? ' imp' : ''}"${i.taskId ? ` onclick="editTask('${i.taskId}')"` : ''}><span class="tmr-time">${i.time || ''}</span><span class="tmr-name">${i.imp ? '🔴 ' : ''}${_escapeHtml(i.title)}</span></div>`).join('');
+      if (!signedIn) body = '<div class="tmr-empty">Googleカレンダーに未接続です</div>';
+      else if (!items.length) body = '<div class="tmr-empty">予定はありません</div>';
+      else body = items.map(i => `<div class="tmr-row${i.imp ? ' imp' : ''}"><span class="tmr-time">${i.time || ''}</span><span class="tmr-name">${i.imp ? '🔴 ' : ''}${_escapeHtml(i.title)}</span></div>`).join('');
       body = `<div class="tmr-body">${body}</div>`;
     }
     box.style.display = 'block';
@@ -17670,16 +17759,31 @@
       const pastStyle = isPast ? 'opacity:0.38;filter:saturate(0.5);' : '';
       const lockBadge = locked ? '<span style="margin-right:4px;">🔒</span>' : '';
       const timeText = item.allDay ? '終日' : `${ev.startTime}〜${ev.endTime}`;
+      const al = getGcalAlarm(ev.id);
+      const alLabel = al.pattern === 'important' ? '🔴大事' : al.pattern === 'normal' ? '🔔普通' : al.pattern === 'light' ? '🔔ゆるめ' : '🔔';
+      const alActive = al.pattern !== 'none';
+      const startISO = item.allDay ? '' : (ev._rawStart || '');
+      const alBtn = `<button class="gcal-al-btn${alActive ? ' on' : ''}" data-gcal-al="${idx}" title="アラーム/強調">${alLabel}</button>`;
       return `<div class="gcal-item" data-gcal-idx="${idx}" style="border-left:3px solid ${color};background:${color}0d;${pastStyle}cursor:pointer;">
         <div style="flex:1;min-width:0;">
-          <div class="gcal-item-title" style="color:${isPast?'#8e8e93':'#1c1c1e'};">${lockBadge}${ev.title}</div>
+          <div class="gcal-item-title" style="color:${isPast?'#8e8e93':'#1c1c1e'};">${al.pattern==='important'?'🔴 ':''}${lockBadge}${ev.title}</div>
           <div class="gcal-item-time">${timeText}
             <span style="margin-left:6px;padding:1px 6px;border-radius:8px;background:${color}25;color:${color};font-size:11px;font-weight:600;">${ev.calendarName}</span>
           </div>
         </div>
+        ${alBtn}
         <div style="color:#c7c7cc;font-size:18px;align-self:center;">›</div>
       </div>`;
     }).join('');
+
+    // アラームボタン
+    list.querySelectorAll('[data-gcal-al]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const it = combined[parseInt(btn.dataset.gcalAl, 10)];
+        if (it) openGcalAlarmPicker(it.ev.id, it.ev.title, it.allDay ? '' : (it.ev._rawStart || ''), it.allDay);
+      });
+    });
 
     // クリックハンドラ（編集 or ロック表示へルーティング）
     list.querySelectorAll('[data-gcal-idx]').forEach(elm => {
