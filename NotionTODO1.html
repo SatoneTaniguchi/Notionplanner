@@ -12505,8 +12505,9 @@
     try {
       const dstr = targetDate.toDateString();
       (gcalEvents[dstr] || []).forEach(e => {
-        const lbl = e.startLabel || e.start || '';
-        items.push({ min: (e.startMin != null ? e.startMin : 0), label: `${lbl ? lbl + ' ' : ''}${e.title || ''}`, imp: gcalIsImportant(e.id) });
+        const hm = e.startTime || '';
+        const min = hm ? (parseInt(hm.split(':')[0],10) * 60 + (parseInt(hm.split(':')[1],10) || 0)) : 0;
+        items.push({ min: min, label: `${hm ? hm + ' ' : ''}${e.title || ''}`, imp: gcalIsImportant(e.id) });
       });
       (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, label: `終日 ${e.title || ''}`, imp: gcalIsImportant(e.id) }));
     } catch(e){}
@@ -12903,10 +12904,14 @@
     // Googleカレンダー（選択中）の予定のみ
     const items = [];
     try {
-      (gcalEvents[dstr] || []).forEach(e => { const lbl = e.startLabel || e.start || ''; items.push({ min: (e.startMin != null ? e.startMin : 0), time: lbl, title: e.title || '', imp: gcalIsImportant(e.id) }); });
+      (gcalEvents[dstr] || []).forEach(e => {
+        const hm = e.startTime || '';
+        const min = hm ? (parseInt(hm.split(':')[0],10) * 60 + (parseInt(hm.split(':')[1],10) || 0)) : 0;
+        items.push({ min: min, time: hm, title: e.title || '', imp: gcalIsImportant(e.id) });
+      });
       (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, time: '終日', title: e.title || '', imp: gcalIsImportant(e.id) }));
     } catch(e){}
-    items.sort((a,b) => a.min - b.min);
+    items.sort((a,b) => a.min - b.min);   // 終日(-1)が先頭、以降は時間順
     const open = localStorage.getItem(TMR_OPEN_KEY) !== '0'; // 既定は開く
     const md = (tomorrow.getMonth()+1) + '/' + tomorrow.getDate();
     const wd = ['日','月','火','水','木','金','土'][tomorrow.getDay()];
