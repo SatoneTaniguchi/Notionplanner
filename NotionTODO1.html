@@ -12476,7 +12476,7 @@
         const t = when.getTime() + i * (cfg.intervalMin || 15) * 60000;
         if (t <= now) continue;   // 過ぎた時刻は登録しない
         const jid = 'chal' + (n++);
-        jobs.push({ id:jid, when:t, tag:jid, url:'#challenge', title:'⏰ 継続チャレンジ', body:'『' + (task.name || 'ルーチン') + '』の時間です。タップして今日を記録しよう' });
+        jobs.push({ id:jid, when:t, tag:jid, url:_notifUrl('#challenge'), title:'⏰ 継続チャレンジ', body:'『' + (task.name || 'ルーチン') + '』の時間です。タップして今日を記録しよう' });
       }
     }
     try {
@@ -12549,7 +12549,7 @@
       try { if (typeof gcalAccessToken !== 'undefined' && gcalAccessToken && !gcalEvents[target.toDateString()]) await gcalFetchEvents(target); } catch(e){}
       const body = buildBriefingBody(target);
       const md = (target.getMonth()+1) + '/' + target.getDate();
-      jobs.push({ id: 'brief' + (n++), when: t, tag: 'brief' + d, url: '#tomorrow', title: `🗓 明日の予定（${md}）`, body: body });
+      jobs.push({ id: 'brief' + (n++), when: t, tag: 'brief' + d, url: _notifUrl('#tomorrow'), title: `🗓 明日の予定（${md}）`, body: body });
     }
     try {
       await fetch(_briefUrl() + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: _briefClient(), sub: p.sub, replace: true, jobs: jobs }) });
@@ -12766,7 +12766,7 @@
             const fake = { _alarmPattern: t._alarmPattern, _alarmType: t._alarmType, _allDay: !!rc.allDay, name: t.name, '(A)実行日': { start: occ.toISOString() } };
             computeTaskAlarms(fake).forEach(a => {
               if (a.when <= now || a.when > horizon) return;
-              jobs.push({ id: 'task' + (n++), when: a.when, tag: 'rtask_' + (t.id || n) + '_' + a.when, url: '#schedule', title: a.title, body: a.body });
+              jobs.push({ id: 'task' + (n++), when: a.when, tag: 'rtask_' + (t.id || n) + '_' + a.when, url: _notifUrl('#schedule'), title: a.title, body: a.body });
             });
           }
           return;
@@ -12777,7 +12777,7 @@
         if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, new Date(j.start))) return; // 完了済みは除外
         computeTaskAlarms(t).forEach(a => {
           if (a.when <= now || a.when > horizon) return;
-          jobs.push({ id: 'task' + (n++), when: a.when, tag: 'task_' + (t.id || n) + '_' + a.when, url: '#task=' + (t.id||''), title: a.title, body: a.body });
+          jobs.push({ id: 'task' + (n++), when: a.when, tag: 'task_' + (t.id || n) + '_' + a.when, url: _notifUrl('#task=' + (t.id||'')), title: a.title, body: a.body });
         });
       });
     } catch(e){}
@@ -12877,7 +12877,7 @@
       const fake = { _alarmPattern: a.pattern, _alarmType: a.type, _allDay: info.allDay, name: info.title, '(A)実行日': { start: info.start.toISOString() } };
       computeTaskAlarms(fake).forEach(al => {
         if (al.when <= nowMs || al.when > horizon) return;
-        jobs.push({ id: 'gcal' + (n++), when: al.when, tag: 'gcal_' + id + '_' + al.when, url: '#tomorrow', title: al.title, body: al.body });
+        jobs.push({ id: 'gcal' + (n++), when: al.when, tag: 'gcal_' + id + '_' + al.when, url: _notifUrl('#tomorrow'), title: al.title, body: al.body });
       });
     });
     jobs.sort((a,b) => a.when - b.when);
@@ -12929,6 +12929,8 @@
   window.renderTomorrowSummary = renderTomorrowSummary;
 
   // ===== 通知タップからの画面遷移（ハッシュ or Service Workerメッセージ）=====
+  function _notifUrl(hash) { try { return location.origin + location.pathname + (hash || ''); } catch(e) { return hash || ''; } }
+  window._notifUrl = _notifUrl;
   function applyAppRoute(route) {
     try {
       if (!route) return;

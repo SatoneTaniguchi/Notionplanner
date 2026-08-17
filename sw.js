@@ -1,52 +1,30 @@
 /* =========================================================================
  * sw.js — NotionTODO 用 Service Worker
- *  役割:
- *   1) push を受け取って通知を表示（title / body / tag / url を反映）
- *   2) 通知タップ時に、その通知の url（#challenge / #tomorrow / #task=... など）へ
- *      アプリを遷移させる（開いていればフォーカスしてルート通知、なければ新規に開く）
- *
- *  ※ アプリ側は次を実装済み:
- *     - 起動時に location.hash を読んで画面遷移（routeFromHash / applyAppRoute）
- *     - navigator.serviceWorker の 'message' を受けて applyAppRoute({route}) 実行
- *  なので、この sw.js が url を通知の data に載せて、タップ時に開く/postMessage すれば
- *  「通知 → 該当箇所」で開くようになります。
- *
- *  前提: サーバー（Cloudflare Worker）が push 送信時に、ジョブの
- *        { title, body, tag, url } を JSON ペイロードとしてそのまま送っていること。
- *        （このアプリの /schedule はこの4項目を送っています）
+ *  1) push を受け取って通知を表示（title / body / tag / url を反映）
+ *  2) 通知タップ時に、その通知の url へアプリを遷移
+ *     - アプリは通知に「絶対URL＋#ハッシュ」を埋めているので、開いていなければ
+ *       その絶対URL（= アプリ本体のファイル）を開く → GitHub Pages でも404にならない
+ *     - 既に開いていればフォーカスして postMessage({route}) でアプリ内遷移
  * ========================================================================= */
 
-// 即時有効化（更新をすぐ反映）
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-});
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
+self.addEventListener('install', () => { self.skipWaiting(); });
+self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
 
 // ---- push 受信 → 通知表示 ----
 self.addEventListener('push', (event) => {
   let data = {};
-  try {
-    data = event.data ? event.data.json() : {};
-  } catch (e) {
-    // JSON でなければテキストとして本文に
-    data = { title: '通知', body: (event.data && event.data.text && event.data.text()) || '' };
-  }
+  try { data = event.data ? event.data.json() : {}; }
+  catch (e) { data = { title: '通知', body: (event.data && event.data.text && event.data.text()) || '' }; }
 
   const title = data.title || '通知';
   const options = {
     body: data.body || '',
     tag: data.tag || undefined,
-    renotify: !!data.tag,          // 同じ tag でも都度アラート（連続通知向け）
-    icon: data.icon || undefined,  // あれば
+    renotify: !!data.tag,
+    icon: data.icon || undefined,
     badge: data.badge || undefined,
-    data: {
-      url: data.url || '',         // ← タップ時の遷移先（例: '#challenge'）
-      raw: data                    // 念のため元データも保持
-    }
+    data: { url: data.url || '', raw: data }
   };
-
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
@@ -55,34 +33,32 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const d = (event.notification && event.notification.data) || {};
-  const url = (d.url || '').toString();               // '#challenge' / '#task=123' / '' など
-  const route = url.replace(/^\/*#?/, '');             // 先頭の / と # を除去 → 'challenge' 等
-
-  // 新規に開くときの URL（スコープ直下にハッシュを付ける）
-  const scope = self.registration.scope.replace(/\/$/, '');
-  const target = url
-    ? scope + '/' + (url.charAt(0) === '#' ? url : ('#' + route))
-    : self.registration.scope;
+  const url = (d.url || '').toString();
+  // '#challenge' / '#task=123' / '#tomorrow' などのハッシュ部分 → ルート名
+  const route = (url.split('#')[1] || '').replace(/^\/*/, '');
 
   event.waitUntil((async () => {
     const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
-    // 既にアプリを開いているタブがあればフォーカスして、ルートを通知
+    // 既に開いていればフォーカスして、アプリ内でルート遷移
     for (const client of clientList) {
       if ('focus' in client) {
         try { await client.focus(); } catch (e) {}
-        if (route && client.postMessage) {
-          client.postMessage({ route: route });
-        } else if (route && 'navigate' in client) {
-          try { client.navigate(target); } catch (e) {}
-        }
+        if (route && client.postMessage) client.postMessage({ route: route });
+        else if (route && 'navigate' in client && url) { try { client.navigate(url); } catch (e) {} }
         return;
       }
     }
 
-    // 開いていなければ新規に開く（ハッシュ付き → アプリ起動時に routeFromHash が拾う）
-    if (self.clients.openWindow) {
-      await self.clients.openWindow(target);
+    // 開いていなければ新規に開く
+    let target = url;
+    if (!target) {
+      target = self.registration.scope;                         // 遷移先不明ならトップ
+    } else if (target.charAt(0) === '#') {
+      // 万一ハッシュのみだった場合はスコープに付ける（フォールバック）
+      target = self.registration.scope.replace(/\/$/, '') + '/' + target;
     }
+    // それ以外（http… の絶対URL）はそのまま開く → アプリ本体のファイルが開く
+    if (self.clients.openWindow) await self.clients.openWindow(target);
   })());
 });
