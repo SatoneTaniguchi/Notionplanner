@@ -4219,6 +4219,30 @@
 
               <div class="gt-div"></div>
 
+              <!-- アプリのアラーム（事前リマインド：前日まとめ・当日準備） -->
+              <div class="gt-row top" id="gtabAlarmRow" style="padding-top:8px;">
+                <span class="gt-ico" style="margin-top:10px;"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span>
+                <div class="gt-grow">
+                  <div style="font-size:12px;color:#80868b;margin-bottom:6px;">アプリのアラーム（大事はまとめ通知で🔴強調）</div>
+                  <div class="alarm-chips js-alarm-pat">
+                    <button type="button" class="alarm-chip" data-pat="none"      onclick="setTaskAlarmPattern('none', this)">なし</button>
+                    <button type="button" class="alarm-chip" data-pat="light"     onclick="setTaskAlarmPattern('light', this)">ゆるめ</button>
+                    <button type="button" class="alarm-chip" data-pat="normal"    onclick="setTaskAlarmPattern('normal', this)">普通</button>
+                    <button type="button" class="alarm-chip" data-pat="important" onclick="setTaskAlarmPattern('important', this)">大事</button>
+                  </div>
+                  <div class="js-alarm-type-row" style="display:none;margin-top:8px;">
+                    <div style="font-size:12px;color:#80868b;margin-bottom:6px;">種別（文言）</div>
+                    <div class="alarm-chips js-alarm-typ">
+                      <button type="button" class="alarm-chip type" data-typ="general" onclick="setTaskAlarmType('general', this)">一般</button>
+                      <button type="button" class="alarm-chip type" data-typ="outing"  onclick="setTaskAlarmType('outing', this)">おでかけ</button>
+                    </div>
+                  </div>
+                  <div class="js-alarm-preview" style="display:none;margin-top:10px;"></div>
+                </div>
+              </div>
+
+              <div class="gt-div"></div>
+
               <!-- 説明 -->
               <div class="gt-row top" id="gtabDescRow">
                 <span class="gt-ico" style="margin-top:12px;"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 11h16M4 16h10"/></svg></span>
@@ -18738,7 +18762,14 @@
     if (body.attendees) params.sendUpdates = 'all';
 
     try {
-      await gtabApiInsert(gtabState.calId, body, params);
+      const created = await gtabApiInsert(gtabState.calId, body, params);
+      // アプリのアラーム設定を作成した予定に付与
+      try {
+        if (created && created.id && typeof _taskAlarmPattern !== 'undefined' && _taskAlarmPattern && _taskAlarmPattern !== 'none' && typeof setGcalAlarm === 'function') {
+          setGcalAlarm(created.id, _taskAlarmPattern, _taskAlarmType);
+          if (typeof syncGcalEventAlarms === 'function') syncGcalEventAlarms();
+        }
+      } catch(e){}
       await gcalAfterWrite();
       gtabState.needsReset = true;
       return true;
