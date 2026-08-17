@@ -18182,6 +18182,8 @@
     gcalEditToggleAllDay();
     gcalEditRenderCalChoices();
     gcalEditAlarm = { pattern: 'none', type: 'general' };  // 新規はアラームなしから
+    const _alSecNew = document.getElementById('gcalEditAlarmSection');
+    if (_alSecNew) _alSecNew.style.display = 'block';
     gcalEditRenderAlarm();
     gcalEditSetLocked(false);
     gcalOpenEditOverlay();
