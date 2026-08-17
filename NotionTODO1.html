@@ -8415,10 +8415,18 @@
 
     // Googleタブ：Notionのタスクではなく、Googleカレンダーの予定として作成
     if (currentTab === 'google' && !editingTaskId) {
-      const ok = await gtabCreateEvent(name);
-      if (!ok) return;
-      closeModal();
-      renderTimeline();
+      if (window._gtabSaving) return;            // 二度押し防止（awaitの間の再実行で二重作成を防ぐ）
+      window._gtabSaving = true;
+      const _sb = document.querySelector('.modal-save'); if (_sb) _sb.style.pointerEvents = 'none';
+      try {
+        const ok = await gtabCreateEvent(name);
+        if (!ok) return;
+        closeModal();
+        renderTimeline();
+      } finally {
+        window._gtabSaving = false;
+        if (_sb) _sb.style.pointerEvents = '';
+      }
       return;
     }
 
