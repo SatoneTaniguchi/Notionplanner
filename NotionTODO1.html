@@ -1518,6 +1518,32 @@
     padding: 16px;
     margin-bottom: 12px;
   }
+  /* 明日の予定まとめ（スケジュール上部） */
+  .tomorrow-summary { margin: 8px 12px 0; background: #fff; border: 1px solid #ececf0; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 6px rgba(40,30,80,.04); }
+  .tmr-head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .tmr-title { flex: 1; font-size: 14px; font-weight: 700; color: #2d2b3a; }
+  .tmr-date { font-size: 12px; font-weight: 600; color: #8e8e93; margin-left: 4px; }
+  .tmr-count { font-size: 12px; font-weight: 700; color: #6c5ce7; background: #efedfa; border-radius: 10px; padding: 2px 9px; }
+  .tmr-caret { font-size: 12px; color: #b0b0b8; width: 14px; text-align: center; }
+  .tmr-body { padding: 2px 14px 10px; border-top: 1px solid #f4f3f8; }
+  .tmr-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f6f5fa; }
+  .tmr-row:last-child { border-bottom: none; }
+  .tmr-row.imp .tmr-name { font-weight: 700; color: #1c1c1e; }
+  .tmr-time { flex: none; width: 52px; font-size: 12px; font-weight: 700; color: #6b6880; }
+  .tmr-name { flex: 1; font-size: 14px; color: #3a3746; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tmr-empty { padding: 12px 0; text-align: center; font-size: 13px; color: #b0b0b8; }
+  .alarm-chip {
+    font-family: inherit; font-size: 14px; font-weight: 600; color: #6b6880;
+    background: #f2f1f7; border: 1.5px solid transparent; border-radius: 20px;
+    padding: 8px 16px; cursor: pointer; transition: all .15s;
+  }
+  .alarm-chip.type { font-size: 13px; padding: 7px 14px; }
+  .alarm-chip.selected { background: #eef0ff; border-color: #6c5ce7; color: #6c5ce7; }
+  .alarm-chip.type.selected { background: #fff1e8; border-color: #ff8c42; color: #e8590c; }
+  .alarm-chip:active { transform: scale(.97); }
+  .alarm-prev-row { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1px solid #f4f3f8; }
+  .alarm-prev-when { flex: none; width: 74px; font-size: 12px; font-weight: 700; color: #6c5ce7; padding-top: 1px; }
+  .alarm-prev-msg { flex: 1; font-size: 13px; color: #4a4757; line-height: 1.5; }
 
   .modal-memo {
     font-size: 15px;
@@ -2636,6 +2662,7 @@
     background: #f2f1f7; border: none; border-radius: 9px; padding: 6px 10px; cursor: pointer;
   }
   .cn-row2 { font-size: 13px; color: #6b6880; margin-top: 8px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .cn-note { font-size: 11.5px; color: #a8a5b8; margin-top: 6px; line-height: 1.5; }
   .cn-num {
     width: 52px; font-family: inherit; font-size: 14px; text-align: center; color: #2d2b3a;
     background: #f6f5fb; border: 1px solid #e7e4f2; border-radius: 8px; padding: 4px 4px;
@@ -3432,6 +3459,8 @@
 <div class="main-content" id="todoScreen">
   <!-- 終日エリア（スティッキー固定） -->
   <div id="alldaySticky" style="position:sticky;top:0;z-index:50;background:#fff;"></div>
+  <!-- 明日の予定まとめ -->
+  <div id="tomorrowSummary" class="tomorrow-summary" style="display:none;"></div>
   <div class="timeline-scroll" id="timelineScroll">
     <div class="timeline" id="timeline">
       <div class="timeline-line"></div>
@@ -3940,6 +3969,27 @@
           <div id="kikan-panel-time" style="display:none;margin-top:6px;">
             <div class="selector-chips" id="kikan-chips-time"></div>
           </div>
+        </div>
+
+        <!-- アラームパターン（ADHD対策：予定に合わせた事前リマインド） -->
+        <div class="modal-section" id="alarmSectionTime">
+          <div class="pro-row" style="padding-top:0;border-top:none;">
+            <div class="pro-label"><div class="pro-icon"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></div> アラーム</div>
+          </div>
+          <div class="alarm-chips" id="alarmPatternChips">
+            <button type="button" class="alarm-chip" data-pat="none"      onclick="setTaskAlarmPattern('none', this)">なし</button>
+            <button type="button" class="alarm-chip" data-pat="light"     onclick="setTaskAlarmPattern('light', this)">ゆるめ</button>
+            <button type="button" class="alarm-chip" data-pat="normal"    onclick="setTaskAlarmPattern('normal', this)">普通</button>
+            <button type="button" class="alarm-chip" data-pat="important" onclick="setTaskAlarmPattern('important', this)">大事</button>
+          </div>
+          <div id="alarmTypeRow" style="display:none;margin-top:8px;">
+            <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">種別（通知の文言が変わります）</div>
+            <div class="alarm-chips" id="alarmTypeChips">
+              <button type="button" class="alarm-chip type" data-typ="general" onclick="setTaskAlarmType('general', this)">一般</button>
+              <button type="button" class="alarm-chip type" data-typ="outing"  onclick="setTaskAlarmType('outing', this)">おでかけ</button>
+            </div>
+          </div>
+          <div id="alarmPreview" style="display:none;margin-top:10px;"></div>
         </div>
       </div>
 
@@ -4846,7 +4896,7 @@
   // テンプレが変わったら自動で押し上げ（既存の tasks:changed を利用。ハッシュ一致なら送らない）
   try{ window.addEventListener('tasks:changed', function(){ tplCloudPush(false); }); }catch(e){}
   // 他端末から戻ってきたら最新を取り込む
-  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} } }); }catch(e){}
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} try{ if(typeof syncTaskAlarms==='function') syncTaskAlarms(); }catch(e){} } }); }catch(e){}
   try{ window.addEventListener('online', function(){ tplCloudPull(); }); }catch(e){}
   // 追加: アプリに戻ったとき（iOS PWA/Safari は visibilitychange を取りこぼすことがある）
   try{ window.addEventListener('focus', function(){ tplCloudPull(); try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){} try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){} }); }catch(e){}
@@ -4864,6 +4914,7 @@
         tplCloudPull();
         try{ if(typeof syncChallengeNotifications==='function') syncChallengeNotifications(); }catch(e){}  // 通知予定も定期更新（済み日を除外）
         try{ if(typeof syncBriefingNotifications==='function') syncBriefingNotifications(); }catch(e){}   // 明日の予定まとめ通知も更新
+        try{ if(typeof syncTaskAlarms==='function') syncTaskAlarms(); }catch(e){}   // 予定アラームも更新
       }catch(e){ dbg('tpl auto sync tick failed', e); }
     }, TPL_AUTO_SYNC_MS);
   }catch(e){ dbg('tpl auto sync setup failed', e); }
@@ -5738,6 +5789,7 @@
     document.querySelectorAll('.allday-area').forEach(el => el.remove());
     const _stickyEl = document.getElementById('alldaySticky');
     if (_stickyEl) _stickyEl.innerHTML = '';
+    try { if (typeof renderTomorrowSummary === 'function') renderTomorrowSummary(); } catch(e){}
 
     const timeline = document.getElementById('timeline');
     const now = new Date();
@@ -7537,6 +7589,8 @@
       repeatYearlyMonth = new Date().getMonth() + 1; repeatYearlyDay = new Date().getDate();
       if (typeof syncRepeatMonthlyYearlyUI === 'function') syncRepeatMonthlyYearlyUI();
     }
+    // アラームパターンUIを反映（新規=none、編集=保存値）
+    try { initTaskAlarmUI(editingTaskId ? tasks.find(t => t.id === editingTaskId) : null); } catch(e){}
     setTimeout(() => document.getElementById('taskNameInput').focus(), 100);
   }
 
@@ -8275,6 +8329,7 @@
       tog.classList.add('toggle-on'); tog.classList.remove('toggle-off');
       area.style.display = 'none';
     }
+    try { if (typeof renderTaskAlarmPreview === 'function') renderTaskAlarmPreview(); } catch(e){}
   }
 
   function isAlldayOn() {
@@ -8375,6 +8430,8 @@
             task['(A)実行日'] = buildJissekiDate(dateForBuild, getUIStartTime(), drumSelectedMin);
             task._allDay = false;
           }
+          task._alarmPattern = _taskAlarmPattern;
+          task._alarmType = _taskAlarmType;
           // _habitDate と (A)実行日 の整合を保証（ズレると増殖の原因）
           if (task._habitTemplateId && task['(A)実行日'] && task['(A)実行日'].start) {
             task._habitDate = task['(A)実行日'].start.substring(0,10);
@@ -8438,6 +8495,8 @@
           task['(A)実行日'] = buildJissekiDate(getUIDateStr(), getUIStartTime(), drumSelectedMin);
           task._allDay = false;
         }
+        task._alarmPattern = _taskAlarmPattern;
+        task._alarmType = _taskAlarmType;
       } else if (currentTab === 'repeat') {
         task._type = 'repeat';
         const rAllday = document.getElementById('repeatAlldayToggle').classList.contains('toggle-on');
@@ -8518,6 +8577,7 @@
     }
 
     localStorage.setItem('tasks', JSON.stringify(tasks));
+    try { if (typeof syncTaskAlarms === 'function') syncTaskAlarms(); } catch(e){}   // 予定アラームをPush予約に反映
     // 重要: closeModal() が editingTaskId を null に戻すため、setTimeout前に退避する
     const _syncEditId = editingTaskId;       // 編集中タスクのID（新規ならnull）
     const _syncIsEdit = !!editingTaskId;     // 編集かどうかを確定させておく
@@ -12217,8 +12277,19 @@
   const CHAL_NOTIFY_KEY = 'challengeNotify';
   const CHAL_VAPID = 'BMtHBfXHEXaT9svJDps-Mt1A2ErKA53wwDFVujoPnsr8IlV185JkqAf8SGh7kaF0CSRKLGHu2L20NFX3-h0pl9c';
   function getChallengeNotify() {
-    const d = { enabled:false, time:'21:00', count:3, intervalMin:15 };
-    try { return Object.assign(d, JSON.parse(localStorage.getItem(CHAL_NOTIFY_KEY) || '{}')); } catch(e) { return d; }
+    let raw = {};
+    try { raw = JSON.parse(localStorage.getItem(CHAL_NOTIFY_KEY) || '{}') || {}; } catch(e) { raw = {}; }
+    // 既定を「気づくまで連続」寄りに（8回・3分おき）
+    const c = Object.assign({ enabled:false, time:'21:00', count:8, intervalMin:3, _v:2 }, raw);
+    // 旧設定（3回・15分など）を一度だけ強めに引き上げ
+    if (raw && Object.keys(raw).length > 0 && raw._v !== 2) {
+      c.count = Math.max(parseInt(c.count,10) || 0, 8);
+      if (!c.intervalMin || c.intervalMin > 5) c.intervalMin = 3;
+      c._v = 2;
+      try { localStorage.setItem(CHAL_NOTIFY_KEY, JSON.stringify(c)); } catch(e){}
+      try { if (c.enabled && typeof syncChallengeNotifications === 'function') setTimeout(syncChallengeNotifications, 0); } catch(e){}
+    }
+    return c;
   }
   function saveChallengeNotify(c) { try { localStorage.setItem(CHAL_NOTIFY_KEY, JSON.stringify(c)); } catch(e){} }
   function _mzPush() { try { return JSON.parse(localStorage.getItem('mzPush') || 'null'); } catch(e) { return null; } }
@@ -12249,7 +12320,7 @@
       const c = getChallengeNotify(); c.enabled = true; saveChallengeNotify(c);
       await syncChallengeNotifications();
       renderRoutineChallenge();
-      alert('通知をオンにしました。設定した時刻に、記録するまで数回お知らせします。\n\n※ iPhoneはホーム画面に追加したアプリ（PWA）で通知が届きます。');
+      alert('通知をオンにしました。設定した時刻から、完了にする（または今日の時間を変える）まで、くり返しお知らせします。\n\n※ iPhoneはホーム画面に追加したアプリ（PWA）で通知が届きます。');
     } catch(e) {
       alert('通知を有効にできませんでした: ' + (e && e.message || e));
     }
@@ -12262,7 +12333,7 @@
   function setChallengeNotifyField(field, val) {
     const c = getChallengeNotify();
     if (field === 'time') c.time = val || '21:00';
-    else if (field === 'count') c.count = Math.max(1, Math.min(10, parseInt(val, 10) || 3));
+    else if (field === 'count') c.count = Math.max(1, Math.min(30, parseInt(val, 10) || 8));
     else if (field === 'interval') c.intervalMin = Math.max(1, Math.min(120, parseInt(val, 10) || 15));
     saveChallengeNotify(c);
     if (c.enabled) { try { syncChallengeNotifications(); } catch(e){} }
@@ -12321,7 +12392,7 @@
         const t = when.getTime() + i * (cfg.intervalMin || 15) * 60000;
         if (t <= now) continue;   // 過ぎた時刻は登録しない
         const jid = 'chal' + (n++);
-        jobs.push({ id:jid, when:t, tag:jid, title:'⏰ 継続チャレンジ', body:'『' + (task.name || 'ルーチン') + '』の時間です。タップして今日を記録しよう' });
+        jobs.push({ id:jid, when:t, tag:jid, url:'#challenge', title:'⏰ 継続チャレンジ', body:'『' + (task.name || 'ルーチン') + '』の時間です。タップして今日を記録しよう' });
       }
     }
     try {
@@ -12344,18 +12415,34 @@
 
   // 指定日の予定サマリー本文（Googleの選択カレンダーの予定のみ、時刻順）
   function buildBriefingBody(targetDate) {
+    const ds = ymd(targetDate);
     const items = [];
+    // Googleの選択カレンダーの予定
     try {
       const dstr = targetDate.toDateString();
       (gcalEvents[dstr] || []).forEach(e => {
         const lbl = e.startLabel || e.start || '';
-        items.push({ min: (e.startMin != null ? e.startMin : 0), label: `${lbl ? lbl + ' ' : ''}${e.title || ''}` });
+        items.push({ min: (e.startMin != null ? e.startMin : 0), label: `${lbl ? lbl + ' ' : ''}${e.title || ''}`, imp: false });
       });
-      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, label: `終日 ${e.title || ''}` }));
+      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, label: `終日 ${e.title || ''}`, imp: false }));
+    } catch(e){}
+    // 「大事」に設定したアプリの予定を強調して含める
+    try {
+      tasks.forEach(t => {
+        if (!t || t._type === 'repeat' || t._type === 'repeat_ended') return;
+        if (t._alarmPattern !== 'important') return;
+        const j = t['(A)実行日']; if (!j || !j.start) return;
+        if (ymd(new Date(j.start)) !== ds) return;
+        if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, targetDate)) return;
+        const dt = new Date(j.start);
+        const allDay = !!t._allDay;
+        const hm = allDay ? '終日' : `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+        items.push({ min: allDay ? -1 : dt.getHours()*60 + dt.getMinutes(), label: `${hm} ${t.name || '予定'}`, imp: true });
+      });
     } catch(e){}
     items.sort((a,b) => a.min - b.min);
     if (!items.length) return '予定はありません';
-    const top = items.slice(0, 8).map(i => '・' + i.label).join('\n');
+    const top = items.slice(0, 8).map(i => (i.imp ? '🔴 ' : '・') + i.label).join('\n');
     return top + (items.length > 8 ? `\n…ほか${items.length - 8}件` : '');
   }
 
@@ -12377,7 +12464,7 @@
       try { if (typeof gcalAccessToken !== 'undefined' && gcalAccessToken && !gcalEvents[target.toDateString()]) await gcalFetchEvents(target); } catch(e){}
       const body = buildBriefingBody(target);
       const md = (target.getMonth()+1) + '/' + target.getDate();
-      jobs.push({ id: 'brief' + (n++), when: t, tag: 'brief' + d, title: `🗓 明日の予定（${md}）`, body: body });
+      jobs.push({ id: 'brief' + (n++), when: t, tag: 'brief' + d, url: '#tomorrow', title: `🗓 明日の予定（${md}）`, body: body });
     }
     try {
       await fetch(_briefUrl() + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: _briefClient(), sub: p.sub, replace: true, jobs: jobs }) });
@@ -12412,7 +12499,7 @@
     const c = getBriefingNotify();
     if (!c.enabled) {
       box.innerHTML = '<div style="font-size:13px;font-weight:800;color:#1c1c1e;margin-bottom:6px;">🔔 明日の予定をまとめて通知</div>'
-        + '<div style="font-size:12px;color:#8e8e93;margin-bottom:10px;line-height:1.5;">毎日きまった時刻に、翌日のGoogleカレンダー（選択中のカレンダー）の予定を1通でまとめてお知らせします。</div>'
+        + '<div style="font-size:12px;color:#8e8e93;margin-bottom:10px;line-height:1.5;">毎日きまった時刻に、翌日のGoogleカレンダー（選択中）の予定をまとめてお知らせ。「大事」に設定した予定は🔴で強調します。</div>'
         + '<button onclick="briefingNotifyEnable()" style="width:100%;box-sizing:border-box;background:#eef4fe;color:#4a90e2;border:1px solid #d7e6fb;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">🔔 オンにする</button>';
     } else {
       box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
@@ -12427,6 +12514,242 @@
   window.briefingNotifyDisable = briefingNotifyDisable;
   window.setBriefingTime = setBriefingTime;
   window.renderBriefingUI = renderBriefingUI;
+
+  // ===== 予定のアラームパターン（ADHD対策：予定に合わせた事前リマインド） =====
+  //  ・パターン（なし/ゆるめ/普通/大事）で通知タイミングを決める
+  //  ・種別（一般/おでかけ/仕事）で通知の文言が変わる
+  //  ・既存のWeb Push基盤で、アプリを閉じていても予定前に届く
+  const ALARM_DAYBEFORE_HOUR = 21;  // 前日の通知時刻（21:00）
+  const ALARM_MORNING_HOUR = 9;     // 終日「当日朝」の通知時刻（9:00）
+  const TYPE_EMOJI = { outing: '👜', general: '📌' };
+  // Googleカレンダーが「時間指定=5分前/1分前」「終日=前日21時」を通知するので、
+  // アプリ側は重複を避けて “事前リマインド” に特化。前日より前には通知しない。
+  // 各エントリ: { off: 発火オフセット, wrole: 文言の役割 }
+  function alarmTimings(pattern, allDay) {
+    if (!pattern || pattern === 'none') return [];
+    if (allDay) {
+      // 前日はまとめ通知に集約 → アプリは当日朝のみ
+      if (pattern === 'light') return [];               // ゆるめ：まとめ通知に任せる
+      return [{ off:'dayOf9', wrole:'morning' }];        // 普通・大事：当日9:00
+    }
+    // 前日はまとめ通知、直前(5分/1分前)はGoogle → 予定ごとは当日の直前のみ
+    if (pattern === 'light')  return [{ off:'h1', wrole:'h1' }];
+    if (pattern === 'normal') return [{ off:'h2', wrole:'h2' }, { off:'h1', wrole:'h1' }];
+    return [{ off:'h2', wrole:'h2' }, { off:'h1', wrole:'h1' }]; // 大事：2時間前＋1時間前（＋まとめ通知で🔴強調）
+  }
+  const ALARM_WORDING = {
+    general: {
+      eveBefore: '明日は「{t}」があります',
+      h2:        'あと2時間で「{t}」',
+      h1:        'あと1時間で「{t}」',
+      morning:   '今日は「{t}」があります'
+    },
+    outing: {
+      eveBefore: '明日は「{t}」でおでかけ。持ち物と服装の準備を',
+      h2:        'あと2時間で「{t}」。シャワー・身支度を始めよう',
+      h1:        'あと1時間で「{t}」。そろそろメイクを',
+      morning:   '今日は「{t}」でおでかけ。持ち物の確認を'
+    }
+  };
+  function _alarmWhenLabel(e) {
+    if (e.wrole === 'eveBefore') return `前日${ALARM_DAYBEFORE_HOUR}:00`;
+    if (e.wrole === 'h2')        return '2時間前';
+    if (e.wrole === 'h1')        return '1時間前';
+    if (e.wrole === 'morning')   return `当日${ALARM_MORNING_HOUR}:00`;
+    return '';
+  }
+
+  let _taskAlarmPattern = 'none';
+  let _taskAlarmType = 'general';
+
+  function _alarmMsg(type, e, title) {
+    const set = ALARM_WORDING[type] || ALARM_WORDING.general;
+    return (set[e.wrole] || '').replace('{t}', title || '予定');
+  }
+  // 通知の日時ラベル（同じ日の他予定と混ざらないよう、予定の日時を併記）
+  function _alarmSchedLabel(start, allDay) {
+    const wd = ['日','月','火','水','木','金','土'][start.getDay()];
+    const md = (start.getMonth() + 1) + '/' + start.getDate();
+    if (allDay) return `${md}(${wd}) 終日`;
+    const hm = String(start.getHours()).padStart(2,'0') + ':' + String(start.getMinutes()).padStart(2,'0');
+    return `${md}(${wd}) ${hm}`;
+  }
+  // タスクのアラーム発火予定を算出 → [{when(ms), title, body}]
+  function computeTaskAlarms(task) {
+    const pat = task && task._alarmPattern;
+    if (!pat || pat === 'none') return [];
+    const j = task['(A)実行日']; if (!j || !j.start) return [];
+    const start = new Date(j.start);
+    if (isNaN(start.getTime())) return [];
+    const allDay = !!task._allDay;
+    const type = task._alarmType || 'general';
+    const title = task.name || '予定';
+    const emoji = TYPE_EMOJI[type] || '📌';
+    const sched = _alarmSchedLabel(start, allDay);
+    const out = [];
+    alarmTimings(pat, allDay).forEach(e => {
+      let when = new Date(start);
+      if (e.off === 'd1_21') { when.setDate(when.getDate() - 1); when.setHours(ALARM_DAYBEFORE_HOUR, 0, 0, 0); }
+      else if (e.off === 'h2') { when = new Date(start.getTime() - 120 * 60000); }
+      else if (e.off === 'h1') { when = new Date(start.getTime() - 60 * 60000); }
+      else if (e.off === 'dayOf9') { when.setHours(ALARM_MORNING_HOUR, 0, 0, 0); }
+      // タイトルに種別アイコン＋予定名、本文に文言＋日時 → どの予定か一目で分かる
+      out.push({ when: when.getTime(), title: `${emoji} ${title}`, body: _alarmMsg(type, e, title) + `\n🗓 ${sched}` });
+    });
+    return out;
+  }
+
+  // モーダルUI
+  function setTaskAlarmPattern(pat, btn) {
+    _taskAlarmPattern = pat;
+    const wrap = document.getElementById('alarmPatternChips');
+    if (wrap) wrap.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === pat));
+    const typeRow = document.getElementById('alarmTypeRow');
+    if (typeRow) typeRow.style.display = (pat === 'none') ? 'none' : 'block';
+    if (pat !== 'none') { try { _ensurePushSub().catch(function(){}); } catch(e){} } // 通知許可（初回のみ）
+    renderTaskAlarmPreview();
+  }
+  function setTaskAlarmType(typ, btn) {
+    _taskAlarmType = typ;
+    const wrap = document.getElementById('alarmTypeChips');
+    if (wrap) wrap.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === typ));
+    renderTaskAlarmPreview();
+  }
+  function renderTaskAlarmPreview() {
+    const box = document.getElementById('alarmPreview');
+    if (!box) return;
+    const pat = _taskAlarmPattern;
+    const allDay = (typeof isAlldayOn === 'function') ? isAlldayOn() : false;
+    const entries = alarmTimings(pat, allDay);
+    if (!pat || pat === 'none' || !entries.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const titleEl = document.getElementById('taskNameInput');
+    const title = (titleEl && titleEl.value.trim()) || 'この予定';
+    let html = '<div style="font-size:11px;color:#a8a5b8;margin-bottom:6px;line-height:1.5;">' + (allDay ? '前日は「まとめ通知」にお任せ。ここは当日の念押しです。' : '前日は「まとめ通知」、直前（5分・1分前）はGoogleにお任せ。ここは当日の準備リマインドです。') + '</div>';
+    entries.forEach(e => {
+      html += `<div class="alarm-prev-row"><span class="alarm-prev-when">${_alarmWhenLabel(e)}</span><span class="alarm-prev-msg">${_escapeHtml(_alarmMsg(_taskAlarmType, e, title))}</span></div>`;
+    });
+    box.style.display = 'block';
+    box.innerHTML = html;
+  }
+  // モーダルを開いた時に状態を反映（新規はnone/general、編集はタスクの値）
+  function initTaskAlarmUI(task) {
+    _taskAlarmPattern = (task && task._alarmPattern) || 'none';
+    _taskAlarmType = (task && task._alarmType) || 'general';
+    const pw = document.getElementById('alarmPatternChips');
+    if (pw) pw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === _taskAlarmPattern));
+    const tw = document.getElementById('alarmTypeChips');
+    if (tw) tw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === _taskAlarmType));
+    const typeRow = document.getElementById('alarmTypeRow');
+    if (typeRow) typeRow.style.display = (_taskAlarmPattern === 'none') ? 'none' : 'block';
+    renderTaskAlarmPreview();
+  }
+  window.setTaskAlarmPattern = setTaskAlarmPattern;
+  window.setTaskAlarmType = setTaskAlarmType;
+  window.initTaskAlarmUI = initTaskAlarmUI;
+  window.renderTaskAlarmPreview = renderTaskAlarmPreview;
+
+  // 予定アラームをまとめてPush予約（今後30日ぶん・完了/過去は除外）
+  async function syncTaskAlarms() {
+    const p = _mzPush();
+    if (!p || !p.sub) return;
+    const now = Date.now();
+    const horizon = now + 30 * 86400000;
+    const jobs = []; let n = 0;
+    try {
+      tasks.forEach(t => {
+        if (!t || t._type === 'repeat' || t._type === 'repeat_ended') return;
+        if (!t._alarmPattern || t._alarmPattern === 'none') return;
+        const j = t['(A)実行日']; if (!j || !j.start) return;
+        if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, new Date(j.start))) return; // 完了済みは除外
+        computeTaskAlarms(t).forEach(a => {
+          if (a.when <= now || a.when > horizon) return;
+          jobs.push({ id: 'task' + (n++), when: a.when, tag: 'task_' + (t.id || n) + '_' + a.when, url: '#task=' + (t.id||''), title: a.title, body: a.body });
+        });
+      });
+    } catch(e){}
+    jobs.sort((a,b) => a.when - b.when);
+    const capped = jobs.slice(0, 80);
+    try {
+      await fetch((p.url || NOTION_PROXY) + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: (p.client || '') + '-task', sub: p.sub, replace: true, jobs: capped }) });
+    } catch(e){}
+  }
+  window.syncTaskAlarms = syncTaskAlarms;
+
+  // ===== スケジュール上部：明日の予定まとめ表示 =====
+  const TMR_OPEN_KEY = 'tomorrowSummaryOpen';
+  function toggleTomorrowSummary() {
+    const cur = localStorage.getItem(TMR_OPEN_KEY);
+    localStorage.setItem(TMR_OPEN_KEY, cur === '0' ? '1' : '0');
+    renderTomorrowSummary();
+  }
+  window.toggleTomorrowSummary = toggleTomorrowSummary;
+  async function renderTomorrowSummary() {
+    const box = document.getElementById('tomorrowSummary');
+    if (!box) return;
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0);
+    const ds = ymd(tomorrow);
+    const dstr = tomorrow.toDateString();
+    // Googleの予定を取得（サインイン時・未キャッシュのみ）
+    if (typeof gcalAccessToken !== 'undefined' && gcalAccessToken) {
+      try { if (!gcalEvents[dstr]) { await gcalFetchEvents(tomorrow); } } catch(e){}
+    }
+    const items = [];
+    try {
+      (gcalEvents[dstr] || []).forEach(e => { const lbl = e.startLabel || e.start || ''; items.push({ min: (e.startMin != null ? e.startMin : 0), time: lbl, title: e.title || '', imp: false }); });
+      (gcalEvents[dstr + '_allday'] || []).forEach(e => items.push({ min: -1, time: '終日', title: e.title || '', imp: false }));
+    } catch(e){}
+    try {
+      tasks.forEach(t => {
+        if (!t || t._type === 'repeat' || t._type === 'repeat_ended') return;
+        const j = t['(A)実行日']; if (!j || !j.start) return;
+        if (ymd(new Date(j.start)) !== ds) return;
+        if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, tomorrow)) return;
+        const dt = new Date(j.start); const allDay = !!t._allDay;
+        const hm = allDay ? '終日' : `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+        items.push({ min: allDay ? -1 : dt.getHours()*60 + dt.getMinutes(), time: hm, title: t.name || '予定', imp: t._alarmPattern === 'important', taskId: t.id });
+      });
+    } catch(e){}
+    items.sort((a,b) => a.min - b.min);
+    const open = localStorage.getItem(TMR_OPEN_KEY) !== '0'; // 既定は開く
+    const md = (tomorrow.getMonth()+1) + '/' + tomorrow.getDate();
+    const wd = ['日','月','火','水','木','金','土'][tomorrow.getDay()];
+    let head = `<div class="tmr-head" onclick="toggleTomorrowSummary()"><span class="tmr-title">🗓 明日の予定 <span class="tmr-date">${md}(${wd})</span></span><span class="tmr-count">${items.length}件</span><span class="tmr-caret">${open ? '▾' : '▸'}</span></div>`;
+    let body = '';
+    if (open) {
+      if (!items.length) body = '<div class="tmr-empty">予定はありません</div>';
+      else body = items.map(i => `<div class="tmr-row${i.imp ? ' imp' : ''}"${i.taskId ? ` onclick="editTask('${i.taskId}')"` : ''}><span class="tmr-time">${i.time || ''}</span><span class="tmr-name">${i.imp ? '🔴 ' : ''}${_escapeHtml(i.title)}</span></div>`).join('');
+      body = `<div class="tmr-body">${body}</div>`;
+    }
+    box.style.display = 'block';
+    box.innerHTML = head + body;
+  }
+  window.renderTomorrowSummary = renderTomorrowSummary;
+
+  // ===== 通知タップからの画面遷移（ハッシュ or Service Workerメッセージ）=====
+  function applyAppRoute(route) {
+    try {
+      if (!route) return;
+      if (route === 'challenge') {
+        if (typeof switchScreen === 'function') switchScreen('routine');
+        setTimeout(() => { try { setRoutineView('challenge', document.querySelector('#routineViewToggle [data-view="challenge"]')); } catch(e){} }, 80);
+      } else if (route === 'tomorrow' || route === 'schedule') {
+        if (typeof switchScreen === 'function') switchScreen('todo');
+        setTimeout(() => { try { localStorage.setItem(TMR_OPEN_KEY, '1'); renderTomorrowSummary(); const el = document.getElementById('tomorrowSummary'); if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(e){} }, 100);
+      } else if (route.indexOf('task=') === 0) {
+        const id = route.slice(5);
+        if (typeof switchScreen === 'function') switchScreen('todo');
+        setTimeout(() => { try { if (typeof editTask === 'function' && id) editTask(id); } catch(e){} }, 100);
+      }
+    } catch(e){}
+  }
+  function routeFromHash() {
+    const h = (location.hash || '').replace(/^#/, '');
+    if (h) { applyAppRoute(h); try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }
+  }
+  window.applyAppRoute = applyAppRoute;
+  try { window.addEventListener('hashchange', routeFromHash); } catch(e){}
+  try { if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function(e){ if (e && e.data && e.data.route) applyAppRoute(e.data.route); }); } catch(e){}
+  setTimeout(routeFromHash, 400);
   // 進捗に応じた応援メッセージとキャラ
   function _challengeCheer(streak, target) {
     if (streak >= target) return { icon:'🏆', msg:'目標達成！継続の力が身についたね' };
@@ -12618,7 +12941,7 @@
     if (!nf.enabled) {
       return '<div class="chal-notify">'
         + '<button class="cn-enable" onclick="challengeNotifyEnable()">🔔 この継続の通知をオンにする</button>'
-        + '<div class="cn-hint">設定した時刻に、記録するまで数回お知らせします</div>'
+        + '<div class="cn-hint">完了にするか、今日の時間を変えるまで、くり返しお知らせします</div>'
         + '</div>';
     }
     const todayTime = _todayEffectiveTime(nf);
@@ -12629,10 +12952,11 @@
       +   `<input class="cn-time" type="time" value="${nf.time}" onchange="setChallengeNotifyField('time', this.value)">`
       +   '<button class="cn-off" onclick="challengeNotifyDisable()">オフ</button>'
       + '</div>'
-      + '<div class="cn-row2">記録するまで '
-      +   `<input class="cn-num" type="number" min="1" max="10" value="${nf.count}" onchange="setChallengeNotifyField('count', this.value)"> 回、`
-      +   `<input class="cn-num" type="number" min="1" max="120" value="${nf.intervalMin}" onchange="setChallengeNotifyField('interval', this.value)"> 分おきに通知`
+      + '<div class="cn-row2">完了するまで '
+      +   `<input class="cn-num" type="number" min="1" max="120" value="${nf.intervalMin}" onchange="setChallengeNotifyField('interval', this.value)"> 分おきに、最大 `
+      +   `<input class="cn-num" type="number" min="1" max="30" value="${nf.count}" onchange="setChallengeNotifyField('count', this.value)"> 回`
       + '</div>'
+      + '<div class="cn-note">✓完了にする か 🕒今日の時間を変える と止まります</div>'
       + '<div class="cn-today">'
       +   `<span class="cn-today-label">🕒 今日はこの時間に${overridden ? '（変更中）' : ''}</span>`
       +   `<input class="cn-time" type="time" value="${todayTime}" onchange="setChallengeNotifyToday(this.value)">`
