@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NotionTODO</title>
+  <script>
+    // 通知タップ等でディレクトリのルートが開かれても、本体(NotionTODO1.html)へ転送する。
+    // ハッシュ(#challenge 等)はそのまま引き継いで、遷移先も維持する。
+    (function () {
+      try {
+        var hash = location.hash || '';
+        var search = location.search || '';
+        location.replace('NotionTODO1.html' + search + hash);
+      } catch (e) {
+        location.href = 'NotionTODO1.html';
+      }
+    })();
+  </script>
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#8e8e93;text-align:center;margin-top:40vh;">
+  読み込み中…
+  <noscript><a href="NotionTODO1.html">NotionTODO を開く</a></noscript>
+</body>
+</html>
