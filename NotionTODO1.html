@@ -12485,6 +12485,23 @@
   }
   window.syncChallengeNotifications = syncChallengeNotifications;
 
+  // ===== デバッグ: テスト通知を送る（今の新形式・絶対URL付きで数秒後に配信） =====
+  async function sendTestNotification() {
+    try {
+      const p = await _ensurePushSub();
+      const url = (typeof _notifUrl === 'function') ? _notifUrl('#challenge') : (location.origin + location.pathname + '#challenge');
+      const delaySec = 8;
+      const when = Date.now() + delaySec * 1000;
+      const job = { id: 'test' + Date.now(), when: when, tag: 'test' + Date.now(), url: url, title: '🔔 テスト通知', body: 'タップして継続タブが開けばOK / ' + new Date(when).toLocaleTimeString() };
+      const res = await fetch((p.url || NOTION_PROXY) + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: (p.client || '') + '-test', sub: p.sub, replace: true, jobs: [job] }) });
+      const okText = res && res.ok ? '予約OK' : ('サーバー応答: ' + (res ? res.status : '不明'));
+      alert('約' + delaySec + '秒後にテスト通知を送ります（' + okText + '）。\n\nアプリをホームに戻して通知を待ち、タップして遷移を確認してください。\n\n埋め込んだ遷移先URL:\n' + url);
+    } catch (e) {
+      alert('テスト通知を送れませんでした: ' + (e && e.message || e) + '\n\n※ ホーム画面に追加したPWAで、通知を許可している必要があります。');
+    }
+  }
+  window.sendTestNotification = sendTestNotification;
+
   // ===== 明日の予定まとめ通知（既存Web Push基盤を再利用） =====
   //  ・毎日きまった時刻に「翌日の予定（アプリのタスク＋Googleの予定）」を1通でまとめて通知
   //  ・チャレンジ通知とは別 client（-brief）で管理して混ざらないようにする
@@ -13076,9 +13093,12 @@
         +   '<div class="chal-field"><span class="chal-field-label">目標日数</span>'
         +     `<button class="challenge-target" onclick="promptChallengeTarget()">目標 ${target}日 ✎</button></div>`
         +   _challengeNotifyHTML()
+        +   '<div style="margin-top:16px;padding-top:14px;border-top:1px dashed #e7e4f2;">'
+        +     '<div style="font-size:11px;color:#a8a5b8;margin-bottom:8px;">デバッグ</div>'
+        +     '<button onclick="sendTestNotification()" style="width:100%;box-sizing:border-box;background:#f2f1f7;color:#6c5ce7;border:1px solid #e0dcf3;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">🔔 テスト通知を送る（8秒後）</button>'
+        +     '<div style="font-size:11px;color:#b0b0b8;margin-top:6px;line-height:1.5;">今の形式で通知を送って、タップ時の遷移（404にならないか）を確認できます。押したらホームに戻って通知を待ってください。</div>'
+        +   '</div>'
         + '</div>';
-    }
-    if (challengePanel === 'history') {
       return '<div class="chal-panel-mask" onclick="closeChallengePanel()"></div>'
         + '<div class="chal-panel">'
         +   '<div class="chal-panel-head"><span>振り返る</span><button class="chal-panel-close" onclick="closeChallengePanel()">閉じる</button></div>'
