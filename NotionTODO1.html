@@ -12489,13 +12489,32 @@
   async function sendTestNotification() {
     try {
       const p = await _ensurePushSub();
+      if (!p || !p.sub) { alert('プッシュ購読がありません。通知を一度オンにしてください。'); return; }
       const url = (typeof _notifUrl === 'function') ? _notifUrl('#challenge') : (location.origin + location.pathname + '#challenge');
       const delaySec = 8;
       const when = Date.now() + delaySec * 1000;
-      const job = { id: 'test' + Date.now(), when: when, tag: 'test' + Date.now(), url: url, title: '🔔 テスト通知', body: 'タップして継続タブが開けばOK / ' + new Date(when).toLocaleTimeString() };
-      const res = await fetch((p.url || NOTION_PROXY) + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: (p.client || '') + '-test', sub: p.sub, replace: true, jobs: [job] }) });
-      const okText = res && res.ok ? '予約OK' : ('サーバー応答: ' + (res ? res.status : '不明'));
-      alert('約' + delaySec + '秒後にテスト通知を送ります（' + okText + '）。\n\nアプリをホームに戻して通知を待ち、タップして遷移を確認してください。\n\n埋め込んだ遷移先URL:\n' + url);
+      const stamp = Date.now();
+      // 毎回ユニークな client を使う（サーバー側の「送信済み」状態などに影響されないように）
+      const client = (p.client || 'c') + '-test-' + stamp;
+      const job = { id: 'test' + stamp, when: when, tag: 'test' + stamp, url: url, title: '🔔 テスト通知 ' + new Date(when).toLocaleTimeString(), body: 'タップして継続タブが開けばOK' };
+      let statusText = '';
+      let bodyText = '';
+      try {
+        const res = await fetch((p.url || NOTION_PROXY) + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: client, sub: p.sub, replace: true, jobs: [job] }) });
+        statusText = res ? String(res.status) : '不明';
+        try { bodyText = (await res.text() || '').slice(0, 120); } catch (e) {}
+      } catch (e) {
+        statusText = '通信エラー: ' + (e && e.message || e);
+      }
+      const subTail = (function(){ try { return (p.sub.endpoint || '').slice(-16); } catch(e){ return '?'; } })();
+      alert(
+        '約' + delaySec + '秒後に送信予約しました。\n' +
+        '\nサーバー応答: ' + statusText + (bodyText ? '\n応答本文: ' + bodyText : '') +
+        '\n購読end(末尾): …' + subTail +
+        '\n遷移先: ' + url +
+        '\n\n➡ ホームに戻って通知を待ってください。' +
+        '\n※ iPhoneは連続で送ると抑制されることがあります。2回目以降が来ない時は1〜2分あけて試してください。'
+      );
     } catch (e) {
       alert('テスト通知を送れませんでした: ' + (e && e.message || e) + '\n\n※ ホーム画面に追加したPWAで、通知を許可している必要があります。');
     }
