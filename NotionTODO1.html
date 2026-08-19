@@ -20773,7 +20773,21 @@
 .att-daterow .d{font-size:16px;font-weight:800;color:#2d2b3a}
 .att-daterow .w{font-size:12px;color:#8e8b9e}
 /* 打刻ボタン */
-.att-punch{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.att-punch{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.att-punch .att-pbtn{flex:1 1 44%;min-width:120px}
+.att-pbtn.att-ppause{background:#fff6e6;color:#b7791f}
+.att-pbtn.att-presume{background:#e9fbef;color:#12a150}
+.att-pbtn.att-pend{background:#fff0f0;color:#e5484d}
+.att-sess-row{display:flex;align-items:center;gap:8px;font-size:12px;color:#5a5768;padding:5px 8px;background:#fafafd;border:1px solid #eeecf6;border-radius:9px;margin-bottom:4px}
+.att-sess-row .ic{flex:none}
+.att-sess-row .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-sess-row .mn{flex:none;font-weight:700;color:#2d2b3a}
+.att-sess-row.live{background:#eafaef;border-color:#c5efd3}
+.ed-sess{display:flex;align-items:center;gap:5px;margin-bottom:7px;flex-wrap:wrap}
+.ed-sess input[type=time]{border:1px solid #e3e0ee;border-radius:8px;padding:6px 6px;font-size:13px;font-family:inherit;width:88px}
+.ed-sess input.loc{border:1px solid #e3e0ee;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;flex:1;min-width:80px}
+.ed-sess .del{border:none;background:#fff0f0;color:#e5484d;width:30px;height:30px;border-radius:8px;font-size:15px;cursor:pointer;flex:none}
+.ed-sess .ar{color:#a7a4b6;font-size:12px}
 .att-pbtn{border:none;border-radius:14px;padding:14px 8px;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform .08s;touch-action:manipulation}
 .att-pbtn:active{transform:scale(.96)}
 .att-pin{background:#e9fbef;color:#12a150}
@@ -20849,9 +20863,9 @@
 .att-badge.loc{background:#eef4ff;color:#3b6bd6}
 .att-empty{font-size:12px;color:#b3b0c2;padding:10px 2px}
 /* 日別エディタ（簡易モーダル） */
-#attEdit{position:fixed;inset:0;z-index:calc(var(--z-modal,9650) + 2);display:none;background:rgba(20,18,30,.4);align-items:flex-end;justify-content:center}
+#attEdit{position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 20);display:none;background:rgba(20,18,30,.4);align-items:flex-end;justify-content:center}
 #attEdit.open{display:flex}
-.att-edit-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:16px 16px 26px;max-height:88vh;overflow-y:auto}
+.att-edit-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:16px 16px calc(28px + env(safe-area-inset-bottom, 0px));max-height:92vh;overflow-y:auto}
 .att-edit-card h4{margin:0 0 12px;font-size:16px;font-weight:800;color:#2d2b3a;display:flex;align-items:center}
 .att-edit-card h4 .x{margin-left:auto;border:none;background:#f2f1f7;width:32px;height:32px;border-radius:50%;font-size:18px;color:#5a5768;cursor:pointer}
 .att-toast{position:fixed;left:50%;bottom:calc(var(--navh,60px) + 16px);transform:translateX(-50%);background:#2d2b3a;color:#fff;font-size:13px;font-weight:600;padding:10px 16px;border-radius:12px;z-index:var(--z-toast,9800);opacity:0;transition:opacity .2s;pointer-events:none}
@@ -20874,9 +20888,9 @@
 .att-cal-cell .cv.off{color:#c3bfd6}
 .att-cal-cell .dot{position:absolute;bottom:3px;width:5px;height:5px;border-radius:50%}
 /* 期間有給モーダル */
-#attRange{position:fixed;inset:0;z-index:calc(var(--z-modal,9650) + 3);display:none;background:rgba(20,18,30,.4);align-items:flex-end;justify-content:center}
+#attRange{position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 20);display:none;background:rgba(20,18,30,.4);align-items:flex-end;justify-content:center}
 #attRange.open{display:flex}
-.att-range-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:16px 16px 26px}
+.att-range-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:16px 16px calc(28px + env(safe-area-inset-bottom, 0px));max-height:92vh;overflow-y:auto}
 .att-range-card h4{margin:0 0 12px;font-size:16px;font-weight:800;color:#2d2b3a;display:flex;align-items:center}
 .att-range-card h4 .x{margin-left:auto;border:none;background:#f2f1f7;width:32px;height:32px;border-radius:50%;font-size:18px;color:#5a5768;cursor:pointer}
 </style>
@@ -20897,25 +20911,12 @@
         <span class="d" id="attTodayD">--/--</span>
         <span class="w" id="attTodayW"></span>
       </div>
-      <div class="att-punch">
-        <button class="att-pbtn att-pin" id="attBtnHome">
-          <span class="tm" id="attHomeTm">🏠</span>
-          <span class="lb" id="attHomeLb">在宅で出勤</span>
-        </button>
-        <button class="att-pbtn att-pin" id="attBtnOffice">
-          <span class="tm" id="attOfficeTm">🏢</span>
-          <span class="lb" id="attOfficeLb">オフィスで出勤</span>
-        </button>
-      </div>
+      <div class="att-punch" id="attPunch"></div>
       <div id="attOfficePick" style="display:none;margin-bottom:10px">
         <div class="att-sub" style="margin:0 0 6px">オフィスの場所を選んで出勤：</div>
         <div class="att-locrow" id="attOfficeChips"></div>
       </div>
-      <button class="att-pbtn att-pout" id="attBtnOut" style="width:100%;margin-bottom:10px">
-        <span class="tm" id="attOutTm">退勤</span>
-        <span class="lb">退勤打刻</span>
-      </button>
-      <div id="attNowLoc" style="font-size:12px;color:#8e8b9e;margin-bottom:6px"></div>
+      <div id="attSessions" style="margin-bottom:6px"></div>
       <div class="att-leaverow" id="attLeaveRow"></div>
       <div style="margin-top:6px"><button class="att-sbtn" id="attRangeBtn" style="width:100%">📅 期間でまとめて有給を入力</button></div>
       <div class="att-minirow">
@@ -21016,11 +21017,11 @@
 <div id="attEdit">
   <div class="att-edit-card">
     <h4><span id="attEditTitle">編集</span><button class="x" id="attEditClose">×</button></h4>
-    <div class="att-set-row"><label>場所</label><input type="text" id="edLoc" style="flex:1;min-width:0" placeholder="自宅 など"></div>
-    <div class="att-set-row"><label>出勤 / 退勤</label><div class="att-two"><input type="time" id="edIn"><span>–</span><input type="time" id="edOut"></div></div>
+    <div style="font-size:13px;font-weight:700;color:#2d2b3a;margin-bottom:6px">勤務セッション <span style="color:#a7a4b6;font-size:11px;font-weight:600">在宅→退勤→オフィスなど複数OK</span></div>
+    <div id="edSessions"></div>
+    <button class="att-sbtn" id="edAddSess" style="width:100%;margin-bottom:10px">＋ セッションを追加</button>
     <div class="att-set-row"><label>実働を直接入力 <span style="color:#a7a4b6;font-size:11px">打刻なしでOK</span></label><input type="text" id="edWork" placeholder="例: 7.5h / 7:30" style="width:110px"></div>
-    <div class="att-sub" style="margin:-4px 0 8px">※ 直接入力すると、その値がそのまま実働になります（出勤/退勤・休憩より優先）。</div>
-    <div class="att-set-row"><label>休憩 <span style="color:#a7a4b6;font-size:11px">空欄=自動</span></label><input type="number" id="edBrk" min="0" step="5" placeholder="自動"><span style="font-size:12px">分</span></div>
+    <div class="att-sub" style="margin:-4px 0 8px">※ 直接入力すると、その値がそのまま実働になります（セッションより優先）。</div>
     <div class="att-set-row"><label>有給</label>
       <select id="edLeave" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;font-family:inherit">
         <option value="none">なし</option><option value="full">全休</option><option value="am">午前</option><option value="pm">午後</option>
@@ -21140,13 +21141,29 @@
     if((m=/^(\d+(?:\.\d+)?)\s*h?$/.exec(str))) return Math.round(parseFloat(m[1])*60);
     return null;
   }
-  // その日の実働（直接入力があれば優先、なければ打刻から）
+  // 1日を複数の勤務セッションで扱う。旧形式(in/out)も1セッションとして読む。
+  function getSessions(rec){
+    if(!rec) return [];
+    if(Array.isArray(rec.sessions)) return rec.sessions.slice();
+    if(rec.in) return [{ in:rec.in, out:rec.out||null, loc:rec.loc||'', locType:rec.locType||'', brk:(rec.brk!=null&&rec.brk!==''?rec.brk:null) }];
+    return [];
+  }
+  function locTypeOf(loc, fallback){ if(fallback) return fallback; if(!loc) return ''; return (loc==='在宅'||loc==='自宅')?'home':'office'; }
+  function sessionMinutes(s, liveTo){
+    var inM=parseHM(s.in); if(inM==null) return 0;
+    var outM = s.out ? parseHM(s.out) : (liveTo!=null?liveTo:null);
+    if(outM==null) return 0;
+    if(!s.out && outM<=inM) return 0; // 勤務中で開始直後/未来
+    return workedFromClock(inM, outM, (s.brk!=null&&s.brk!=='')?s.brk:null);
+  }
+  // その日の実働（直接入力があれば優先、なければ全セッション合計）
   function actualWork(rec, liveTo){
     if(!rec) return 0;
     if(rec.manualWork!=null && rec.manualWork!=='') return num(rec.manualWork);
-    var inM=parseHM(rec.in), outM=(liveTo!=null?liveTo:parseHM(rec.out));
-    return workedFromClock(inM, outM, manOf(rec));
+    var sum=0; getSessions(rec).forEach(function(s){ sum+=sessionMinutes(s, liveTo); });
+    return sum;
   }
+  function openSession(rec){ var ss=getSessions(rec); for(var i=0;i<ss.length;i++){ if(!ss[i].out) return ss[i]; } return null; }
   function leaveCredit(type){
     if(type==='full') return parseDur(S.base);
     if(type==='am') return Math.max(0,(parseHM(S.amE)-parseHM(S.amS)));
@@ -21158,15 +21175,19 @@
     if(!rec) return 0;
     return actualWork(rec) + leaveCredit(rec.leave);
   }
-  // 実際に差し引かれた休憩（表示用）。勤務中は現在時刻まで。
+  // 実際に差し引かれた休憩（表示用）。勤務中セッションは現在時刻まで。
   function effBrk(rec){
     if(!rec) return 0;
-    var inM=parseHM(rec.in), outM=parseHM(rec.out);
-    if(inM!=null && outM==null){ var now=new Date(); var nm=now.getHours()*60+now.getMinutes(); outM=nm>inM?nm:inM; }
-    if(inM==null||outM==null) return 0;
-    if(rec.brk!=null && rec.brk!=='') return num(rec.brk);
-    var s=inM,e=outM; if(e<s)e+=1440;
-    return autoBreakSpan(s,e);
+    var now=new Date(); var nm=now.getHours()*60+now.getMinutes();
+    var total=0;
+    getSessions(rec).forEach(function(s){
+      var inM=parseHM(s.in); if(inM==null) return;
+      var outM=s.out?parseHM(s.out):(nm>inM?nm:inM);
+      if(outM==null) return;
+      if(s.brk!=null && s.brk!=='') { total+=num(s.brk); return; }
+      var a=inM,b=outM; if(b<a)b+=1440; total+=autoBreakSpan(a,b);
+    });
+    return total;
   }
 
   function lastDayOfMonth(y,m){ return new Date(y,m+1,0).getDate(); }
@@ -21246,14 +21267,8 @@
     if(!rec) return 0;
     var credit=leaveCredit(rec.leave);
     if(rec.manualWork!=null && rec.manualWork!=='') return num(rec.manualWork)+credit; // 直接入力優先
-    var inM=parseHM(rec.in), outM=parseHM(rec.out);
-    if(inM!=null && outM==null){ // 勤務中
-      var now=new Date(); var nowM=now.getHours()*60+now.getMinutes();
-      if(nowM<=inM) return credit; // 打刻直後など
-      var w=workedFromClock(inM, nowM, manOf(rec));
-      return w+credit;
-    }
-    return workedFromClock(inM,outM,manOf(rec))+credit;
+    var now=new Date(); var nowM=now.getHours()*60+now.getMinutes();
+    return actualWork(rec, nowM)+credit;
   }
   // 残り所定労働日（今日含む、target まで）
   function remainWorkDays(seg, today){
@@ -21300,29 +21315,43 @@
     $('attTodayD').textContent=(now.getMonth()+1)+'/'+now.getDate();
     var hn=jpHolidayName(now);
     $('attTodayW').textContent='('+WD[now.getDay()]+')'+(hn?' '+hn:'');
-    var lt=rec.locType||(rec.loc?((rec.loc==='在宅'||rec.loc==='自宅')?'home':'office'):'');
-    // 在宅ボタン
-    var bH=$('attBtnHome');
-    if(rec.in && lt==='home'){ bH.classList.add('set'); $('attHomeTm').textContent=rec.in; $('attHomeLb').textContent='在宅 出勤済'; }
-    else { bH.classList.remove('set'); $('attHomeTm').textContent='🏠'; $('attHomeLb').textContent='在宅で出勤'; }
-    // オフィスボタン
-    var bO=$('attBtnOffice');
-    if(rec.in && lt==='office'){ bO.classList.add('set'); $('attOfficeTm').textContent=rec.in; $('attOfficeLb').textContent=(rec.loc||'オフィス'); }
-    else { bO.classList.remove('set'); $('attOfficeTm').textContent='🏢'; $('attOfficeLb').textContent='オフィスで出勤'; }
-    // 退勤ボタン
-    var bOut=$('attBtnOut');
-    if(rec.out){ bOut.classList.add('set'); $('attOutTm').textContent=rec.out; } else { bOut.classList.remove('set'); $('attOutTm').textContent='退勤'; }
+    var nowM=now.getHours()*60+now.getMinutes();
+    var ss=getSessions(rec);
+    var openS=null; ss.forEach(function(s){ if(!s.out) openS=s; });
+    var working=!!openS, hasSess=ss.length>0;
+    var lastS=ss.length?ss[ss.length-1]:null;
+
+    // 状態に応じた打刻ボタンを組み立て
+    var punch=$('attPunch'); punch.innerHTML='';
+    function mkBtn(cls, ic, lb, fn){ var b=document.createElement('button'); b.className='att-pbtn '+cls; b.innerHTML='<span class="tm">'+ic+'</span><span class="lb">'+lb+'</span>'; b.onclick=fn; punch.appendChild(b); }
+    if(working){
+      mkBtn('att-ppause','⏸','中断', pauseWork);
+      mkBtn('att-pend','■','退勤', endWork);
+    } else {
+      if(hasSess){ var rl=(lastS&&lastS.locType==='home')?'在宅':(lastS?(lastS.loc||'オフィス'):''); mkBtn('att-presume','▶','再開（'+rl+'）', resumeWork); }
+      mkBtn('att-pin','🏠','在宅で出勤', startHome);
+      mkBtn('att-pin','🏢','オフィスで出勤', function(){ officePickOpen=!officePickOpen; renderToday(); });
+    }
     // オフィス選択チップ
-    $('attOfficePick').style.display = officePickOpen ? 'block' : 'none';
+    $('attOfficePick').style.display = (officePickOpen && !working) ? 'block' : 'none';
     var oc=$('attOfficeChips'); oc.innerHTML='';
     OFFICES.concat(['自由記述']).forEach(function(p){
-      var b=document.createElement('button'); b.className='att-locchip'+((lt==='office'&&rec.loc===p)?' on':''); b.textContent=p;
+      var b=document.createElement('button'); b.className='att-locchip'; b.textContent=p;
       b.onclick=function(){ pickOffice(p); };
       oc.appendChild(b);
     });
-    // 現在の場所表示
-    if(rec.in){ $('attNowLoc').textContent='場所: '+(lt==='home'?'在宅':('オフィス（'+(rec.loc||'—')+'）'))+'　出勤 '+rec.in+(rec.out?('／退勤 '+rec.out):''); }
-    else { $('attNowLoc').textContent=''; }
+    // セッション一覧
+    var sc=$('attSessions'); sc.innerHTML='';
+    ss.forEach(function(s,idx){
+      var lt=locTypeOf(s.loc, s.locType);
+      var row=document.createElement('div'); row.className='att-sess-row'+(!s.out?' live':'');
+      var mn=sessionMinutes(s, nowM);
+      var locLabel=(lt==='home'?'在宅':(s.loc||'オフィス'));
+      row.innerHTML='<span class="ic">'+(lt==='home'?'🏠':'🏢')+'</span>'
+        +'<span class="tt">'+esc(locLabel)+'　'+(s.in||'--')+'〜'+(s.out|| '勤務中')+'</span>'
+        +'<span class="mn">'+fmtDur(mn)+'</span>';
+      sc.appendChild(row);
+    });
     // 有給
     var lr=$('attLeaveRow'); lr.innerHTML='';
     var opts=[['none','なし',''],['full','全休','+'+fmtDur(leaveCredit('full'))],['am','午前','+'+fmtDur(leaveCredit('am'))],['pm','午後','+'+fmtDur(leaveCredit('pm'))]];
@@ -21333,15 +21362,13 @@
       b.onclick=function(){ setToday('leave', o[0]); };
       lr.appendChild(b);
     });
-    // 休憩（自動 or 手入力）の表示
+    // 休憩表示
     var appliedBrk=effBrk(rec);
-    var manual=(rec.brk!=null && rec.brk!=='');
-    $('attBrkShow').textContent = (rec.in||rec.out)
-      ? ('休憩 '+fmtDur(appliedBrk)+(manual?'（手入力）':'（自動）'))
+    $('attBrkShow').textContent = hasSess
+      ? ('休憩 '+fmtDur(appliedBrk)+'（自動）')
       : '休憩 自動（'+S.brk1S+'–'+S.brk1E+'、'+S.brk2S+'–'+S.brk2E+'）';
     // 本日合計
     var mins=liveTodayMinutes(rec);
-    var working=(rec.in&&!rec.out);
     $('attTodayTotal').innerHTML='本日の労働: <b>'+fmtDur(mins)+'</b>'+(working?' <span style="color:#12a150;font-size:11px">● 勤務中</span>':'')
       + (leaveCredit(rec.leave)>0?' <span style="color:#8e8b9e;font-size:11px">(有給 +'+fmtDur(leaveCredit(rec.leave))+'含む)</span>':'');
   }
@@ -21436,9 +21463,10 @@
       var hn=jpHolidayName(d);
       var row=document.createElement('div'); row.className='att-hrow'+(rec.holiday?' holi':'');
       var info=[];
-      if(rec.loc){ var lt=rec.locType||((rec.loc==='在宅'||rec.loc==='自宅')?'home':'office'); info.push('<span class="att-badge loc">'+(lt==='home'?'🏠':'🏢')+esc(rec.loc)+'</span>'); }
+      var ss=getSessions(rec);
+      ss.forEach(function(s){ var lt=locTypeOf(s.loc,s.locType); info.push('<span class="att-badge loc">'+(lt==='home'?'🏠':'🏢')+(s.loc?esc(s.loc):'')+' '+(s.in||'--')+'〜'+(s.out||'…')+'</span>'); });
+      if(rec.manualWork!=null && rec.manualWork!=='' && !ss.length) info.push('<span class="att-badge loc">実働 '+fmtDur(num(rec.manualWork))+'</span>');
       if(rec.leave&&rec.leave!=='none'){ var lm={full:'全休',am:'午前',pm:'午後'}; info.push('<span class="att-badge leave">'+lm[rec.leave]+'</span>'); }
-      if(rec.in||rec.out) info.push((rec.in||'--')+'→'+(rec.out||'--'));
       if(rec.holiday) info.push('休日');
       if(hn) info.push('<span style="color:#c98">'+esc(hn)+'</span>');
       var mins=(k===todayKey)?liveTodayMinutes(rec):dayMinutes(rec);
@@ -21488,86 +21516,115 @@
 
   // ============ mutations ============
   function ensureToday(){ if(!R[todayKey]) R[todayKey]={leave:'none'}; return R[todayKey]; }
-  function setToday(field, val){
-    var rec=ensureToday(); rec[field]=val;
-    if(field==='leave'){ // 休憩の既定を更新（未入力時のみ）
-      if(rec.brk==null||rec.brk===''){ /* keep */ }
-    }
-    saveRec(R); render();
-  }
+  function setToday(field, val){ var rec=ensureToday(); rec[field]=val; saveRec(R); render(); }
   function nowHM(){ var n=new Date(); return pad2(n.getHours())+':'+pad2(n.getMinutes()); }
+  // レコードをセッション配列形式に正規化（旧in/out→sessions）
+  function ensureSessions(rec){
+    if(!Array.isArray(rec.sessions)){
+      rec.sessions = rec.in ? [{ in:rec.in, out:rec.out||null, loc:rec.loc||'', locType:rec.locType||locTypeOf(rec.loc), brk:(rec.brk!=null&&rec.brk!==''?rec.brk:null) }] : [];
+      delete rec.in; delete rec.out; delete rec.loc; delete rec.locType; delete rec.brk;
+    }
+    return rec.sessions;
+  }
+  function curOpen(rec){ var ss=rec.sessions||[]; for(var i=0;i<ss.length;i++) if(!ss[i].out) return ss[i]; return null; }
+  function startSession(loc, locType){
+    var rec=ensureToday(); var ss=ensureSessions(rec);
+    var op=curOpen(rec); if(op) op.out=nowHM(); // 念のため開いてるものは閉じる
+    ss.push({ in:nowHM(), out:null, loc:loc, locType:locType });
+    // 表示用ミラー（履歴/カレンダーの最新場所）
+    rec.loc=loc; rec.locType=locType;
+    officePickOpen=false; saveRec(R); render();
+    toast((locType==='home'?'在宅':loc)+'で出勤 '+ss[ss.length-1].in);
+  }
+  function startHome(){ startSession('在宅','home'); }
   function pickOffice(name){
     var v=name;
     if(name==='自由記述'){ v=(prompt('オフィス名を入力')||'').trim(); if(!v) return; }
-    var rec=ensureToday();
-    var first=!rec.in;
-    if(!rec.in) rec.in=nowHM();
-    rec.locType='office'; rec.loc=v;
-    officePickOpen=false; saveRec(R); render();
-    toast(first?('オフィス（'+v+'）出勤 '+rec.in):('場所: '+v+' に変更'));
+    startSession(v,'office');
+  }
+  function resumeWork(){
+    var rec=ensureToday(); var ss=ensureSessions(rec);
+    var last=ss.length?ss[ss.length-1]:null;
+    var loc=last?last.loc:'在宅', lt=last?(last.locType||locTypeOf(last.loc)):'home';
+    if(curOpen(rec)) return;
+    ss.push({ in:nowHM(), out:null, loc:loc, locType:lt });
+    rec.loc=loc; rec.locType=lt; saveRec(R); render(); toast('再開 '+ss[ss.length-1].in);
+  }
+  function pauseWork(){
+    var rec=ensureToday(); ensureSessions(rec); var op=curOpen(rec);
+    if(!op){ toast('勤務中ではありません'); return; }
+    op.out=nowHM(); saveRec(R); render(); toast('中断 '+op.out+'（再開できます）');
+  }
+  function endWork(){
+    var rec=ensureToday(); ensureSessions(rec); var op=curOpen(rec);
+    if(!op){ toast('勤務中ではありません'); return; }
+    op.out=nowHM(); saveRec(R); render(); toast('退勤 '+op.out);
   }
 
   function bindToday(){
-    $('attBtnHome').onclick=function(){
-      var rec=ensureToday();
-      var first=!rec.in;
-      if(rec.in && rec.locType!=='home' && !confirm('場所を「在宅」に変更しますか？')) return;
-      if(!rec.in) rec.in=nowHM();
-      rec.locType='home'; rec.loc='在宅';
-      officePickOpen=false; saveRec(R); render();
-      toast(first?('在宅で出勤 '+rec.in):'場所: 在宅 に変更');
-    };
-    $('attBtnOffice').onclick=function(){
-      officePickOpen=!officePickOpen; renderToday();
-    };
-    $('attBtnOut').onclick=function(){
-      var rec=ensureToday();
-      if(!rec.in && !confirm('出勤打刻がありません。退勤だけ記録しますか？')) return;
-      if(rec.out && !confirm('退勤時刻を今の時刻（'+nowHM()+'）に更新しますか？')) return;
-      rec.out=nowHM(); saveRec(R); render(); toast('退勤 '+rec.out);
-    };
     $('attManual').onclick=function(){ openEdit(todayKey); };
     var ab=$('attAddBtn'); if(ab) ab.onclick=function(){ var k=$('attAddDate').value; if(!k){ toast('日付を選んでください'); return; } openEdit(k); };
   }
 
   // ============ day editor ============
-  var editKey=null;
+  var editKey=null, edSess=[];
+  function renderEdSessions(){
+    var host=$('edSessions'); host.innerHTML='';
+    edSess.forEach(function(s,idx){
+      var row=document.createElement('div'); row.className='ed-sess';
+      row.innerHTML='<input type="time" class="in" value="'+(s.in||'')+'">'
+        +'<span class="ar">–</span>'
+        +'<input type="time" class="out" value="'+(s.out||'')+'">'
+        +'<input type="text" class="loc" placeholder="場所（在宅/川崎 等）" value="'+esc(s.loc||'')+'">'
+        +'<button class="del" title="削除">×</button>';
+      var ins=row.querySelector('.in'), outs=row.querySelector('.out'), locs=row.querySelector('.loc');
+      ins.addEventListener('input',function(){ edSess[idx].in=this.value; updateEdTotal(); });
+      outs.addEventListener('input',function(){ edSess[idx].out=this.value; updateEdTotal(); });
+      locs.addEventListener('input',function(){ edSess[idx].loc=this.value; edSess[idx].locType=locTypeOf(this.value); });
+      row.querySelector('.del').onclick=function(){ edSess.splice(idx,1); renderEdSessions(); updateEdTotal(); };
+      host.appendChild(row);
+    });
+  }
   function openEdit(key){
     editKey=key; var rec=R[key]||{}; var d=fromYmd(key);
     var hn=jpHolidayName(d);
     $('attEditTitle').textContent=(d.getMonth()+1)+'/'+d.getDate()+'（'+WD[d.getDay()]+'）'+(hn?' '+hn:'');
-    $('edLoc').value=rec.loc||''; $('edIn').value=rec.in||''; $('edOut').value=rec.out||'';
+    edSess = getSessions(rec).map(function(s){ return { in:s.in||'', out:s.out||'', loc:s.loc||'', locType:s.locType||locTypeOf(s.loc), brk:(s.brk!=null?s.brk:null) }; });
+    renderEdSessions();
     $('edWork').value=(rec.manualWork!=null&&rec.manualWork!=='')?fmtDur(num(rec.manualWork)):'';
-    $('edBrk').value=(rec.brk!=null&&rec.brk!=='')?rec.brk:'';
     $('edLeave').value=rec.leave||'none'; $('edHoli').checked=!!rec.holiday;
     updateEdTotal();
     $('attEdit').classList.add('open');
   }
   function readEdit(){
     var wv=parseWork($('edWork').value);
-    return { loc:$('edLoc').value.trim(), in:$('edIn').value||'', out:$('edOut').value||'', brk:$('edBrk').value, manualWork:(wv==null?'':wv), leave:$('edLeave').value, holiday:$('edHoli').checked };
+    var sessions=edSess.filter(function(s){ return s.in || s.out; })
+      .map(function(s){ var o={ in:s.in||'', out:s.out||null, loc:(s.loc||'').trim(), locType:locTypeOf((s.loc||'').trim()) }; if(s.brk!=null&&s.brk!=='') o.brk=s.brk; return o; });
+    return { sessions:sessions, manualWork:(wv==null?'':wv), leave:$('edLeave').value, holiday:$('edHoli').checked };
   }
   function updateEdTotal(){
     var t=readEdit();
     var direct=(t.manualWork!=null && t.manualWork!=='');
-    var man=(t.brk!=null && t.brk!=='')?t.brk:null;
-    var w=direct?num(t.manualWork):workedFromClock(parseHM(t.in), parseHM(t.out), man);
+    var w=direct?num(t.manualWork):actualWork({sessions:t.sessions});
     var c=leaveCredit(t.leave);
-    var appl=effBrk(t);
+    var appl=effBrk({sessions:t.sessions});
     $('edTotal').innerHTML='実働 '+fmtDur(w)+' ＋ 有給 '+fmtDur(c)+' ＝ <b>'+fmtDur(w+c)+'</b>'+(t.holiday?'（休日：所定から除外）':'')
-      + (direct?' <span style="color:#6c5ce7;font-size:11px">(実働=直接入力)</span>':((t.in||t.out)&&appl>0?' <span style="color:#a7a4b6;font-size:11px">(休憩 '+fmtDur(appl)+(man!=null?' 手入力':' 自動')+')</span>':''));
+      + (direct?' <span style="color:#6c5ce7;font-size:11px">(実働=直接入力)</span>':(appl>0?' <span style="color:#a7a4b6;font-size:11px">(休憩 '+fmtDur(appl)+' 自動)</span>':''));
   }
   function bindEdit(){
-    ['edLoc','edIn','edOut','edWork','edBrk','edLeave','edHoli'].forEach(function(id){ $(id).addEventListener('change', updateEdTotal); $(id).addEventListener('input', updateEdTotal); });
+    ['edWork','edLeave','edHoli'].forEach(function(id){ $(id).addEventListener('change', updateEdTotal); $(id).addEventListener('input', updateEdTotal); });
+    $('edAddSess').onclick=function(){ edSess.push({in:'',out:'',loc:'',locType:''}); renderEdSessions(); };
     $('attEditClose').onclick=function(){ $('attEdit').classList.remove('open'); };
     $('attEdit').addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
     $('edSave').onclick=function(){
       var t=readEdit();
-      if(!t.in && !t.out && (t.manualWork==='') && (t.leave==='none') && !t.loc && !t.holiday){ delete R[editKey]; }
+      var empty = !t.sessions.length && (t.manualWork==='') && (t.leave==='none') && !t.holiday;
+      if(empty){ delete R[editKey]; }
       else {
-        var prev=R[editKey]||{};
-        if(t.loc){ t.locType = (t.loc===prev.loc && prev.locType) ? prev.locType : ((t.loc==='在宅'||t.loc==='自宅')?'home':'office'); }
-        R[editKey]=t;
+        var last=t.sessions.length?t.sessions[t.sessions.length-1]:null;
+        var rec={ sessions:t.sessions, manualWork:t.manualWork, leave:t.leave, holiday:t.holiday };
+        if(last){ rec.loc=last.loc; rec.locType=last.locType; } // 表示用ミラー
+        R[editKey]=rec;
       }
       saveRec(R); $('attEdit').classList.remove('open'); render(); toast('保存しました');
     };
@@ -21658,7 +21715,7 @@
     $('rgApply').onclick=function(){
       var days=rangeDays(), t='full';
       if(!days.length){ toast('期間を選んでください'); return; }
-      days.forEach(function(k){ var rec=R[k]||{}; rec.leave=t; if(t==='full'){ delete rec.in; delete rec.out; delete rec.brk; delete rec.manualWork; } R[k]=rec; });
+      days.forEach(function(k){ var rec=R[k]||{}; rec.leave=t; if(t==='full'){ delete rec.in; delete rec.out; delete rec.brk; delete rec.manualWork; delete rec.sessions; delete rec.loc; delete rec.locType; } R[k]=rec; });
       saveRec(R); $('attRange').classList.remove('open');
       if(days[0]){ calMonth=new Date(fromYmd(days[0]).getFullYear(), fromYmd(days[0]).getMonth(), 1); }
       render(); toast(days.length+'日に全休を入力しました');
@@ -21666,7 +21723,7 @@
     $('rgClear').onclick=function(){
       var days=rangeDays(); if(!days.length){ toast('期間を選んでください'); return; }
       if(!confirm(days.length+'日分の有給を取り消しますか？（打刻・場所は残ります）')) return;
-      days.forEach(function(k){ var rec=R[k]; if(rec){ rec.leave='none'; if(!rec.in&&!rec.out&&(rec.manualWork==null||rec.manualWork==='')&&!rec.loc&&!rec.holiday) delete R[k]; } });
+      days.forEach(function(k){ var rec=R[k]; if(rec){ rec.leave='none'; if(!getSessions(rec).length&&(rec.manualWork==null||rec.manualWork==='')&&!rec.holiday) delete R[k]; } });
       saveRec(R); $('attRange').classList.remove('open'); render(); toast('取り消しました');
     };
   }
