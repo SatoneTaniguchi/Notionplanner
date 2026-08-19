@@ -20930,11 +20930,12 @@
     <div class="att-card att-status">
       <h3>いま何時間足りない？ <span class="tag" id="attTgtTag">--</span></h3>
       <div class="att-period" id="attPeriod"></div>
+      <div class="att-callout" id="attPace" style="margin-top:0;margin-bottom:10px"></div>
       <div class="att-bar"><i id="attBar" style="width:0%"></i></div>
       <div class="att-nums">
-        <div class="att-num"><div class="k">必要</div><div class="v" id="attNeed">--</div></div>
+        <div class="att-num"><div class="k">必要(有給除く)</div><div class="v" id="attNeed">--</div></div>
         <div class="att-num"><div class="k">実績</div><div class="v" id="attDone">--</div></div>
-        <div class="att-num"><div class="k">過不足</div><div class="v" id="attDiff">--</div></div>
+        <div class="att-num"><div class="k">残り</div><div class="v" id="attDiff">--</div></div>
       </div>
       <div class="att-callout" id="attCallout"></div>
       <div class="att-finish" id="attFinish"></div>
@@ -20944,8 +20945,9 @@
     <div class="att-card att-status">
       <h3>もう一方の締め <span class="tag" id="attTgt2Tag">--</span></h3>
       <div class="att-period" id="attPeriod2"></div>
+      <div class="att-callout" id="attPace2" style="margin-top:0;margin-bottom:10px"></div>
       <div class="att-nums">
-        <div class="att-num"><div class="k">標準</div><div class="v" id="attNeed2">--</div></div>
+        <div class="att-num"><div class="k">標準(有給除く)</div><div class="v" id="attNeed2">--</div></div>
         <div class="att-num"><div class="k">実績</div><div class="v" id="attDone2">--</div></div>
         <div class="att-num"><div class="k">差</div><div class="v" id="attDiff2">--</div></div>
       </div>
@@ -21376,77 +21378,104 @@
   function renderStatus(){
     var today=new Date(); today.setHours(0,0,0,0);
     var T=targetsFor(today);
-    fillStatus(T.primary, today, { tag:'attTgtTag', period:'attPeriod', bar:'attBar', need:'attNeed', done:'attDone', diff:'attDiff', call:'attCallout', finish:'attFinish' }, true);
-    fillStatus(T.other, today, { tag:'attTgt2Tag', period:'attPeriod2', need:'attNeed2', done:'attDone2', diff:'attDiff2', call:'attCallout2' }, false);
+    fillStatus(T.primary, today, { tag:'attTgtTag', period:'attPeriod', pace:'attPace', bar:'attBar', need:'attNeed', done:'attDone', diff:'attDiff', call:'attCallout', finish:'attFinish' }, true);
+    fillStatus(T.other, today, { tag:'attTgt2Tag', period:'attPeriod2', pace:'attPace2', need:'attNeed2', done:'attDone2', diff:'attDiff2', call:'attCallout2' }, false);
+  }
+
+  // セグメント統計：有給を所定から差し引き、実績は実働のみ（有給加算を含めない）
+  function segStats(seg, today){
+    var base=parseDur(S.base);
+    var nowM=(new Date()).getHours()*60+(new Date()).getMinutes();
+    var tk=ymd(today);
+    var schedTotal=0, schedToDate=0, leaveTotal=0, leaveToDate=0, worked=0;
+    var d=new Date(seg.start), end=new Date(seg.end);
+    while(d<=end){
+      var key=ymd(d), rec=R[key], sched=isScheduled(d);
+      var lc=rec?leaveCredit(rec.leave):0;
+      if(sched){ schedTotal++; leaveTotal+=Math.min(lc, base); }
+      if(d<=today){
+        if(sched){ schedToDate++; leaveToDate+=Math.min(lc, base); }
+        if(rec){ worked += (key===tk)? actualWork(rec, nowM) : actualWork(rec); }
+      }
+      d.setDate(d.getDate()+1);
+    }
+    var reqTotal=Math.max(0, schedTotal*base + seg.ot - leaveTotal);
+    var otToDate=schedTotal>0?Math.round(seg.ot*(schedToDate/schedTotal)):0;
+    var reqToDate=Math.max(0, schedToDate*base + otToDate - leaveToDate);
+    return { schedTotal:schedTotal, schedToDate:schedToDate, leaveTotal:leaveTotal, base:base,
+             reqTotal:reqTotal, reqToDate:reqToDate, worked:worked,
+             started:(today>=seg.start) };
   }
 
   function fillStatus(seg, today, ids, primary){
-    var wd=workDaysInSeg(seg);
-    var required=wd*parseDur(S.base)+seg.ot;
-    var done=workedInSeg(seg, today);
-    var diff=done-required;                 // + なら超過
+    var st=segStats(seg, today);
+    var required=st.reqTotal, done=st.worked;
+    var diff=done-required;                 // + なら超過（期間トータル）
     var remain=required-done;               // + なら不足
+    var paceDiff=done-st.reqToDate;         // 本日時点の過不足（+ 前倒し / − 不足）
     var daysLeft=Math.round((seg.target-today)/86400000);
     $(ids.tag).textContent=(seg.target.getMonth()+1)+'/'+seg.target.getDate()+' まで'+(daysLeft>0?(' あと'+daysLeft+'日'):(daysLeft===0?' 本日':' 経過'));
-    $(ids.period).textContent='対象期間 '+(seg.start.getMonth()+1)+'/'+seg.start.getDate()+' 〜 '+(seg.end.getMonth()+1)+'/'+seg.end.getDate()+'（所定 '+wd+'日 × '+fmtDur(parseDur(S.base))+(seg.ot?(' ＋残業'+fmtDur(seg.ot)):'')+'）';
+    $(ids.period).textContent='対象期間 '+(seg.start.getMonth()+1)+'/'+seg.start.getDate()+' 〜 '+(seg.end.getMonth()+1)+'/'+seg.end.getDate()
+      +'（所定 '+st.schedTotal+'日'+(st.leaveTotal>0?(' − 有給 '+fmtDur(st.leaveTotal)):'')+(seg.ot?(' ＋残業'+fmtDur(seg.ot)):'')+'）';
     if($(ids.need)) $(ids.need).textContent=fmtDur(required);
     if($(ids.done)) $(ids.done).textContent=fmtDur(done);
-    var dv=$(ids.diff); dv.textContent=(diff>=0?'+':'')+fmtDur(diff); dv.className='v '+(diff>=0?'pos':'neg');
-    if(ids.bar){ var pct=required>0?Math.min(100, Math.round(done/required*100)):0; $(ids.bar).style.width=pct+'%'; }
+    var dv=$(ids.diff);
+    if(remain>0){ dv.textContent=fmtDur(remain); dv.className='v neg'; }
+    else { dv.textContent='達成'; dv.className='v pos'; }
+    if(ids.bar){ var pct=required>0?Math.min(100, Math.round(done/required*100)):100; $(ids.bar).style.width=pct+'%'; }
+
+    // 本日時点の過不足（ペース）
+    if(ids.pace && $(ids.pace)){
+      var pc=$(ids.pace);
+      if(!st.started){ pc.className='att-callout over'; pc.innerHTML='この期間はまだ開始前です（'+(seg.start.getMonth()+1)+'/'+seg.start.getDate()+'〜）。'; }
+      else if(paceDiff < -15){ pc.className='att-callout need'; pc.innerHTML='📉 <b>本日時点で '+fmtDurJ(-paceDiff)+' 不足</b>　<span style="color:#b98">今日までの所定 '+fmtDur(st.reqToDate)+' / 実績 '+fmtDur(done)+'</span>'; }
+      else if(paceDiff > 15){ pc.className='att-callout ok'; pc.innerHTML='📈 <b>本日時点で '+fmtDurJ(paceDiff)+' 前倒し</b>　<span style="color:#6a8">今日までの所定 '+fmtDur(st.reqToDate)+' / 実績 '+fmtDur(done)+'</span>'; }
+      else { pc.className='att-callout ok'; pc.innerHTML='✓ 本日時点でほぼ予定どおり（今日までの所定 '+fmtDur(st.reqToDate)+' / 実績 '+fmtDur(done)+'）。'; }
+    }
 
     var co=$(ids.call);
     if(seg.kind==='over'){
-      if(remain<=0){ co.className='att-callout ok'; co.innerHTML='✓ 標準を <b>'+fmtDur(-remain)+'</b> 超過。20日締めはクリアです。'; }
+      if(remain<=0){ co.className='att-callout ok'; co.innerHTML='✓ 必要(有給控除後)を <b>'+fmtDur(-remain)+'</b> 超過。20日締めはクリアです。'; }
       else{
         co.className='att-callout need';
         var rd=remainWorkDays(seg, today);
         var perDay=rd>0?Math.ceil(remain/rd):remain;
-        co.innerHTML='あと <b>'+fmtDurJ(remain)+'</b> 不足。残り勤務 '+rd+'日 → 1日あたり約 '+fmtDur(perDay)+'。';
+        co.innerHTML='期間トータルで あと <b>'+fmtDurJ(remain)+'</b>。残り勤務 '+rd+'日 → 1日あたり約 '+fmtDur(perDay)+'。';
       }
     } else {
       if(Math.abs(diff)<=15){ co.className='att-callout ok'; co.innerHTML='ほぼ標準ちょうど（差 '+fmtDur(diff)+'）。良いペースです。'; }
       else if(diff>15){ co.className='att-callout over'; co.innerHTML='標準より <b>'+fmtDurJ(diff)+'</b> 多め。残業を抑えるなら、この期間はペースダウンを。'; }
-      else{ co.className='att-callout need'; co.innerHTML='標準まで あと <b>'+fmtDurJ(-diff)+'</b>。'; }
+      else{ co.className='att-callout need'; co.innerHTML='期間トータルで標準まで あと <b>'+fmtDurJ(-diff)+'</b>。'; }
     }
 
     // finish（primary のみ、今日の目安）
     if(primary && ids.finish){
       var fin=$(ids.finish);
       var rec=R[todayKey]||{};
-      var todayDone=liveTodayMinutes(rec);
+      var nowM=(new Date()).getHours()*60+(new Date()).getMinutes();
+      var todayActual=actualWork(rec, nowM); // 実働のみ（有給加算を含めない）
       if(remain<=0){
-        if(seg.kind==='over'){ fin.innerHTML='今日はもう働かなくても達成（標準 +'+fmtDur(-remain)+'）。無理せず。'; }
+        if(seg.kind==='over'){ fin.innerHTML='今日はもう働かなくても達成（必要 +'+fmtDur(-remain)+'）。無理せず。'; }
         else{ fin.innerHTML='標準に到達済み（差 '+fmtDur(diff)+'）。これ以上は残業。区切りどきです。'; }
         return;
       }
       var rd=remainWorkDays(seg, today);
-      // 残り必要分を残り勤務日で均等割り（両モード共通）＝ちょうど標準に届くペース
-      var todayTarget=rd>0?Math.ceil(remain/rd):remain;
-      var moreNeeded=Math.max(0, todayTarget-todayDone);
-      var nowM=(new Date()).getHours()*60+(new Date()).getMinutes();
-      // 退勤目安の起点：勤務中は出勤時刻、未出勤なら現在/定時始業
-      var baseAnchor;
-      if(rec.in && !rec.out){ baseAnchor=parseHM(rec.in); }
-      else if(rec.in){ baseAnchor=null; }        // 退勤済み
-      else { baseAnchor=Math.max(parseHM(S.wStart), nowM); }
-
+      var todayTarget=rd>0?Math.ceil(remain/rd):remain;   // 今日の実働ノルマ
+      var moreNeeded=Math.max(0, todayTarget-todayActual);
+      var op=openSession(rec);
       var msg='';
-      if(rec.in && rec.out){
-        msg='本日は退勤済み（'+fmtDur(todayDone)+'）。目安 '+fmtDur(todayTarget)+' に対し '+(todayDone>=todayTarget?'達成 ✓':('あと '+fmtDur(todayTarget-todayDone)));
-      } else if(moreNeeded<=0){
-        msg='本日の目安 '+fmtDur(todayTarget)+' は達成済み ✓（'+fmtDur(todayDone)+'）。区切って構いません。';
+      if(moreNeeded<=0){
+        msg='本日の目安 '+fmtDur(todayTarget)+' は達成済み ✓（実働 '+fmtDur(todayActual)+'）。区切って構いません。';
       } else {
-        // projectFinish は休憩帯・夜間帯を自動で飛ばすので、実働=todayTarget を積むだけ
-        var f8=projectFinish(baseAnchor, todayTarget);
-        var fitsToday = (f8 < parseHM(S.nS)) && (f8 < 1440);
-        if(fitsToday){
-          msg='今日の目安 <b>'+fmtDur(todayTarget)+'</b>（あと '+fmtDur(moreNeeded)+'） → <b>'+fmtClock(f8)+'</b> まで';
-        } else {
-          msg='今日の目安 <b>'+fmtDur(todayTarget)+'</b>（あと '+fmtDur(moreNeeded)+'）。1日には収まりきりません — 数日に分けて調整を。履歴の入力漏れもご確認ください。';
-        }
-        if(fitsToday && seg.kind==='over' && (remain-todayDone) > moreNeeded+1){
-          var finAll=projectFinish(baseAnchor, remain); // 不足を今日で全部消化
-          if(finAll < parseHM(S.nS)) msg+='<br>不足を今日で全部消化するなら '+fmtClock(finAll)+' まで';
+        var f9=projectFinish(nowM, moreNeeded); // 今から moreNeeded 分（休憩帯・夜間帯は自動で繰延）
+        var fitsToday=(f9<parseHM(S.nS))&&(f9<1440);
+        var head='今日の目安 <b>'+fmtDur(todayTarget)+'</b>（あと '+fmtDur(moreNeeded)+'）';
+        if(!fitsToday){ msg=head+'。1日には収まりきりません — 数日に分けて調整を。'; }
+        else if(op){ msg=head+' → <b>'+fmtClock(f9)+'</b> まで'; }
+        else { msg=head+'。今から働くと <b>'+fmtClock(f9)+'</b> まで'; }
+        if(fitsToday && seg.kind==='over' && (remain-todayActual) > moreNeeded+1){
+          var finAll=projectFinish(nowM, remain-todayActual);
+          if(finAll<parseHM(S.nS)) msg+='<br>期間の不足を今日で全部消化するなら '+fmtClock(finAll)+' まで';
         }
       }
       fin.innerHTML=msg;
