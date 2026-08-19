@@ -20839,7 +20839,7 @@
 /* 履歴 */
 .att-hist{display:flex;flex-direction:column;gap:6px}
 .att-hrow{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:11px;background:#fafafd;border:1px solid #eeecf6;cursor:pointer}
-.att-hrow .hd{font-size:12.5px;font-weight:700;color:#2d2b3a;width:78px;flex:none}
+.att-hrow .hd{font-size:12.5px;font-weight:700;color:#2d2b3a;flex:none;white-space:nowrap;padding-right:4px}
 .att-hrow .hd .wd{color:#a7a4b6;font-weight:600;margin-left:3px;font-size:11px}
 .att-hrow .hi{flex:1;min-width:0;font-size:11.5px;color:#8e8b9e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .att-hrow .ht{font-size:13px;font-weight:800;color:#2d2b3a;flex:none;font-variant-numeric:tabular-nums}
@@ -20856,6 +20856,29 @@
 .att-edit-card h4 .x{margin-left:auto;border:none;background:#f2f1f7;width:32px;height:32px;border-radius:50%;font-size:18px;color:#5a5768;cursor:pointer}
 .att-toast{position:fixed;left:50%;bottom:calc(var(--navh,60px) + 16px);transform:translateX(-50%);background:#2d2b3a;color:#fff;font-size:13px;font-weight:600;padding:10px 16px;border-radius:12px;z-index:var(--z-toast,9800);opacity:0;transition:opacity .2s;pointer-events:none}
 .att-toast.show{opacity:1}
+/* カレンダー */
+.att-cal-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px}
+.att-cal-nav button{border:none;background:#f2f1f7;color:#5a5768;width:34px;height:34px;border-radius:10px;font-size:18px;cursor:pointer;font-family:inherit}
+.att-cal-nav #attCalTitle{font-size:15px;font-weight:800;color:#2d2b3a;min-width:120px;text-align:center}
+.att-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.att-cal-wd{text-align:center;font-size:11px;font-weight:700;color:#a7a4b6;padding:2px 0}
+.att-cal-cell{aspect-ratio:1/1;border:1px solid #eeecf6;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:3px 1px 2px;cursor:pointer;overflow:hidden;position:relative}
+.att-cal-cell:active{background:#f4f2fd}
+.att-cal-cell.empty{border:none;background:transparent;cursor:default}
+.att-cal-cell .dn{font-size:12px;font-weight:700;color:#2d2b3a;line-height:1}
+.att-cal-cell.sun .dn{color:#e5484d}.att-cal-cell.sat .dn{color:#3b6bd6}.att-cal-cell.holi .dn{color:#e5484d}
+.att-cal-cell.today{border-color:#6c5ce7;box-shadow:0 0 0 1px #6c5ce7 inset}
+.att-cal-cell .cv{font-size:10px;font-weight:700;margin-top:3px;line-height:1.15;text-align:center}
+.att-cal-cell .cv.h{color:#6c5ce7}
+.att-cal-cell .cv.lv{color:#12a150}
+.att-cal-cell .cv.off{color:#c3bfd6}
+.att-cal-cell .dot{position:absolute;bottom:3px;width:5px;height:5px;border-radius:50%}
+/* 期間有給モーダル */
+#attRange{position:fixed;inset:0;z-index:calc(var(--z-modal,9650) + 3);display:none;background:rgba(20,18,30,.4);align-items:flex-end;justify-content:center}
+#attRange.open{display:flex}
+.att-range-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:16px 16px 26px}
+.att-range-card h4{margin:0 0 12px;font-size:16px;font-weight:800;color:#2d2b3a;display:flex;align-items:center}
+.att-range-card h4 .x{margin-left:auto;border:none;background:#f2f1f7;width:32px;height:32px;border-radius:50%;font-size:18px;color:#5a5768;cursor:pointer}
 </style>
 
 <div id="attOverlay">
@@ -20875,18 +20898,26 @@
         <span class="w" id="attTodayW"></span>
       </div>
       <div class="att-punch">
-        <button class="att-pbtn att-pin" id="attBtnIn">
-          <span class="tm" id="attInTm">出勤</span>
-          <span class="lb">出勤打刻</span>
+        <button class="att-pbtn att-pin" id="attBtnHome">
+          <span class="tm" id="attHomeTm">🏠</span>
+          <span class="lb" id="attHomeLb">在宅で出勤</span>
         </button>
-        <button class="att-pbtn att-pout" id="attBtnOut">
-          <span class="tm" id="attOutTm">退勤</span>
-          <span class="lb">退勤打刻</span>
+        <button class="att-pbtn att-pin" id="attBtnOffice">
+          <span class="tm" id="attOfficeTm">🏢</span>
+          <span class="lb" id="attOfficeLb">オフィスで出勤</span>
         </button>
       </div>
-      <div class="att-locrow" id="attLocChips"></div>
-      <input class="att-locinput" id="attLocInput" placeholder="場所を入力（自宅・カフェ・オフィス など）">
+      <div id="attOfficePick" style="display:none;margin-bottom:10px">
+        <div class="att-sub" style="margin:0 0 6px">オフィスの場所を選んで出勤：</div>
+        <div class="att-locrow" id="attOfficeChips"></div>
+      </div>
+      <button class="att-pbtn att-pout" id="attBtnOut" style="width:100%;margin-bottom:10px">
+        <span class="tm" id="attOutTm">退勤</span>
+        <span class="lb">退勤打刻</span>
+      </button>
+      <div id="attNowLoc" style="font-size:12px;color:#8e8b9e;margin-bottom:6px"></div>
       <div class="att-leaverow" id="attLeaveRow"></div>
+      <div style="margin-top:6px"><button class="att-sbtn" id="attRangeBtn" style="width:100%">📅 期間でまとめて有給を入力</button></div>
       <div class="att-minirow">
         <span id="attBrkShow" style="color:#8e8b9e;font-size:12px">休憩 自動</span>
         <button class="att-sbtn" id="attManual" style="margin-left:auto">✎ 時刻を手入力・修正</button>
@@ -20940,7 +20971,8 @@
         <div class="att-set-row"><label>1〜20日 目標残業</label><input type="text" id="stOt20" placeholder="0:00" style="width:80px"></div>
         <div class="att-set-row"><label>21〜末日 目標残業</label><input type="text" id="stOtEnd" placeholder="0:00" style="width:80px"></div>
         <div class="att-set-row"><label>土日を休みにする</label><span class="att-switch"><input type="checkbox" id="stWeekend"><span class="tk"></span></span></div>
-        <div class="att-sub" style="margin-top:4px">※ 平日でも休む日は、履歴で日付をタップ →「休日にする」で除外できます。</div>
+        <div class="att-set-row"><label>祝日を休みにする（日本の祝日）</label><span class="att-switch"><input type="checkbox" id="stJphol"><span class="tk"></span></span></div>
+        <div class="att-sub" style="margin-top:4px">※ 平日でも休む日は履歴で日付をタップ →「休日にする」。逆に土日祝に働いた分は、その日を入力すれば実績に加算されます（所定時間は増えません）。</div>
         <div class="att-btnline">
           <button class="att-sbtn pri" id="attSetSave">保存</button>
           <button class="att-sbtn" id="attExport">書き出し</button>
@@ -20959,6 +20991,24 @@
       </div>
       <div class="att-hist" id="attHist"></div>
     </div>
+
+    <!-- カレンダー -->
+    <div class="att-card">
+      <div class="att-fold-h" id="attCalH">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#6c5ce7;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        カレンダー
+        <span class="ar">›</span>
+      </div>
+      <div class="att-fold-b" id="attCalB">
+        <div class="att-cal-nav">
+          <button id="attCalPrev">‹</button>
+          <span id="attCalTitle">—</span>
+          <button id="attCalNext">›</button>
+        </div>
+        <div class="att-cal-grid" id="attCalGrid"></div>
+        <div class="att-sub" style="margin-top:8px">日付をタップ → 勤務地・勤務時間・有給をワンタッチ入力。数字は実働、緑は有給、灰色は休日。</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -20968,6 +21018,8 @@
     <h4><span id="attEditTitle">編集</span><button class="x" id="attEditClose">×</button></h4>
     <div class="att-set-row"><label>場所</label><input type="text" id="edLoc" style="flex:1;min-width:0" placeholder="自宅 など"></div>
     <div class="att-set-row"><label>出勤 / 退勤</label><div class="att-two"><input type="time" id="edIn"><span>–</span><input type="time" id="edOut"></div></div>
+    <div class="att-set-row"><label>実働を直接入力 <span style="color:#a7a4b6;font-size:11px">打刻なしでOK</span></label><input type="text" id="edWork" placeholder="例: 7.5h / 7:30" style="width:110px"></div>
+    <div class="att-sub" style="margin:-4px 0 8px">※ 直接入力すると、その値がそのまま実働になります（出勤/退勤・休憩より優先）。</div>
     <div class="att-set-row"><label>休憩 <span style="color:#a7a4b6;font-size:11px">空欄=自動</span></label><input type="number" id="edBrk" min="0" step="5" placeholder="自動"><span style="font-size:12px">分</span></div>
     <div class="att-set-row"><label>有給</label>
       <select id="edLeave" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;font-family:inherit">
@@ -20984,6 +21036,21 @@
 </div>
 <div class="att-toast" id="attToast"></div>
 
+<!-- 期間有給モーダル -->
+<div id="attRange">
+  <div class="att-range-card">
+    <h4>期間でまとめて有給（全休）<button class="x" id="attRangeClose">×</button></h4>
+    <div class="att-set-row"><label>開始日</label><input type="date" id="rgStart" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;font-family:inherit"></div>
+    <div class="att-set-row"><label>終了日</label><input type="date" id="rgEnd" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;font-family:inherit"></div>
+    <div class="att-set-row"><label>土日祝は除く</label><span class="att-switch"><input type="checkbox" id="rgSkip" checked><span class="tk"></span></span></div>
+    <div class="att-today-total" id="rgPreview" style="margin:6px 0 12px"></div>
+    <div class="att-btnline">
+      <button class="att-sbtn pri" id="rgApply" style="flex:1">適用</button>
+      <button class="att-sbtn" id="rgClear" style="color:#e5484d;background:#fff0f0">この期間の有給を取消</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   var $ = function(id){ return document.getElementById(id); };
@@ -20992,7 +21059,7 @@
   var DEF={ base:'7:45', wStart:'08:45', wEnd:'17:30', amS:'08:45', amE:'12:00',
             pmS:'13:00', pmE:'17:30', nS:'22:00', nE:'05:00',
             brk1S:'12:00', brk1E:'13:00', brk2S:'17:30', brk2E:'17:45',
-            ot20:'0:00', otEnd:'0:00', weekend:true };
+            ot20:'0:00', otEnd:'0:00', weekend:true, jphol:true };
 
   function pad2(n){ return (n<10?'0':'')+n; }
   function parseHM(s){ if(s==null) return null; s=String(s).trim(); var m=/^(\d{1,2}):(\d{2})$/.exec(s); if(!m) return null; return (+m[1])*60+(+m[2]); }
@@ -21017,6 +21084,7 @@
       if(!s.brk1S){ s.brk1S=DEF.brk1S; s.brk1E=DEF.brk1E; }
       if(!s.brk2S){ s.brk2S=DEF.brk2S; s.brk2E=DEF.brk2E; }
       if(s.amS==='09:45' && s.amE==='12:00'){ s.amS='08:45'; }
+      if(s.jphol===undefined) s.jphol=true;
       return s;
     }catch(e){ return Object.assign({},DEF); } }
   function saveSet(s){ try{ localStorage.setItem(AT_SET, JSON.stringify(s)); }catch(e){} }
@@ -21025,7 +21093,9 @@
 
   var S=loadSet(), R=loadRec();
   var todayKey=ymd(new Date());
-  var LOC_PRESETS=['自宅','オフィス','カフェ','実家','その他'];
+  var OFFICES=['川崎','中原','蒲田'];
+  var officePickOpen=false;
+  var calMonth=null;
 
   // ---- calc core ----
   function overlap(a,b,c,d){ return Math.max(0, Math.min(b,d)-Math.max(a,c)); }
@@ -21060,6 +21130,23 @@
     return Math.max(0, total-brk);
   }
   function manOf(rec){ return (rec && rec.brk!=null && rec.brk!=='') ? rec.brk : null; }
+  // 実働時間の直接入力を分に変換： "7.5h" "7.5" "7:30" "450m" "7h30m"
+  function parseWork(str){
+    if(str==null) return null; str=String(str).trim().toLowerCase(); if(str==='') return null;
+    var m;
+    if((m=/^(\d{1,2}):(\d{2})$/.exec(str))) return (+m[1])*60+(+m[2]);
+    if((m=/^(\d+)\s*m$/.exec(str))) return +m[1];
+    if((m=/^(\d+)\s*h\s*(\d{1,2})\s*m?$/.exec(str))) return (+m[1])*60+(+m[2]);
+    if((m=/^(\d+(?:\.\d+)?)\s*h?$/.exec(str))) return Math.round(parseFloat(m[1])*60);
+    return null;
+  }
+  // その日の実働（直接入力があれば優先、なければ打刻から）
+  function actualWork(rec, liveTo){
+    if(!rec) return 0;
+    if(rec.manualWork!=null && rec.manualWork!=='') return num(rec.manualWork);
+    var inM=parseHM(rec.in), outM=(liveTo!=null?liveTo:parseHM(rec.out));
+    return workedFromClock(inM, outM, manOf(rec));
+  }
   function leaveCredit(type){
     if(type==='full') return parseDur(S.base);
     if(type==='am') return Math.max(0,(parseHM(S.amE)-parseHM(S.amS)));
@@ -21069,8 +21156,7 @@
   // 確定済みの1日のカウント分（今日リアルタイムは別計算）
   function dayMinutes(rec){
     if(!rec) return 0;
-    var w=workedFromClock(parseHM(rec.in), parseHM(rec.out), manOf(rec));
-    return w + leaveCredit(rec.leave);
+    return actualWork(rec) + leaveCredit(rec.leave);
   }
   // 実際に差し引かれた休憩（表示用）。勤務中は現在時刻まで。
   function effBrk(rec){
@@ -21084,23 +21170,63 @@
   }
 
   function lastDayOfMonth(y,m){ return new Date(y,m+1,0).getDate(); }
-  // 対象締め: 20日以前→20日締め(1〜20)、21日以降→末日締め(21〜末日)
+
+  // ---- 日本の祝日（振替休日・国民の休日を含む、1980-2099目安）----
+  var _holCache={};
+  function holidaysForYear(y){
+    if(_holCache[y]) return _holCache[y];
+    var base={};
+    function add(m,d,name){ if(d>=1) base[y+'-'+pad2m(m)+'-'+pad2m(d)]=name; }
+    function nthMon(m,n){ var first=new Date(y,m-1,1).getDay(); var off=(1-first+7)%7; return 1+off+(n-1)*7; }
+    add(1,1,'元日'); add(1,nthMon(1,2),'成人の日');
+    add(2,11,'建国記念の日'); if(y>=2020) add(2,23,'天皇誕生日');
+    add(3, Math.floor(20.8431+0.242194*(y-1980)-Math.floor((y-1980)/4)),'春分の日');
+    add(4,29, y>=2007?'昭和の日':'みどりの日');
+    add(5,3,'憲法記念日'); if(y>=2007) add(5,4,'みどりの日'); add(5,5,'こどもの日');
+    add(7,nthMon(7,3),'海の日'); if(y>=2016) add(8,11,'山の日');
+    add(9,nthMon(9,3),'敬老の日');
+    add(9, Math.floor(23.2488+0.242194*(y-1980)-Math.floor((y-1980)/4)),'秋分の日');
+    add(10,nthMon(10,2), y>=2020?'スポーツの日':'体育の日');
+    add(11,3,'文化の日'); add(11,23,'勤労感謝の日');
+    var set=Object.assign({},base);
+    Object.keys(base).forEach(function(k){ var dt=fromYmd(k); if(dt.getDay()===0){ var nx=new Date(dt); do{ nx.setDate(nx.getDate()+1); }while(set[ymd(nx)]); set[ymd(nx)]='振替休日'; }});
+    Object.keys(base).forEach(function(k){ var dt=fromYmd(k); var nn=new Date(dt); nn.setDate(nn.getDate()+2); var mid=new Date(dt); mid.setDate(mid.getDate()+1); if(base[ymd(nn)] && !set[ymd(mid)] && mid.getDay()!==0){ set[ymd(mid)]='国民の休日'; }});
+    _holCache[y]=set; return set;
+  }
+  function jpHolidayName(d){ return holidaysForYear(d.getFullYear())[ymd(d)]||null; }
+  function isJpHoliday(d){ return !!jpHolidayName(d); }
+  // その日が「所定労働日」か（＝必要時間の対象日か）。土日・祝日・ユーザー指定休日は除外。
+  function isScheduled(d){
+    var key=ymd(d), rec=R[key];
+    if(rec && rec.holiday) return false;           // ユーザーが休日指定
+    if(rec && rec.workday) return true;            // ユーザーが勤務日指定（土日祝でも）
+    var we=(d.getDay()===0||d.getDay()===6);
+    if(S.weekend && we) return false;
+    if(S.jphol && isJpHoliday(d)) return false;
+    return true;
+  }
+
+  // 対象締め: 20日締め=前月21〜当月20 / 末日締め=当月21〜当月末日
   function targetsFor(today){
     var y=today.getFullYear(), m=today.getMonth(), d=today.getDate();
-    var last=lastDayOfMonth(y,m);
-    var seg20={ label:'20日締め', kind:'over', target:new Date(y,m,20), start:new Date(y,m,1), end:new Date(y,m,20), ot:parseDur(S.ot20) };
-    var segEnd={ label:'末日締め', kind:'near', target:new Date(y,m,last), start:new Date(y,m,21), end:new Date(y,m,last), ot:parseDur(S.otEnd) };
-    if(d<=20) return { primary:seg20, other:segEnd };
-    return { primary:segEnd, other:seg20 };
+    var seg20, segEnd;
+    if(d<=20){
+      var pm=new Date(y,m,1); pm.setMonth(pm.getMonth()-1);
+      seg20={ label:'20日締め', kind:'over', target:new Date(y,m,20), start:new Date(pm.getFullYear(),pm.getMonth(),21), end:new Date(y,m,20), ot:parseDur(S.ot20) };
+      var last=lastDayOfMonth(y,m);
+      segEnd={ label:'末日締め', kind:'near', target:new Date(y,m,last), start:new Date(y,m,21), end:new Date(y,m,last), ot:parseDur(S.otEnd) };
+      return { primary:seg20, other:segEnd };
+    } else {
+      var last2=lastDayOfMonth(y,m);
+      segEnd={ label:'末日締め', kind:'near', target:new Date(y,m,last2), start:new Date(y,m,21), end:new Date(y,m,last2), ot:parseDur(S.otEnd) };
+      var nm=new Date(y,m,1); nm.setMonth(nm.getMonth()+1);
+      seg20={ label:'20日締め', kind:'over', target:new Date(nm.getFullYear(),nm.getMonth(),20), start:new Date(y,m,21), end:new Date(nm.getFullYear(),nm.getMonth(),20), ot:parseDur(S.ot20) };
+      return { primary:segEnd, other:seg20 };
+    }
   }
   function workDaysInSeg(seg){
     var n=0, d=new Date(seg.start), end=seg.end;
-    while(d<=end){
-      var wd=d.getDay(), we=(wd===0||wd===6), key=ymd(d), rec=R[key];
-      var holi=(rec&&rec.holiday) || (S.weekend && we && !(rec&&(rec.in||rec.leave!=='none'&&rec.leave)));
-      if(!holi) n++;
-      d.setDate(d.getDate()+1);
-    }
+    while(d<=end){ if(isScheduled(d)) n++; d.setDate(d.getDate()+1); }
     return n;
   }
   // セグメント内 今日までの実績（今日は打刻状況でリアルタイム）
@@ -21119,6 +21245,7 @@
   function liveTodayMinutes(rec){
     if(!rec) return 0;
     var credit=leaveCredit(rec.leave);
+    if(rec.manualWork!=null && rec.manualWork!=='') return num(rec.manualWork)+credit; // 直接入力優先
     var inM=parseHM(rec.in), outM=parseHM(rec.out);
     if(inM!=null && outM==null){ // 勤務中
       var now=new Date(); var nowM=now.getHours()*60+now.getMinutes();
@@ -21133,9 +21260,7 @@
     var n=0, d=new Date(today), end=seg.end;
     if(today<seg.start) d=new Date(seg.start);
     while(d<=end){
-      var wd=d.getDay(), we=(wd===0||wd===6), key=ymd(d), rec=R[key];
-      var holi=(rec&&rec.holiday) || (S.weekend && we && !(rec&&(rec.in)));
-      if(!holi) n++;
+      if(isScheduled(d)) n++;
       d.setDate(d.getDate()+1);
     }
     return Math.max(0,n);
@@ -21167,26 +21292,37 @@
   // ============ render ============
   function render(){
     S=loadSet(); R=loadRec(); todayKey=ymd(new Date());
-    renderToday(); renderStatus(); renderHist();
+    renderToday(); renderStatus(); renderHist(); renderCal();
   }
 
   function renderToday(){
     var now=new Date(); var rec=R[todayKey]||{};
     $('attTodayD').textContent=(now.getMonth()+1)+'/'+now.getDate();
-    $('attTodayW').textContent='('+WD[now.getDay()]+')';
-    // 打刻ボタン
-    var bIn=$('attBtnIn'), bOut=$('attBtnOut');
-    if(rec.in){ bIn.classList.add('set'); $('attInTm').textContent=rec.in; } else { bIn.classList.remove('set'); $('attInTm').textContent='出勤'; }
+    var hn=jpHolidayName(now);
+    $('attTodayW').textContent='('+WD[now.getDay()]+')'+(hn?' '+hn:'');
+    var lt=rec.locType||(rec.loc?((rec.loc==='在宅'||rec.loc==='自宅')?'home':'office'):'');
+    // 在宅ボタン
+    var bH=$('attBtnHome');
+    if(rec.in && lt==='home'){ bH.classList.add('set'); $('attHomeTm').textContent=rec.in; $('attHomeLb').textContent='在宅 出勤済'; }
+    else { bH.classList.remove('set'); $('attHomeTm').textContent='🏠'; $('attHomeLb').textContent='在宅で出勤'; }
+    // オフィスボタン
+    var bO=$('attBtnOffice');
+    if(rec.in && lt==='office'){ bO.classList.add('set'); $('attOfficeTm').textContent=rec.in; $('attOfficeLb').textContent=(rec.loc||'オフィス'); }
+    else { bO.classList.remove('set'); $('attOfficeTm').textContent='🏢'; $('attOfficeLb').textContent='オフィスで出勤'; }
+    // 退勤ボタン
+    var bOut=$('attBtnOut');
     if(rec.out){ bOut.classList.add('set'); $('attOutTm').textContent=rec.out; } else { bOut.classList.remove('set'); $('attOutTm').textContent='退勤'; }
-    // 場所
-    var chips=$('attLocChips'); chips.innerHTML='';
-    var cur=rec.loc||'';
-    LOC_PRESETS.forEach(function(p){
-      var b=document.createElement('button'); b.className='att-locchip'+(cur===p?' on':''); b.textContent=p;
-      b.onclick=function(){ setToday('loc', cur===p?'':p); };
-      chips.appendChild(b);
+    // オフィス選択チップ
+    $('attOfficePick').style.display = officePickOpen ? 'block' : 'none';
+    var oc=$('attOfficeChips'); oc.innerHTML='';
+    OFFICES.concat(['自由記述']).forEach(function(p){
+      var b=document.createElement('button'); b.className='att-locchip'+((lt==='office'&&rec.loc===p)?' on':''); b.textContent=p;
+      b.onclick=function(){ pickOffice(p); };
+      oc.appendChild(b);
     });
-    var li=$('attLocInput'); if(document.activeElement!==li) li.value=(LOC_PRESETS.indexOf(cur)===-1?cur:'');
+    // 現在の場所表示
+    if(rec.in){ $('attNowLoc').textContent='場所: '+(lt==='home'?'在宅':('オフィス（'+(rec.loc||'—')+'）'))+'　出勤 '+rec.in+(rec.out?('／退勤 '+rec.out):''); }
+    else { $('attNowLoc').textContent=''; }
     // 有給
     var lr=$('attLeaveRow'); lr.innerHTML='';
     var opts=[['none','なし',''],['full','全休','+'+fmtDur(leaveCredit('full'))],['am','午前','+'+fmtDur(leaveCredit('am'))],['pm','午後','+'+fmtDur(leaveCredit('pm'))]];
@@ -21297,14 +21433,17 @@
     $('attHistTag').textContent='直近'+keys.length+'件';
     keys.forEach(function(k){
       var rec=R[k]; var d=fromYmd(k);
+      var hn=jpHolidayName(d);
       var row=document.createElement('div'); row.className='att-hrow'+(rec.holiday?' holi':'');
       var info=[];
-      if(rec.loc) info.push('<span class="att-badge loc">'+esc(rec.loc)+'</span>');
+      if(rec.loc){ var lt=rec.locType||((rec.loc==='在宅'||rec.loc==='自宅')?'home':'office'); info.push('<span class="att-badge loc">'+(lt==='home'?'🏠':'🏢')+esc(rec.loc)+'</span>'); }
       if(rec.leave&&rec.leave!=='none'){ var lm={full:'全休',am:'午前',pm:'午後'}; info.push('<span class="att-badge leave">'+lm[rec.leave]+'</span>'); }
       if(rec.in||rec.out) info.push((rec.in||'--')+'→'+(rec.out||'--'));
       if(rec.holiday) info.push('休日');
+      if(hn) info.push('<span style="color:#c98">'+esc(hn)+'</span>');
       var mins=(k===todayKey)?liveTodayMinutes(rec):dayMinutes(rec);
-      row.innerHTML='<div class="hd">'+(d.getMonth()+1)+'/'+d.getDate()+'<span class="wd">'+WD[d.getDay()]+'</span></div>'
+      var wcls=(d.getDay()===0?'color:#e5857f':(d.getDay()===6?'color:#7f9fe5':''));
+      row.innerHTML='<div class="hd">'+(d.getMonth()+1)+'/'+d.getDate()+'<span class="wd" style="'+wcls+'">'+WD[d.getDay()]+(hn?'祝':'')+'</span></div>'
         +'<div class="hi">'+(info.join(' ')||'—')+'</div>'
         +'<div class="ht">'+(rec.holiday?'—':fmtDur(mins))+'</div>';
       row.onclick=function(){ openEdit(k); };
@@ -21312,6 +21451,40 @@
     });
   }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  // ============ カレンダー ============
+  function renderCal(){
+    var grid=$('attCalGrid'); if(!grid) return;
+    if(!calMonth){ var n=new Date(); calMonth=new Date(n.getFullYear(), n.getMonth(), 1); }
+    var y=calMonth.getFullYear(), m=calMonth.getMonth();
+    $('attCalTitle').textContent=y+'年 '+(m+1)+'月';
+    grid.innerHTML='';
+    ['日','月','火','水','木','金','土'].forEach(function(w,i){
+      var h=document.createElement('div'); h.className='att-cal-wd'; h.textContent=w;
+      if(i===0) h.style.color='#e5857f'; if(i===6) h.style.color='#7f9fe5';
+      grid.appendChild(h);
+    });
+    var first=new Date(y,m,1), startDow=first.getDay(), last=lastDayOfMonth(y,m);
+    var tk=ymd(new Date());
+    for(var i=0;i<startDow;i++){ var e=document.createElement('div'); e.className='att-cal-cell empty'; grid.appendChild(e); }
+    for(var day=1; day<=last; day++){
+      var d=new Date(y,m,day), key=ymd(d), rec=R[key];
+      var cell=document.createElement('div'); cell.className='att-cal-cell';
+      var wd=d.getDay(); if(wd===0) cell.classList.add('sun'); if(wd===6) cell.classList.add('sat');
+      var hn=jpHolidayName(d); if((S.jphol&&hn)||(rec&&rec.holiday)) cell.classList.add('holi');
+      if(key===tk) cell.classList.add('today');
+      var cv='';
+      if(rec){
+        if(rec.leave&&rec.leave!=='none'){ var lm={full:'有',am:'午前',pm:'午後'}; cv='<div class="cv lv">'+lm[rec.leave]+'</div>'; }
+        else { var mins=(key===tk)?liveTodayMinutes(rec):dayMinutes(rec); if(mins>0) cv='<div class="cv h">'+fmtDur(mins)+'</div>'; }
+      }
+      if(!cv && ((S.jphol&&hn)||(rec&&rec.holiday)||(S.weekend&&(wd===0||wd===6)))) cv='<div class="cv off">休</div>';
+      var dot=''; if(rec&&rec.loc){ var lt=rec.locType||((rec.loc==='在宅'||rec.loc==='自宅')?'home':'office'); dot='<span class="dot" style="background:'+(lt==='home'?'#12a150':'#3b6bd6')+'"></span>'; }
+      cell.innerHTML='<span class="dn">'+day+'</span>'+cv+dot;
+      (function(k){ cell.onclick=function(){ openEdit(k); }; })(key);
+      grid.appendChild(cell);
+    }
+  }
 
   // ============ mutations ============
   function ensureToday(){ if(!R[todayKey]) R[todayKey]={leave:'none'}; return R[todayKey]; }
@@ -21323,13 +21496,29 @@
     saveRec(R); render();
   }
   function nowHM(){ var n=new Date(); return pad2(n.getHours())+':'+pad2(n.getMinutes()); }
+  function pickOffice(name){
+    var v=name;
+    if(name==='自由記述'){ v=(prompt('オフィス名を入力')||'').trim(); if(!v) return; }
+    var rec=ensureToday();
+    var first=!rec.in;
+    if(!rec.in) rec.in=nowHM();
+    rec.locType='office'; rec.loc=v;
+    officePickOpen=false; saveRec(R); render();
+    toast(first?('オフィス（'+v+'）出勤 '+rec.in):('場所: '+v+' に変更'));
+  }
 
   function bindToday(){
-    $('attBtnIn').onclick=function(){
+    $('attBtnHome').onclick=function(){
       var rec=ensureToday();
-      if(rec.in && !confirm('出勤時刻を今の時刻（'+nowHM()+'）に更新しますか？')) return;
-      rec.in=nowHM(); if(!rec.loc && $('attLocInput').value.trim()) rec.loc=$('attLocInput').value.trim();
-      saveRec(R); render(); toast('出勤 '+rec.in);
+      var first=!rec.in;
+      if(rec.in && rec.locType!=='home' && !confirm('場所を「在宅」に変更しますか？')) return;
+      if(!rec.in) rec.in=nowHM();
+      rec.locType='home'; rec.loc='在宅';
+      officePickOpen=false; saveRec(R); render();
+      toast(first?('在宅で出勤 '+rec.in):'場所: 在宅 に変更');
+    };
+    $('attBtnOffice').onclick=function(){
+      officePickOpen=!officePickOpen; renderToday();
     };
     $('attBtnOut').onclick=function(){
       var rec=ensureToday();
@@ -21337,7 +21526,6 @@
       if(rec.out && !confirm('退勤時刻を今の時刻（'+nowHM()+'）に更新しますか？')) return;
       rec.out=nowHM(); saveRec(R); render(); toast('退勤 '+rec.out);
     };
-    $('attLocInput').addEventListener('change', function(){ var rec=ensureToday(); rec.loc=this.value.trim(); saveRec(R); render(); });
     $('attManual').onclick=function(){ openEdit(todayKey); };
     var ab=$('attAddBtn'); if(ab) ab.onclick=function(){ var k=$('attAddDate').value; if(!k){ toast('日付を選んでください'); return; } openEdit(k); };
   }
@@ -21346,31 +21534,41 @@
   var editKey=null;
   function openEdit(key){
     editKey=key; var rec=R[key]||{}; var d=fromYmd(key);
-    $('attEditTitle').textContent=(d.getMonth()+1)+'/'+d.getDate()+'（'+WD[d.getDay()]+'）';
+    var hn=jpHolidayName(d);
+    $('attEditTitle').textContent=(d.getMonth()+1)+'/'+d.getDate()+'（'+WD[d.getDay()]+'）'+(hn?' '+hn:'');
     $('edLoc').value=rec.loc||''; $('edIn').value=rec.in||''; $('edOut').value=rec.out||'';
+    $('edWork').value=(rec.manualWork!=null&&rec.manualWork!=='')?fmtDur(num(rec.manualWork)):'';
     $('edBrk').value=(rec.brk!=null&&rec.brk!=='')?rec.brk:'';
     $('edLeave').value=rec.leave||'none'; $('edHoli').checked=!!rec.holiday;
     updateEdTotal();
     $('attEdit').classList.add('open');
   }
-  function readEdit(){ return { loc:$('edLoc').value.trim(), in:$('edIn').value||'', out:$('edOut').value||'', brk:$('edBrk').value, leave:$('edLeave').value, holiday:$('edHoli').checked }; }
+  function readEdit(){
+    var wv=parseWork($('edWork').value);
+    return { loc:$('edLoc').value.trim(), in:$('edIn').value||'', out:$('edOut').value||'', brk:$('edBrk').value, manualWork:(wv==null?'':wv), leave:$('edLeave').value, holiday:$('edHoli').checked };
+  }
   function updateEdTotal(){
     var t=readEdit();
+    var direct=(t.manualWork!=null && t.manualWork!=='');
     var man=(t.brk!=null && t.brk!=='')?t.brk:null;
-    var w=workedFromClock(parseHM(t.in), parseHM(t.out), man);
+    var w=direct?num(t.manualWork):workedFromClock(parseHM(t.in), parseHM(t.out), man);
     var c=leaveCredit(t.leave);
     var appl=effBrk(t);
     $('edTotal').innerHTML='実働 '+fmtDur(w)+' ＋ 有給 '+fmtDur(c)+' ＝ <b>'+fmtDur(w+c)+'</b>'+(t.holiday?'（休日：所定から除外）':'')
-      + ((t.in||t.out)&&appl>0?' <span style="color:#a7a4b6;font-size:11px">(休憩 '+fmtDur(appl)+(man!=null?' 手入力':' 自動')+')</span>':'');
+      + (direct?' <span style="color:#6c5ce7;font-size:11px">(実働=直接入力)</span>':((t.in||t.out)&&appl>0?' <span style="color:#a7a4b6;font-size:11px">(休憩 '+fmtDur(appl)+(man!=null?' 手入力':' 自動')+')</span>':''));
   }
   function bindEdit(){
-    ['edLoc','edIn','edOut','edBrk','edLeave','edHoli'].forEach(function(id){ $(id).addEventListener('change', updateEdTotal); });
+    ['edLoc','edIn','edOut','edWork','edBrk','edLeave','edHoli'].forEach(function(id){ $(id).addEventListener('change', updateEdTotal); $(id).addEventListener('input', updateEdTotal); });
     $('attEditClose').onclick=function(){ $('attEdit').classList.remove('open'); };
     $('attEdit').addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
     $('edSave').onclick=function(){
       var t=readEdit();
-      if(!t.in && !t.out && (t.leave==='none') && !t.loc && !t.holiday){ delete R[editKey]; }
-      else R[editKey]=t;
+      if(!t.in && !t.out && (t.manualWork==='') && (t.leave==='none') && !t.loc && !t.holiday){ delete R[editKey]; }
+      else {
+        var prev=R[editKey]||{};
+        if(t.loc){ t.locType = (t.loc===prev.loc && prev.locType) ? prev.locType : ((t.loc==='在宅'||t.loc==='自宅')?'home':'office'); }
+        R[editKey]=t;
+      }
       saveRec(R); $('attEdit').classList.remove('open'); render(); toast('保存しました');
     };
     $('edDelete').onclick=function(){ if(!confirm('この日の記録を削除しますか？')) return; delete R[editKey]; saveRec(R); $('attEdit').classList.remove('open'); render(); toast('削除しました'); };
@@ -21384,7 +21582,7 @@
       S.amS=$('stAmS').value; S.amE=$('stAmE').value; S.pmS=$('stPmS').value; S.pmE=$('stPmE').value;
       S.nS=$('stNS').value; S.nE=$('stNE').value;
       S.brk1S=$('stBrk1S').value; S.brk1E=$('stBrk1E').value; S.brk2S=$('stBrk2S').value; S.brk2E=$('stBrk2E').value;
-      S.ot20=$('stOt20').value||'0:00'; S.otEnd=$('stOtEnd').value||'0:00'; S.weekend=$('stWeekend').checked;
+      S.ot20=$('stOt20').value||'0:00'; S.otEnd=$('stOtEnd').value||'0:00'; S.weekend=$('stWeekend').checked; S.jphol=$('stJphol').checked;
       saveSet(S); render(); toast('設定を保存しました');
     };
     $('attExport').onclick=function(){
@@ -21409,7 +21607,7 @@
     $('stAmS').value=S.amS; $('stAmE').value=S.amE; $('stPmS').value=S.pmS; $('stPmE').value=S.pmE;
     $('stNS').value=S.nS; $('stNE').value=S.nE;
     $('stBrk1S').value=S.brk1S; $('stBrk1E').value=S.brk1E; $('stBrk2S').value=S.brk2S; $('stBrk2E').value=S.brk2E;
-    $('stOt20').value=S.ot20; $('stOtEnd').value=S.otEnd; $('stWeekend').checked=!!S.weekend;
+    $('stOt20').value=S.ot20; $('stOtEnd').value=S.otEnd; $('stWeekend').checked=!!S.weekend; $('stJphol').checked=!!S.jphol;
   }
 
   // ============ misc ============
@@ -21420,6 +21618,8 @@
   function open(){
     try{ if(typeof closeAppOverlays==='function') closeAppOverlays(null); }catch(e){}
     todayKey=ymd(new Date());
+    officePickOpen=false;
+    var _n=new Date(); calMonth=new Date(_n.getFullYear(), _n.getMonth(), 1);
     $('attOverlay').classList.add('open');
     var ad=$('attAddDate'); if(ad && !ad.value) ad.value=todayKey;
     render();
@@ -21428,10 +21628,53 @@
   }
   function close(){ $('attOverlay').classList.remove('open'); clearInterval(liveTimer); }
 
+  // ============ カレンダー操作 ============
+  function bindCal(){
+    $('attCalH').onclick=function(){ this.classList.toggle('open'); var b=$('attCalB'); b.classList.toggle('open'); if(b.classList.contains('open')){ if(!calMonth){ var n=new Date(); calMonth=new Date(n.getFullYear(),n.getMonth(),1); } renderCal(); } };
+    $('attCalPrev').onclick=function(){ calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()-1,1); renderCal(); };
+    $('attCalNext').onclick=function(){ calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,1); renderCal(); };
+  }
+
+  // ============ 期間有給 ============
+  function rangeDays(){
+    var s=$('rgStart').value, e=$('rgEnd').value; if(!s||!e) return [];
+    var ds=fromYmd(s), de=fromYmd(e); if(de<ds){ var t=ds; ds=de; de=t; }
+    var skip=$('rgSkip').checked, arr=[], d=new Date(ds);
+    while(d<=de){ if(!(skip && !isScheduled(d))) arr.push(ymd(d)); d.setDate(d.getDate()+1); }
+    return arr;
+  }
+  function updateRangePreview(){
+    var days=rangeDays();
+    $('rgPreview').innerHTML = days.length ? ('全休 <b>'+days.length+'日</b>　'+days[0].slice(5)+' 〜 '+days[days.length-1].slice(5)+'<span style="color:#a7a4b6">（土日祝は自動で除外）</span>') : '開始日・終了日を選んでください。';
+  }
+  function bindRange(){
+    $('attRangeBtn').onclick=function(){
+      var d0=todayKey; $('rgStart').value=d0; $('rgEnd').value=d0; $('rgSkip').checked=true;
+      updateRangePreview(); $('attRange').classList.add('open');
+    };
+    $('attRangeClose').onclick=function(){ $('attRange').classList.remove('open'); };
+    $('attRange').addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
+    ['rgStart','rgEnd','rgSkip'].forEach(function(id){ $(id).addEventListener('change', updateRangePreview); });
+    $('rgApply').onclick=function(){
+      var days=rangeDays(), t='full';
+      if(!days.length){ toast('期間を選んでください'); return; }
+      days.forEach(function(k){ var rec=R[k]||{}; rec.leave=t; if(t==='full'){ delete rec.in; delete rec.out; delete rec.brk; delete rec.manualWork; } R[k]=rec; });
+      saveRec(R); $('attRange').classList.remove('open');
+      if(days[0]){ calMonth=new Date(fromYmd(days[0]).getFullYear(), fromYmd(days[0]).getMonth(), 1); }
+      render(); toast(days.length+'日に全休を入力しました');
+    };
+    $('rgClear').onclick=function(){
+      var days=rangeDays(); if(!days.length){ toast('期間を選んでください'); return; }
+      if(!confirm(days.length+'日分の有給を取り消しますか？（打刻・場所は残ります）')) return;
+      days.forEach(function(k){ var rec=R[k]; if(rec){ rec.leave='none'; if(!rec.in&&!rec.out&&(rec.manualWork==null||rec.manualWork==='')&&!rec.loc&&!rec.holiday) delete R[k]; } });
+      saveRec(R); $('attRange').classList.remove('open'); render(); toast('取り消しました');
+    };
+  }
+
   function init(){
     if(!$('attOverlay')) return;
     $('attClose').onclick=close;
-    bindToday(); bindEdit(); bindSettings();
+    bindToday(); bindEdit(); bindSettings(); bindCal(); bindRange();
     window.openAttendanceScreen=open;
     window.closeAttendanceScreen=close;
   }
