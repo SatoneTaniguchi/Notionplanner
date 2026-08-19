@@ -20971,8 +20971,9 @@
         <div class="att-set-row"><label>休憩帯① 昼</label><div class="att-two"><input type="time" id="stBrk1S"><span>–</span><input type="time" id="stBrk1E"></div></div>
         <div class="att-set-row"><label>休憩帯② 夕</label><div class="att-two"><input type="time" id="stBrk2S"><span>–</span><input type="time" id="stBrk2E"></div></div>
         <div class="att-sub" style="margin-top:-2px">勤務時間がこの帯にかかった分だけ自動で差し引きます（12:00–13:00 の1時間、17:30–17:45 の15分など）。使わない帯は開始＝終了に。</div>
-        <div class="att-set-row"><label>1〜20日 目標残業</label><input type="text" id="stOt20" placeholder="0:00" style="width:80px"></div>
-        <div class="att-set-row"><label>21〜末日 目標残業</label><input type="text" id="stOtEnd" placeholder="0:00" style="width:80px"></div>
+        <div class="att-set-row"><label>20日締めの目標バッファ <span style="color:#a7a4b6;font-size:11px">標準+この分を目標</span></label><input type="text" id="stOt20" placeholder="0:40" style="width:80px"></div>
+        <div class="att-set-row"><label>末日締めの目標バッファ</label><input type="text" id="stOtEnd" placeholder="0:00" style="width:80px"></div>
+        <div class="att-sub" style="margin-top:-2px">例：20日締めを「ちょうど」ではなく +40分 で終えたい場合は 0:40 と入力。必要時間・残り・今日の目安がこの分だけ上乗せされます（現在の過不足は標準比のまま）。</div>
         <div class="att-set-row"><label>土日を休みにする</label><span class="att-switch"><input type="checkbox" id="stWeekend"><span class="tk"></span></span></div>
         <div class="att-set-row"><label>祝日を休みにする（日本の祝日）</label><span class="att-switch"><input type="checkbox" id="stJphol"><span class="tk"></span></span></div>
         <div class="att-sub" style="margin-top:4px">※ 平日でも休む日は履歴で日付をタップ →「休日にする」。逆に土日祝に働いた分は、その日を入力すれば実績に加算されます（所定時間は増えません）。</div>
@@ -21062,7 +21063,7 @@
   var DEF={ base:'7:45', wStart:'08:45', wEnd:'17:30', amS:'08:45', amE:'12:00',
             pmS:'13:00', pmE:'17:30', nS:'22:00', nE:'05:00',
             brk1S:'12:00', brk1E:'13:00', brk2S:'17:30', brk2E:'17:45',
-            ot20:'0:00', otEnd:'0:00', weekend:true, jphol:true };
+            ot20:'0:40', otEnd:'0:00', weekend:true, jphol:true };
 
   function pad2(n){ return (n<10?'0':'')+n; }
   function parseHM(s){ if(s==null) return null; s=String(s).trim(); var m=/^(\d{1,2}):(\d{2})$/.exec(s); if(!m) return null; return (+m[1])*60+(+m[2]); }
@@ -21382,28 +21383,36 @@
     fillStatus(T.other, today, { tag:'attTgt2Tag', period:'attPeriod2', pace:'attPace2', need:'attNeed2', done:'attDone2', diff:'attDiff2', call:'attCallout2' }, false);
   }
 
-  // セグメント統計：有給を所定から差し引き、実績は実働のみ（有給加算を含めない）
+  // セグメント統計：有給を所定から差し引く。過不足は「完了日」ベース（公式と同じ）。
   function segStats(seg, today){
     var base=parseDur(S.base);
     var nowM=(new Date()).getHours()*60+(new Date()).getMinutes();
     var tk=ymd(today);
-    var schedTotal=0, schedToDate=0, leaveTotal=0, leaveToDate=0, worked=0;
+    var schedTotal=0, leaveTotal=0, worked=0;               // 期間合計＋実績(今日まで,live)
+    var schedSettled=0, leaveSettled=0, workedSettled=0;    // 完了日ベース（過不足＝公式）
     var d=new Date(seg.start), end=new Date(seg.end);
     while(d<=end){
       var key=ymd(d), rec=R[key], sched=isScheduled(d);
       var lc=rec?leaveCredit(rec.leave):0;
+      var isToday=(key===tk);
       if(sched){ schedTotal++; leaveTotal+=Math.min(lc, base); }
-      if(d<=today){
-        if(sched){ schedToDate++; leaveToDate+=Math.min(lc, base); }
-        if(rec){ worked += (key===tk)? actualWork(rec, nowM) : actualWork(rec); }
+      // 実績（進捗バー・残り用）：今日まで、当日はライブ
+      if(d<=today && rec){ worked += isToday? actualWork(rec, nowM) : actualWork(rec); }
+      // 完了日：過去日、または当日でも勤務終了済み（勤務中セッションが無く、記録あり）
+      var todaySettled = isToday && rec && !openSession(rec) &&
+        (getSessions(rec).length || (rec.manualWork!=null&&rec.manualWork!=='') || (rec.leave&&rec.leave!=='none') || rec.holiday);
+      var settled = (d<today) || todaySettled;
+      if(settled){
+        if(sched){ schedSettled++; leaveSettled+=Math.min(lc, base); }
+        if(rec) workedSettled += actualWork(rec);
       }
       d.setDate(d.getDate()+1);
     }
-    var reqTotal=Math.max(0, schedTotal*base + seg.ot - leaveTotal);
-    var otToDate=schedTotal>0?Math.round(seg.ot*(schedToDate/schedTotal)):0;
-    var reqToDate=Math.max(0, schedToDate*base + otToDate - leaveToDate);
-    return { schedTotal:schedTotal, schedToDate:schedToDate, leaveTotal:leaveTotal, base:base,
-             reqTotal:reqTotal, reqToDate:reqToDate, worked:worked,
+    var reqTotal=Math.max(0, schedTotal*base + seg.ot - leaveTotal);      // 期間・目標残業(バッファ)込み
+    var reqSettled=Math.max(0, schedSettled*base - leaveSettled);         // 完了日・標準(バッファ無し)＝公式相当
+    return { schedTotal:schedTotal, leaveTotal:leaveTotal, base:base,
+             reqTotal:reqTotal, worked:worked,
+             schedSettled:schedSettled, reqSettled:reqSettled, workedSettled:workedSettled,
              started:(today>=seg.start) };
   }
 
@@ -21412,11 +21421,11 @@
     var required=st.reqTotal, done=st.worked;
     var diff=done-required;                 // + なら超過（期間トータル）
     var remain=required-done;               // + なら不足
-    var paceDiff=done-st.reqToDate;         // 本日時点の過不足（+ 前倒し / − 不足）
+    var paceDiff=st.workedSettled - st.reqSettled;   // 完了日ベースの過不足（公式相当・標準比）
     var daysLeft=Math.round((seg.target-today)/86400000);
     $(ids.tag).textContent=(seg.target.getMonth()+1)+'/'+seg.target.getDate()+' まで'+(daysLeft>0?(' あと'+daysLeft+'日'):(daysLeft===0?' 本日':' 経過'));
     $(ids.period).textContent='対象期間 '+(seg.start.getMonth()+1)+'/'+seg.start.getDate()+' 〜 '+(seg.end.getMonth()+1)+'/'+seg.end.getDate()
-      +'（所定 '+st.schedTotal+'日'+(st.leaveTotal>0?(' − 有給 '+fmtDur(st.leaveTotal)):'')+(seg.ot?(' ＋残業'+fmtDur(seg.ot)):'')+'）';
+      +'（所定 '+st.schedTotal+'日'+(st.leaveTotal>0?(' − 有給 '+fmtDur(st.leaveTotal)):'')+(seg.ot?(' ＋目標残業'+fmtDur(seg.ot)):'')+'）';
     if($(ids.need)) $(ids.need).textContent=fmtDur(required);
     if($(ids.done)) $(ids.done).textContent=fmtDur(done);
     var dv=$(ids.diff);
@@ -21424,13 +21433,14 @@
     else { dv.textContent='達成'; dv.className='v pos'; }
     if(ids.bar){ var pct=required>0?Math.min(100, Math.round(done/required*100)):100; $(ids.bar).style.width=pct+'%'; }
 
-    // 本日時点の過不足（ペース）
+    // 現在の過不足（完了日ベース＝公式の締め計算と同じ。今日は勤務終了後にカウント）
     if(ids.pace && $(ids.pace)){
       var pc=$(ids.pace);
       if(!st.started){ pc.className='att-callout over'; pc.innerHTML='この期間はまだ開始前です（'+(seg.start.getMonth()+1)+'/'+seg.start.getDate()+'〜）。'; }
-      else if(paceDiff < -15){ pc.className='att-callout need'; pc.innerHTML='📉 <b>本日時点で '+fmtDurJ(-paceDiff)+' 不足</b>　<span style="color:#b98">今日までの所定 '+fmtDur(st.reqToDate)+' / 実績 '+fmtDur(done)+'</span>'; }
-      else if(paceDiff > 15){ pc.className='att-callout ok'; pc.innerHTML='📈 <b>本日時点で '+fmtDurJ(paceDiff)+' 前倒し</b>　<span style="color:#6a8">今日までの所定 '+fmtDur(st.reqToDate)+' / 実績 '+fmtDur(done)+'</span>'; }
-      else { pc.className='att-callout ok'; pc.innerHTML='✓ 本日時点でほぼ予定どおり（今日までの所定 '+fmtDur(st.reqToDate)+' / 実績 '+fmtDur(done)+'）。'; }
+      else if(st.schedSettled===0){ pc.className='att-callout ok'; pc.innerHTML='完了した勤務日がまだありません（過不足は勤務終了後に反映）。'; }
+      else if(paceDiff < -3){ pc.className='att-callout need'; pc.innerHTML='📉 <b>現在 '+fmtDurJ(-paceDiff)+' 不足</b>　<span style="color:#b98">完了日の所定 '+fmtDur(st.reqSettled)+' / 実績 '+fmtDur(st.workedSettled)+'（標準比・今日は勤務後に反映）</span>'; }
+      else if(paceDiff > 3){ pc.className='att-callout ok'; pc.innerHTML='📈 <b>現在 '+fmtDurJ(paceDiff)+' 超過</b>　<span style="color:#6a8">完了日の所定 '+fmtDur(st.reqSettled)+' / 実績 '+fmtDur(st.workedSettled)+'</span>'; }
+      else { pc.className='att-callout ok'; pc.innerHTML='✓ 現在ちょうど標準どおり（完了日の所定 '+fmtDur(st.reqSettled)+' / 実績 '+fmtDur(st.workedSettled)+'）。'; }
     }
 
     var co=$(ids.call);
