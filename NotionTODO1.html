@@ -21443,50 +21443,53 @@
       else { pc.className='att-callout ok'; pc.innerHTML='✓ 現在ちょうど標準どおり（完了日の所定 '+fmtDur(st.reqSettled)+' / 実績 '+fmtDur(st.workedSettled)+'）。'; }
     }
 
+    // 残り勤務日の1日あたり目安（今日の実働は二重に引かない）
+    var tRec=R[ymd(today)]||{};
+    var nowMM=(new Date()).getHours()*60+(new Date()).getMinutes();
+    var todaySettled = R[ymd(today)] && !openSession(tRec) && (getSessions(tRec).length || (tRec.manualWork!=null&&tRec.manualWork!=='') || (tRec.leave&&tRec.leave!=='none') || tRec.holiday);
+    var todaySched = isScheduled(today);
+    var rdAll = remainWorkDays(seg, today);                         // 今日を含む残り所定日数
+    var rdOpen = rdAll - ((todaySettled && todaySched) ? 1 : 0);    // まだ働く日（今日が退勤済みなら除く）
+    var futureReq = Math.max(0, required - st.workedSettled);       // 残り日で必要な総量（今日の未労働分を含む）
+    var perDay = rdOpen>0 ? Math.ceil(futureReq/rdOpen) : futureReq;
+    var todayActual = actualWork(tRec, nowMM);
+    var todayRemain = Math.max(0, perDay - todayActual);
+
     var co=$(ids.call);
     if(seg.kind==='over'){
       if(remain<=0){ co.className='att-callout ok'; co.innerHTML='✓ 必要(有給控除後)を <b>'+fmtDur(-remain)+'</b> 超過。20日締めはクリアです。'; }
       else{
         co.className='att-callout need';
-        var rd=remainWorkDays(seg, today);
-        var perDay=rd>0?Math.ceil(remain/rd):remain;
-        co.innerHTML='期間トータルで あと <b>'+fmtDurJ(remain)+'</b>。残り勤務 '+rd+'日 → 1日あたり約 '+fmtDur(perDay)+'。';
+        co.innerHTML='期間トータルで あと <b>'+fmtDurJ(remain)+'</b>。残り勤務 '+rdAll+'日 → 1日の目安 約 <b>'+fmtDur(perDay)+'</b>'
+          +((todaySched && !todaySettled)?('（本日はあと '+fmtDur(todayRemain)+'）'):'')+'。';
       }
     } else {
       if(Math.abs(diff)<=15){ co.className='att-callout ok'; co.innerHTML='ほぼ標準ちょうど（差 '+fmtDur(diff)+'）。良いペースです。'; }
       else if(diff>15){ co.className='att-callout over'; co.innerHTML='標準より <b>'+fmtDurJ(diff)+'</b> 多め。残業を抑えるなら、この期間はペースダウンを。'; }
-      else{ co.className='att-callout need'; co.innerHTML='期間トータルで標準まで あと <b>'+fmtDurJ(-diff)+'</b>。'; }
+      else{ co.className='att-callout need'; co.innerHTML='期間トータルで標準まで あと <b>'+fmtDurJ(-diff)+'</b>（残り '+rdAll+'日 → 1日 約 '+fmtDur(perDay)+'）。'; }
     }
 
     // finish（primary のみ、今日の目安）
     if(primary && ids.finish){
       var fin=$(ids.finish);
-      var rec=R[todayKey]||{};
-      var nowM=(new Date()).getHours()*60+(new Date()).getMinutes();
-      var todayActual=actualWork(rec, nowM); // 実働のみ（有給加算を含めない）
       if(remain<=0){
         if(seg.kind==='over'){ fin.innerHTML='今日はもう働かなくても達成（必要 +'+fmtDur(-remain)+'）。無理せず。'; }
         else{ fin.innerHTML='標準に到達済み（差 '+fmtDur(diff)+'）。これ以上は残業。区切りどきです。'; }
         return;
       }
-      var rd=remainWorkDays(seg, today);
-      var todayTarget=rd>0?Math.ceil(remain/rd):remain;   // 今日の実働ノルマ
-      var moreNeeded=Math.max(0, todayTarget-todayActual);
-      var op=openSession(rec);
+      if(todaySettled){ fin.innerHTML='本日は退勤済み（実働 '+fmtDur(todayActual)+'）。明日以降 1日 約 '+fmtDur(perDay)+' が目安です。'; return; }
+      if(!todaySched){ fin.innerHTML='本日は所定労働日ではありません。次の勤務日は 1日 約 '+fmtDur(perDay)+' が目安。'; return; }
+      var op=openSession(tRec);
       var msg='';
-      if(moreNeeded<=0){
-        msg='本日の目安 '+fmtDur(todayTarget)+' は達成済み ✓（実働 '+fmtDur(todayActual)+'）。区切って構いません。';
+      if(todayRemain<=0){
+        msg='本日の目安 '+fmtDur(perDay)+' は達成済み ✓（実働 '+fmtDur(todayActual)+'）。区切って構いません。';
       } else {
-        var f9=projectFinish(nowM, moreNeeded); // 今から moreNeeded 分（休憩帯・夜間帯は自動で繰延）
+        var f9=projectFinish(nowMM, todayRemain); // 今から必要分（休憩帯・夜間帯は自動で繰延）
         var fitsToday=(f9<parseHM(S.nS))&&(f9<1440);
-        var head='今日の目安 <b>'+fmtDur(todayTarget)+'</b>（あと '+fmtDur(moreNeeded)+'）';
+        var head='今日の目安 <b>'+fmtDur(perDay)+'</b>（あと '+fmtDur(todayRemain)+'）';
         if(!fitsToday){ msg=head+'。1日には収まりきりません — 数日に分けて調整を。'; }
         else if(op){ msg=head+' → <b>'+fmtClock(f9)+'</b> まで'; }
         else { msg=head+'。今から働くと <b>'+fmtClock(f9)+'</b> まで'; }
-        if(fitsToday && seg.kind==='over' && (remain-todayActual) > moreNeeded+1){
-          var finAll=projectFinish(nowM, remain-todayActual);
-          if(finAll<parseHM(S.nS)) msg+='<br>期間の不足を今日で全部消化するなら '+fmtClock(finAll)+' まで';
-        }
       }
       fin.innerHTML=msg;
     }
