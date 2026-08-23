@@ -15084,6 +15084,10 @@
     if (currentScreen === 'routine') renderRoutineScreen();
     // TODO/GTD などのオーバーレイが開いていれば、それらも同期して再描画する
     notifyTasksChanged();
+    // 「出社」タスクを完了したら、オフィスの打刻ポップアップを表示
+    if (task['(A)done'] && /出社/.test(task.name || '') && typeof window.attQuickClockIn === 'function') {
+      try { window.attQuickClockIn({ officeOnly: true, title: '出社の打刻' }); } catch (e) {}
+    }
   }
 
   function toggleCheck(el) {
@@ -20985,17 +20989,6 @@
       </div>
     </div>
 
-    <!-- 履歴 -->
-    <div class="att-card">
-      <h3>履歴 <span class="tag" id="attHistTag"></span></h3>
-      <div class="att-sub">行をタップで編集。打刻し忘れた日も、日付を選んで後から入力できます。</div>
-      <div class="att-minirow" style="margin-top:0;margin-bottom:10px">
-        <input type="date" id="attAddDate" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;font-family:inherit;outline:none">
-        <button class="att-sbtn pri" id="attAddBtn" style="margin-left:auto">＋ この日を入力</button>
-      </div>
-      <div class="att-hist" id="attHist"></div>
-    </div>
-
     <!-- カレンダー -->
     <div class="att-card">
       <div class="att-fold-h" id="attCalH">
@@ -21012,6 +21005,17 @@
         <div class="att-cal-grid" id="attCalGrid"></div>
         <div class="att-sub" style="margin-top:8px">日付をタップ → 勤務地・勤務時間・有給をワンタッチ入力。数字は実働、緑は有給、灰色は休日。</div>
       </div>
+    </div>
+
+    <!-- 履歴 -->
+    <div class="att-card">
+      <h3>履歴 <span class="tag" id="attHistTag"></span></h3>
+      <div class="att-sub">行をタップで編集。打刻し忘れた日も、日付を選んで後から入力できます。</div>
+      <div class="att-minirow" style="margin-top:0;margin-bottom:10px">
+        <input type="date" id="attAddDate" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;font-family:inherit;outline:none">
+        <button class="att-sbtn pri" id="attAddBtn" style="margin-left:auto">＋ この日を入力</button>
+      </div>
+      <div class="att-hist" id="attHist"></div>
     </div>
   </div>
 </div>
@@ -21152,6 +21156,28 @@
     return [];
   }
   function locTypeOf(loc, fallback){ if(fallback) return fallback; if(!loc) return ''; return (loc==='在宅'||loc==='自宅')?'home':'office'; }
+  // 出勤だけ／退勤だけの半端なセッションを、時刻順に1つの勤務へ自動ペアリング
+  function pairSessions(list){
+    var complete=[], ins=[], outs=[];
+    (list||[]).forEach(function(s){
+      var hi=!!(s&&s.in), ho=!!(s&&s.out);
+      if(hi&&ho) complete.push(s);
+      else if(hi) ins.push(s);
+      else if(ho) outs.push(s);
+    });
+    if(!ins.length || !outs.length){ return complete.concat(ins).concat(outs); } // ペア相手が無ければそのまま
+    ins.sort(function(a,b){ return parseHM(a.in)-parseHM(b.in); });
+    outs.sort(function(a,b){ return parseHM(a.out)-parseHM(b.out); });
+    var merged=[];
+    while(ins.length && outs.length){
+      var i=ins.shift(), o=outs.shift();
+      var loc=i.loc||o.loc||'';
+      merged.push({ in:i.in, out:o.out, loc:loc, locType:locTypeOf(loc), brk:(i.brk!=null?i.brk:(o.brk!=null?o.brk:null)) });
+    }
+    var res=complete.concat(merged).concat(ins).concat(outs);
+    res.sort(function(a,b){ var ai=a.in?parseHM(a.in):99999, bi=b.in?parseHM(b.in):99999; return ai-bi; });
+    return res;
+  }
   function sessionMinutes(s, liveTo){
     var inM=parseHM(s.in); if(inM==null) return 0;
     var outM = s.out ? parseHM(s.out) : (liveTo!=null?liveTo:null);
@@ -21159,11 +21185,11 @@
     if(!s.out && outM<=inM) return 0; // 勤務中で開始直後/未来
     return workedFromClock(inM, outM, (s.brk!=null&&s.brk!=='')?s.brk:null);
   }
-  // その日の実働（直接入力があれば優先、なければ全セッション合計）
+  // その日の実働（直接入力があれば優先、なければ全セッション合計。半端な打刻はペアリング）
   function actualWork(rec, liveTo){
     if(!rec) return 0;
     if(rec.manualWork!=null && rec.manualWork!=='') return num(rec.manualWork);
-    var sum=0; getSessions(rec).forEach(function(s){ sum+=sessionMinutes(s, liveTo); });
+    var sum=0; pairSessions(getSessions(rec)).forEach(function(s){ sum+=sessionMinutes(s, liveTo); });
     return sum;
   }
   function openSession(rec){ var ss=getSessions(rec); for(var i=0;i<ss.length;i++){ if(!ss[i].out) return ss[i]; } return null; }
@@ -21183,7 +21209,7 @@
     if(!rec) return 0;
     var now=new Date(); var nm=now.getHours()*60+now.getMinutes();
     var total=0;
-    getSessions(rec).forEach(function(s){
+    getSessions(rec) && pairSessions(getSessions(rec)).forEach(function(s){
       var inM=parseHM(s.in); if(inM==null) return;
       var outM=s.out?parseHM(s.out):(nm>inM?nm:inM);
       if(outM==null) return;
@@ -21505,7 +21531,7 @@
       var hn=jpHolidayName(d);
       var row=document.createElement('div'); row.className='att-hrow'+(rec.holiday?' holi':'');
       var info=[];
-      var ss=getSessions(rec);
+      var ss=(k===todayKey)?getSessions(rec):pairSessions(getSessions(rec));
       ss.forEach(function(s){ var lt=locTypeOf(s.loc,s.locType); info.push('<span class="att-badge loc">'+(lt==='home'?'🏠':'🏢')+(s.loc?esc(s.loc):'')+' '+(s.in||'--')+'〜'+(s.out||'…')+'</span>'); });
       if(rec.manualWork!=null && rec.manualWork!=='' && !ss.length) info.push('<span class="att-badge loc">実働 '+fmtDur(num(rec.manualWork))+'</span>');
       if(rec.leave&&rec.leave!=='none'){ var lm={full:'全休',am:'午前',pm:'午後'}; info.push('<span class="att-badge leave">'+lm[rec.leave]+'</span>'); }
@@ -21613,25 +21639,36 @@
   function renderEdSessions(){
     var host=$('edSessions'); host.innerHTML='';
     edSess.forEach(function(s,idx){
-      var row=document.createElement('div'); row.className='ed-sess';
+      var wrap=document.createElement('div'); wrap.style.cssText='margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f0eef7';
+      var row=document.createElement('div'); row.className='ed-sess'; row.style.marginBottom='4px';
       row.innerHTML='<input type="time" class="in" value="'+(s.in||'')+'">'
         +'<span class="ar">–</span>'
         +'<input type="time" class="out" value="'+(s.out||'')+'">'
-        +'<input type="text" class="loc" placeholder="場所（在宅/川崎 等）" value="'+esc(s.loc||'')+'">'
+        +'<input type="text" class="loc" placeholder="場所（空欄=在宅）" value="'+esc(s.loc||'')+'">'
         +'<button class="del" title="削除">×</button>';
       var ins=row.querySelector('.in'), outs=row.querySelector('.out'), locs=row.querySelector('.loc');
       ins.addEventListener('input',function(){ edSess[idx].in=this.value; updateEdTotal(); });
       outs.addEventListener('input',function(){ edSess[idx].out=this.value; updateEdTotal(); });
       locs.addEventListener('input',function(){ edSess[idx].loc=this.value; edSess[idx].locType=locTypeOf(this.value); });
       row.querySelector('.del').onclick=function(){ edSess.splice(idx,1); renderEdSessions(); updateEdTotal(); };
-      host.appendChild(row);
+      wrap.appendChild(row);
+      // 場所クイックボタン
+      var chips=document.createElement('div'); chips.className='att-locrow'; chips.style.cssText='gap:5px';
+      ['在宅'].concat(OFFICES).forEach(function(p){
+        var b=document.createElement('button'); b.type='button'; b.className='att-locchip'+(s.loc===p?' on':''); b.textContent=p;
+        b.style.cssText='padding:5px 10px;font-size:12px';
+        b.onclick=function(){ edSess[idx].loc=p; edSess[idx].locType=locTypeOf(p); renderEdSessions(); updateEdTotal(); };
+        chips.appendChild(b);
+      });
+      wrap.appendChild(chips);
+      host.appendChild(wrap);
     });
   }
   function openEdit(key){
     editKey=key; var rec=R[key]||{}; var d=fromYmd(key);
     var hn=jpHolidayName(d);
     $('attEditTitle').textContent=(d.getMonth()+1)+'/'+d.getDate()+'（'+WD[d.getDay()]+'）'+(hn?' '+hn:'');
-    edSess = getSessions(rec).map(function(s){ return { in:s.in||'', out:s.out||'', loc:s.loc||'', locType:s.locType||locTypeOf(s.loc), brk:(s.brk!=null?s.brk:null) }; });
+    edSess = (key===todayKey?getSessions(rec):pairSessions(getSessions(rec))).map(function(s){ return { in:s.in||'', out:s.out||'', loc:s.loc||'', locType:s.locType||locTypeOf(s.loc), brk:(s.brk!=null?s.brk:null) }; });
     renderEdSessions();
     $('edWork').value=(rec.manualWork!=null&&rec.manualWork!=='')?fmtDur(num(rec.manualWork)):'';
     $('edLeave').value=rec.leave||'none'; $('edHoli').checked=!!rec.holiday;
@@ -21640,8 +21677,9 @@
   }
   function readEdit(){
     var wv=parseWork($('edWork').value);
-    var sessions=edSess.filter(function(s){ return s.in || s.out; })
-      .map(function(s){ var o={ in:s.in||'', out:s.out||null, loc:(s.loc||'').trim(), locType:locTypeOf((s.loc||'').trim()) }; if(s.brk!=null&&s.brk!=='') o.brk=s.brk; return o; });
+    var raw=edSess.filter(function(s){ return s.in || s.out; })
+      .map(function(s){ var loc=(s.loc||'').trim(); var o={ in:s.in||'', out:s.out||null, loc:loc, locType:locTypeOf(loc) }; if(s.brk!=null&&s.brk!=='') o.brk=s.brk; return o; });
+    var sessions=pairSessions(raw).map(function(s){ var loc=(s.loc||'').trim(); if(!loc && (s.in||s.out)) loc='在宅'; return { in:s.in||'', out:s.out||null, loc:loc, locType:locTypeOf(loc), brk:(s.brk!=null?s.brk:undefined) }; });
     return { sessions:sessions, manualWork:(wv==null?'':wv), leave:$('edLeave').value, holiday:$('edHoli').checked };
   }
   function updateEdTotal(){
@@ -21770,12 +21808,368 @@
     };
   }
 
+  // タスク「出社」完了時などに呼ぶ、場所選択つきクイック打刻ポップアップ
+  function attQuickClockIn(opts){
+    opts=opts||{};
+    todayKey=ymd(new Date());
+    var ex=document.getElementById('attQuickPop'); if(ex) ex.remove();
+    var ov=document.createElement('div'); ov.id='attQuickPop';
+    ov.style.cssText='position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 30);display:flex;align-items:flex-end;justify-content:center;background:rgba(20,18,30,.4);font-family:inherit';
+    var card=document.createElement('div');
+    card.style.cssText='background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:16px 16px calc(24px + env(safe-area-inset-bottom, 0px))';
+    card.innerHTML='<div style="display:flex;align-items:center;margin-bottom:4px"><div style="font-size:16px;font-weight:800;color:#2d2b3a">'+(opts.title||'出社の打刻')+'</div>'
+      +'<button id="attQClose" style="margin-left:auto;border:none;background:#f2f1f7;width:32px;height:32px;border-radius:50%;font-size:18px;color:#5a5768;cursor:pointer">×</button></div>'
+      +'<div style="font-size:12px;color:#8e8b9e;margin-bottom:12px">場所を選んで出勤打刻します（'+nowHM()+'）</div>'
+      +'<div id="attQChips" class="att-locrow"></div>';
+    ov.appendChild(card); document.body.appendChild(ov);
+    var list=(opts.officeOnly?[]:['在宅']).concat(OFFICES).concat(['自由記述']);
+    var host=card.querySelector('#attQChips');
+    list.forEach(function(p){
+      var b=document.createElement('button'); b.type='button'; b.className='att-locchip'; b.textContent=p;
+      b.style.cssText='padding:12px 16px;font-size:14px;font-weight:700';
+      b.onclick=function(){
+        var loc=p, lt='office';
+        if(p==='在宅'){ loc='在宅'; lt='home'; }
+        else if(p==='自由記述'){ loc=(prompt('オフィス名を入力')||'').trim(); if(!loc) return; lt='office'; }
+        startSession(loc, lt);
+        ov.remove();
+      };
+      host.appendChild(b);
+    });
+    card.querySelector('#attQClose').onclick=function(){ ov.remove(); };
+    ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+  }
+
   function init(){
     if(!$('attOverlay')) return;
     $('attClose').onclick=close;
     bindToday(); bindEdit(); bindSettings(); bindCal(); bindRange();
     window.openAttendanceScreen=open;
     window.closeAttendanceScreen=close;
+    window.attQuickClockIn=attQuickClockIn;
+    window.__attIsHoliday=function(d){ try{ return isJpHoliday(d); }catch(e){ return false; } };
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+
+
+<!-- ============================================================ -->
+<!-- 仕事タスクの締め切り強調ミニ一覧（ADHD向け・独立モジュール）   -->
+<!--   種類=仕事 のタスクに難易度から締め切りを自動付与し、        -->
+<!--   ルーチン画面トップに「締切が近い順・赤強調・カウントダウン」 -->
+<!--   localStorage: workTaskMeta                                   -->
+<!-- ============================================================ -->
+<style>
+#wtPin{margin:0 0 10px;font-family:inherit}
+.wt-card{background:#fff;border:1px solid #efedf6;border-radius:16px;padding:12px 12px 8px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.wt-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.wt-head .t{font-size:14px;font-weight:800;color:#2d2b3a;display:flex;align-items:center;gap:7px}
+.wt-head .t svg{width:17px;height:17px;fill:none;stroke:#e5484d;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wt-head .cnt{margin-left:auto;font-size:11px;font-weight:700;color:#8e8b9e;background:#f3f2f8;border-radius:8px;padding:2px 8px}
+.wt-list{display:flex;flex-direction:column;gap:6px}
+.wt-row{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:12px;background:#fafafd;border:1px solid #eeecf6;cursor:pointer}
+.wt-row.due-now{background:#fff1f0;border-color:#ffd2ce}
+.wt-row.due-soon{background:#fff6ec;border-color:#ffe1c0}
+.wt-row.overdue{background:#ffecea;border-color:#ffc4bd}
+.wt-check{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid #cfc9e0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.wt-check:active{transform:scale(.9)}
+.wt-check svg{width:13px;height:13px;stroke:#12a150;stroke-width:3;fill:none;display:none}
+.wt-body{flex:1;min-width:0}
+.wt-name{font-size:13.5px;font-weight:700;color:#2d2b3a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wt-meta{font-size:11px;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.wt-count{font-weight:800}
+.wt-count.c-now{color:#e5484d}.wt-count.c-soon{color:#d9822b}.wt-count.c-ok{color:#12a150}.wt-count.c-over{color:#c1121f}
+.wt-diff{font-size:10px;font-weight:700;border-radius:6px;padding:1px 6px}
+.wt-diff.d-easy{background:#eafaef;color:#12813f}
+.wt-diff.d-normal{background:#eef2ff;color:#3b4ba8}
+.wt-diff.d-hard{background:#fdeeee;color:#c0392b}
+.wt-full{color:#a7a4b6}
+.wt-resched{flex:none;border:none;background:#f0eef7;color:#6c5ce7;font-size:11px;font-weight:700;border-radius:8px;padding:6px 8px;cursor:pointer}
+.wt-empty{font-size:12px;color:#b3b0c2;padding:6px 2px}
+/* streak guard */
+.wt-streak-card{border-color:#ffd9c2;background:linear-gradient(180deg,#fff7f0,#fff)}
+.wt-streak-card .t{color:#d9822b}
+.wt-streak-card .t svg{stroke:#f0862d}
+.wt-srow{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:12px;background:#fff4ea;border:1px solid #ffe0c6}
+.wt-srow .wt-name{font-size:13.5px;font-weight:800;color:#2d2b3a}
+.wt-srow .wt-count{color:#d9500b;font-weight:800}
+.wt-didit{flex:none;border:none;background:#12a150;color:#fff;font-size:13px;font-weight:800;border-radius:11px;padding:9px 14px;cursor:pointer;font-family:inherit}
+.wt-didit:active{transform:scale(.95)}
+.wt-notifyask{width:100%;margin-top:2px;border:1px dashed #e3c7ad;background:#fffaf5;color:#b5732a;font-size:12px;font-weight:700;border-radius:10px;padding:8px;cursor:pointer;font-family:inherit}
+/* reschedule popup */
+#wtResched{position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 30);display:none;align-items:flex-end;justify-content:center;background:rgba(20,18,30,.4)}
+#wtResched.open{display:flex}
+.wt-rc-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:16px 16px calc(24px + env(safe-area-inset-bottom, 0px))}
+.wt-rc-card h4{margin:0 0 4px;font-size:16px;font-weight:800;color:#2d2b3a;display:flex;align-items:center}
+.wt-rc-card h4 .x{margin-left:auto;border:none;background:#f2f1f7;width:32px;height:32px;border-radius:50%;font-size:18px;color:#5a5768;cursor:pointer}
+.wt-rc-sub{font-size:12px;color:#8e8b9e;margin-bottom:12px}
+.wt-rc-opts{display:flex;flex-direction:column;gap:8px}
+.wt-rc-opts button{border:1px solid #e3e0ee;background:#fff;color:#2d2b3a;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:700;font-family:inherit;text-align:left;cursor:pointer}
+.wt-rc-opts button:active{background:#f4f2fd}
+.wt-rc-opts .man{display:flex;align-items:center;gap:8px}
+.wt-rc-opts .man input{border:1px solid #e3e0ee;border-radius:9px;padding:8px;font-size:14px;font-family:inherit;flex:1}
+</style>
+
+<div id="wtResched">
+  <div class="wt-rc-card">
+    <h4><span id="wtRcTitle">締め切りを変更</span><button class="x" id="wtRcClose">×</button></h4>
+    <div class="wt-rc-sub">先延ばしOK。責めないよ。いつやる？</div>
+    <div class="wt-rc-opts">
+      <button data-rc="today">今日中（16:00）</button>
+      <button data-rc="tmr">翌営業日（16:00）</button>
+      <button data-rc="d2">明後日以降の営業日（16:00）</button>
+      <button data-rc="week">来週アタマ（月 10:00）</button>
+      <div class="man"><input type="datetime-local" id="wtRcMan"><button data-rc="man">この日時に</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var META='workTaskMeta';
+  function $(id){ return document.getElementById(id); }
+  function pad2(n){ return (n<10?'0':'')+n; }
+  function iso(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+  function parseISO(s){ if(!s) return null; var m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s); if(!m) return null; return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],0); }
+  function isBiz(d){ var wd=d.getDay(); if(wd===0||wd===6) return false; if(typeof window.__attIsHoliday==='function' && window.__attIsHoliday(d)) return false; return true; }
+  function addBizDays(from,n){ var d=new Date(from); while(n>0){ d.setDate(d.getDate()+1); if(isBiz(d)) n--; } return d; }
+  function atHour(d,h,m){ var x=new Date(d); x.setHours(h,m||0,0,0); return x; }
+  function nextBizDay(from){ var d=new Date(from); do{ d.setDate(d.getDate()+1); }while(!isBiz(d)); return d; }
+  function nextMonday(from){ var d=new Date(from); do{ d.setDate(d.getDate()+1); }while(d.getDay()!==1); return d; }
+
+  function loadTasks(){ try{ return JSON.parse(localStorage.getItem('tasks')||'[]')||[]; }catch(e){ return []; } }
+  function loadMeta(){ try{ return JSON.parse(localStorage.getItem(META)||'{}')||{}; }catch(e){ return {}; } }
+  function saveMeta(m){ try{ localStorage.setItem(META, JSON.stringify(m)); }catch(e){} }
+
+  function isWork(t){ return t && t['(B)種類']==='仕事' && !t['(A)done'] && t._type!=='repeat'; }
+
+  // ---- ストリーク・ガード（連続記録が今日で途切れそうな習慣）----
+  function todayYmd(){ var d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+  function gfn(n){ return (typeof window[n]==='function')?window[n]:null; }
+  function atRiskHabits(){
+    var getH=gfn('getHabitTasks'), occ=gfn('habitOccursOn'), doneF=gfn('isHabitDoneOn'), streakF=gfn('calcHabitStreak'), startF=gfn('getHabitStartDate'), ymdF=gfn('ymd');
+    if(!getH||!occ||!doneF) return [];
+    var ymd = ymdF || function(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); };
+    var today=new Date(); today.setHours(0,0,0,0);
+    var habits; try{ habits=getH(false)||[]; }catch(e){ return []; }
+    var list=[], seen={};
+    habits.forEach(function(h){
+      try{
+        if(!h || seen[h.id]) return;
+        if(!occ(h, today)) return;               // 今日が対象日
+        if(doneF(h.id, ymd(today))) return;       // 今日もう完了
+        // 直近の対象日を落としているか（＝今日休むと2連続＝途切れ）
+        var cursor=new Date(today); cursor.setDate(cursor.getDate()-1);
+        var startD = startF? startF(h): null;
+        var priorMissed=null, guard=0;
+        while(guard++<400){
+          if(startD && cursor<startD){ priorMissed=false; break; }
+          if(occ(h, cursor)){ priorMissed = !doneF(h.id, ymd(cursor)); break; }
+          cursor.setDate(cursor.getDate()-1);
+        }
+        if(priorMissed!==true) return;            // 前回達成なら今日は1回分の猶予あり→まだ警告しない
+        var streak = streakF? (streakF(h)||0) : 0;
+        if(streak<=0) return;                     // 守るべき連続が無い（既に途切れ）
+        seen[h.id]=true;
+        list.push({ id:h.id, name:h.name||'(習慣)', streak:streak });
+      }catch(e){}
+    });
+    return list;
+  }
+  function maybeNotify(risks){
+    try{
+      if(!risks.length) return;
+      if(!('Notification' in window) || Notification.permission!=='granted') return;
+      if(new Date().getHours()<18) return;                 // 夕方以降のみ
+      var key='wtStreakNotified_'+todayYmd();
+      if(localStorage.getItem(key)) return;                // 1日1回
+      var names=risks.map(function(r){return r.name;}).slice(0,3).join('、');
+      new Notification('連続記録が途切れそう', { body: names+' を今日やらないとストップします', tag:'wt-streak', renotify:false });
+      localStorage.setItem(key,'1');
+    }catch(e){}
+  }
+
+  function estimateDifficulty(task){
+    var name=task.name||''; var h=+task['(C)見込み/h']||0;
+    var hard=/作成|資料|企画|設計|提案|まとめ|分析|執筆|レポート|構成|プレゼン|見積|検討|調査|レビュー|考|作る|書く|開発|実装|制作|スライド/;
+    var easy=/返信|連絡|確認|送信|送る|予約|記入|チェック|支払|振込|印刷|コピー|申請|報告|入力|登録|問い合わせ|メール|電話|片付|捨|提出/;
+    if(hard.test(name)) return 'hard';
+    if(easy.test(name)) return 'easy';
+    if(h>=2) return 'hard';
+    if(h>=0.75) return 'normal';
+    if(h>0&&h<0.5) return 'easy';
+    return 'normal';
+  }
+  function assignDeadline(task){
+    var diff=estimateDifficulty(task); var now=new Date(); var dl, full=null;
+    if(diff==='easy'){ dl=(isBiz(now)&&now.getHours()<15)?atHour(now,16,0):atHour(nextBizDay(now),16,0); }
+    else if(diff==='normal'){ dl=atHour(addBizDays(now,2),16,0); }
+    else { var base=(isBiz(now)&&now.getHours()<10)?now:nextBizDay(now); dl=atHour(base,10,0); full=atHour(addBizDays(now,4),16,0); }
+    return { difficulty:diff, deadline:iso(dl), full:full?iso(full):null, manual:false };
+  }
+
+  // 仕事タスクにメタ（締め切り）を用意。無ければ自動付与。
+  function ensureMeta(){
+    var tasks=loadTasks(), meta=loadMeta(), changed=false;
+    var ids={};
+    tasks.forEach(function(t){
+      if(!isWork(t)) return;
+      ids[t.id]=true;
+      if(!meta[t.id] || !meta[t.id].deadline){ meta[t.id]=assignDeadline(t); changed=true; }
+    });
+    // 完了/削除されたタスクのメタは掃除
+    Object.keys(meta).forEach(function(id){ if(!ids[id]){ delete meta[id]; changed=true; } });
+    if(changed) saveMeta(meta);
+    return meta;
+  }
+
+  function fmtCountdown(ms){
+    var neg=ms<0; var m=Math.abs(ms)/60000;
+    if(neg){ if(m<60) return '期限すぎ '+Math.round(m)+'分'; if(m<1440) return '期限すぎ '+Math.floor(m/60)+'時間'; return '期限すぎ '+Math.floor(m/1440)+'日'; }
+    if(m<60) return 'あと '+Math.max(1,Math.round(m))+'分';
+    if(m<1440) { var h=Math.floor(m/60), mm=Math.round(m%60); return 'あと '+h+'時間'+(mm?mm+'分':''); }
+    return 'あと '+Math.floor(m/1440)+'日';
+  }
+  function proximity(ms){ if(ms<0) return 'over'; var h=ms/3600000; if(h<=2) return 'now'; if(h<=24) return 'soon'; return 'ok'; }
+
+  var mount=null;
+  function ensureMount(){
+    var rs=document.getElementById('routineScreen'); if(!rs) return null;
+    if(mount && mount.parentNode===rs) return mount;
+    mount=document.getElementById('wtPin');
+    if(!mount){ mount=document.createElement('div'); mount.id='wtPin'; }
+    if(rs.firstChild!==mount) rs.insertBefore(mount, rs.firstChild);
+    return mount;
+  }
+
+  function render(){
+    var m=ensureMount(); if(!m) return;
+    var meta=ensureMeta(); var tasks=loadTasks();
+    var items=[];
+    tasks.forEach(function(t){ if(isWork(t) && meta[t.id] && meta[t.id].deadline){ items.push({ t:t, meta:meta[t.id], dl:parseISO(meta[t.id].deadline) }); } });
+    var risks=atRiskHabits();
+    if(!items.length && !risks.length){ m.innerHTML=''; return; }
+    var html='';
+
+    // 連続記録ガード（最優先で上に）
+    if(risks.length){
+      html+='<div class="wt-card wt-streak-card"><div class="wt-head"><div class="t">'
+        +'<svg viewBox="0 0 24 24"><path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 1.5 1 2.5 2 2.5 1.2 0 1.5-1.2 1-3-.4-1.5-.4-3 0-4z"/></svg>連続記録が今日で途切れそう</div>'
+        +'<span class="cnt">'+risks.length+'件</span></div><div class="wt-list">';
+      risks.forEach(function(r){
+        html+='<div class="wt-srow"><div class="wt-body"><div class="wt-name">'+esc(r.name)+'</div>'
+          +'<div class="wt-meta"><span class="wt-count">今日やらないと連続'+r.streak+'日がストップ</span></div></div>'
+          +'<button class="wt-didit" data-did="'+r.id+'">やった！</button></div>';
+      });
+      if(('Notification' in window) && Notification.permission!=='granted'){
+        html+='<button class="wt-notifyask">🔔 途切れそうな時にスマホ通知する</button>';
+      }
+      html+='</div></div>';
+    }
+
+    // 仕事の締め切りリスト
+    if(items.length){
+      items.sort(function(a,b){ return (a.dl?a.dl.getTime():9e15)-(b.dl?b.dl.getTime():9e15); });
+      var now=Date.now();
+      html+='<div class="wt-card"><div class="wt-head"><div class="t">'
+        +'<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 7v5l3 2"/></svg>仕事のやることリスト</div>'
+        +'<span class="cnt">'+items.length+'件</span></div><div class="wt-list">';
+      items.forEach(function(it){
+        var ms=it.dl.getTime()-now; var prox=proximity(ms);
+        var rowcls = prox==='over'?'overdue':(prox==='now'?'due-now':(prox==='soon'?'due-soon':''));
+        var ccls = prox==='over'?'c-over':(prox==='now'?'c-now':(prox==='soon'?'c-soon':'c-ok'));
+        var diff=it.meta.difficulty||'normal';
+        var dlabel={easy:'かんたん',normal:'ふつう',hard:'むずかしい'}[diff];
+        var name=esc(it.t.name||'(無題)');
+        var fullTxt='';
+        if(diff==='hard' && it.meta.full){ var f=parseISO(it.meta.full); if(f) fullTxt='<span class="wt-full">完成 '+(f.getMonth()+1)+'/'+f.getDate()+'</span>'; }
+        html+='<div class="wt-row '+rowcls+'" data-open="'+it.t.id+'">'
+          +'<button class="wt-check" data-done="'+it.t.id+'" title="完了"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></button>'
+          +'<div class="wt-body"><div class="wt-name">'+(diff==='hard'?'まず15分だけ ':'')+name+'</div>'
+          +'<div class="wt-meta"><span class="wt-count '+ccls+'">'+fmtCountdown(ms)+'</span>'
+          +'<span class="wt-diff d-'+diff+'">'+dlabel+'</span>'+fullTxt+'</div></div>'
+          +'<button class="wt-resched" data-rc="'+it.t.id+'">期限</button>'
+          +'</div>';
+      });
+      html+='</div></div>';
+    }
+
+    m.innerHTML=html;
+    // handlers: 連続記録「やった！」
+    [].forEach.call(m.querySelectorAll('.wt-didit'), function(b){
+      b.addEventListener('click', function(e){ e.stopPropagation(); var id=b.getAttribute('data-did');
+        var f=gfn('toggleHabitDone'); if(f){ try{ f(id, todayYmd()); }catch(err){} }
+        setTimeout(render, 40);
+      });
+    });
+    var ask=m.querySelector('.wt-notifyask');
+    if(ask){ ask.addEventListener('click', function(){ try{ Notification.requestPermission().then(function(){ render(); }); }catch(e){} }); }
+    // handlers: 仕事
+    [].forEach.call(m.querySelectorAll('.wt-row'), function(r){
+      r.addEventListener('click', function(e){
+        if(e.target.closest('.wt-check')||e.target.closest('.wt-resched')) return;
+        var id=r.getAttribute('data-open');
+        if(typeof window.openModal==='function') window.openModal(id);
+      });
+    });
+    [].forEach.call(m.querySelectorAll('.wt-check'), function(b){
+      b.addEventListener('click', function(e){ e.stopPropagation(); var id=b.getAttribute('data-done');
+        if(typeof window.toggleTaskDone==='function'){ window.toggleTaskDone(id); }
+        setTimeout(render, 30);
+      });
+    });
+    [].forEach.call(m.querySelectorAll('.wt-resched'), function(b){
+      b.addEventListener('click', function(e){ e.stopPropagation(); openResched(b.getAttribute('data-rc')); });
+    });
+
+    maybeNotify(risks);
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  // ---- reschedule ----
+  var rcId=null;
+  function openResched(id){
+    rcId=id; var tasks=loadTasks(); var t=tasks.find(function(x){return x.id===id;});
+    $('wtRcTitle').textContent=(t?(t.name||'(無題)'):'')+' の締め切り';
+    var man=$('wtRcMan'); var meta=loadMeta(); var cur=meta[id]&&meta[id].deadline?parseISO(meta[id].deadline):new Date();
+    if(cur) man.value=iso(cur);
+    $('wtResched').classList.add('open');
+  }
+  function setDeadline(dt, opts){
+    if(!rcId) return; var meta=loadMeta(); meta[rcId]=meta[rcId]||{};
+    meta[rcId].deadline=iso(dt); meta[rcId].manual=true;
+    if(opts&&opts.clearFull) meta[rcId].full=null;
+    saveMeta(meta); $('wtResched').classList.remove('open'); render();
+  }
+  function bindResched(){
+    $('wtRcClose').onclick=function(){ $('wtResched').classList.remove('open'); };
+    $('wtResched').addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
+    [].forEach.call($('wtResched').querySelectorAll('[data-rc]'), function(b){
+      b.addEventListener('click', function(){
+        var k=b.getAttribute('data-rc'); var now=new Date();
+        if(k==='today'){ setDeadline(atHour(isBiz(now)?now:nextBizDay(now),16,0)); }
+        else if(k==='tmr'){ setDeadline(atHour(nextBizDay(now),16,0)); }
+        else if(k==='d2'){ setDeadline(atHour(addBizDays(now,2),16,0)); }
+        else if(k==='week'){ setDeadline(atHour(nextMonday(now),10,0)); }
+        else if(k==='man'){ var v=parseISO($('wtRcMan').value); if(v) setDeadline(v); }
+      });
+    });
+  }
+
+  var timer=null, rafT=null;
+  function routineVisible(){ var rs=document.getElementById('routineScreen'); return rs && rs.offsetParent!==null; }
+  function scheduleRender(){ if(rafT) return; rafT=setTimeout(function(){ rafT=null; if(routineVisible()) render(); }, 120); }
+  function startTimer(){ clearInterval(timer); timer=setInterval(function(){ if(routineVisible()) render(); }, 60000); }
+
+  function init(){
+    if(!document.getElementById('routineScreen')) { return; }
+    bindResched();
+    render();
+    startTimer();
+    window.addEventListener('tasks:changed', scheduleRender);
+    document.addEventListener('click', scheduleRender, true);
+    window.wtRefresh=render;
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
