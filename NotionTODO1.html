@@ -5675,6 +5675,10 @@
         // notionFullSync は「pull → 展開 → 未登録のみpush」の順で動くので重複を作らない。
         setTimeout(() => { try { notionFullSync(); } catch(e){ dbg('startup reconcile failed', e); } }, 2500);
       }
+      // 仕事などの繰り返しを、先2週間ぶん自動でNotionへ実体化（1日1回・他端末表示のため）
+      if (_canNotion) {
+        setTimeout(() => { try { autoMaterializeRepeats(); } catch(e){ dbg('auto materialize failed', e); } }, 6000);
+      }
     });
 
     // カレンダーピッカーのイベント登録
@@ -5972,7 +5976,7 @@
       if (t._type === 'time') return !isAllDayTask(t) && getDateString(t) === dayStr;
       return false;
     };
-    const dayTasks = tasks.filter(t => {
+    let dayTasks = tasks.filter(t => {
       if (t._parentIds && t._parentIds.length) {
         const p = parentOf(t);
         if (p && _visibleOnDay(p)) return false;   // 親にまとめる
@@ -6002,6 +6006,13 @@
         return true;
       }
       return false;
+    });
+    // 繰り返し（習慣以外）の仮想表示は、この日ぶんの完了を履歴から解決（日別完了）
+    dayTasks = dayTasks.map(t => {
+      if (t._type === 'repeat' && !isRoutineKind(t) && !t._habitTemplateId) {
+        return Object.assign({}, t, { '(A)done': isHabitDoneOn(t.id, dayStr), _virtualRepeat: true, _virtualDate: dayStr });
+      }
+      return t;
     });
 
     const allLaterTasks = collectLaterTasks();
@@ -11184,6 +11195,53 @@
   }
   window.materializeRepeatsToNotion = materializeRepeatsToNotion;
 
+  // 自動: 非ルーチンの繰り返しを「先2週間ぶん」だけ静かにNotionへ実体化（1日1回・重複ガード）
+  let _autoMatRunning = false;
+  async function autoMaterializeRepeats() {
+    try {
+      if (_autoMatRunning) return;
+      const _canNotion = (notionSettings.token || notionSettings.managed) && notionSettings.dbId;
+      if (!_canNotion) return;
+      const todayKey = ymd(new Date());
+      if (localStorage.getItem('lastAutoMaterialize') === todayKey) return; // 1日1回
+      const templates = (tasks || []).filter(t => t && t._type === 'repeat' && !isRoutineKind(t) && !t._habitTemplateId);
+      if (!templates.length) { localStorage.setItem('lastAutoMaterialize', todayKey); return; }
+      _autoMatRunning = true;
+      // 重複防止のため、まずNotionから最新を取り込む
+      try { await notionFullSync(); } catch (e) {}
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const endD = new Date(today); endD.setDate(today.getDate() + HABIT_FUTURE_DAYS);
+      let created = 0;
+      templates.forEach(tpl => {
+        let cur = new Date(today);
+        while (cur <= endD) {
+          if (_repeatOccursOnDay(tpl, cur)) {
+            const ds = ymd(cur);
+            if (!hasInstanceForRepeat(tpl, ds)) {
+              const inst = _makeRepeatInstance(tpl, ds);
+              tasks.push(inst);
+              try { pushHabitInstanceToNotion(inst); } catch (e) {}
+              created++;
+            }
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+      });
+      if (created > 0) {
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        try { notifyTasksChanged(); } catch (e) {}
+        try { renderTimeline(); } catch (e) {}
+      }
+      localStorage.setItem('lastAutoMaterialize', todayKey);
+      dbg('autoMaterializeRepeats created', created);
+    } catch (e) {
+      dbg('autoMaterializeRepeats failed', e);
+    } finally {
+      _autoMatRunning = false;
+    }
+  }
+  window.autoMaterializeRepeats = autoMaterializeRepeats;
+
   // Notionと突き合わせて習慣/繰り返しインスタンスを修復する。
   //  ・幽霊登録(ローカルは_notionIdありだがNotionに実物なし)→ _notionIdをクリアして再登録対象に
   //  ・Notionに実物あり(重複防止 or 名前+日付で一致)→ そのページにリンク(重複作成しない)
@@ -15058,6 +15116,23 @@
   function toggleTaskDone(id, el) {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
+    // 繰り返しテンプレ（習慣以外の仕事など）は、テンプレのdoneを触らず「表示している日」だけを日別完了に
+    if (task._type === 'repeat' && !isRoutineKind(task) && !task._habitTemplateId) {
+      const h = getHabitHistory();
+      const ds = ymd(currentDate);
+      if (!h[id]) h[id] = {};
+      const nowDone = !h[id][ds];
+      if (nowDone) h[id][ds] = true; else delete h[id][ds];
+      saveHabitHistory(h);
+      if (nowDone) awardCompletion(id, task.name, ds, taskCoins(task)); else revokeCompletion(id, ds);
+      renderTimeline(); renderLater();
+      if (currentScreen === 'routine') renderRoutineScreen();
+      notifyTasksChanged();
+      if (nowDone && /出社/.test(task.name || '') && typeof window.attQuickClockIn === 'function') {
+        try { window.attQuickClockIn({ officeOnly: true, title: '出社の打刻' }); } catch (e) {}
+      }
+      return;
+    }
     task['(A)done'] = !task['(A)done'];
     task._localLastEdited = new Date().toISOString();
     localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -21469,30 +21544,50 @@
       else { pc.className='att-callout ok'; pc.innerHTML='✓ 現在ちょうど標準どおり（完了日の所定 '+fmtDur(st.reqSettled)+' / 実績 '+fmtDur(st.workedSettled)+'）。'; }
     }
 
-    // 残り勤務日の1日あたり目安（今日の実働は二重に引かない）
+    // 残り勤務日の1日あたり目安（今日の実働は二重に引かない／全休日は働く日に数えない）
     var tRec=R[ymd(today)]||{};
     var nowMM=(new Date()).getHours()*60+(new Date()).getMinutes();
     var todaySettled = R[ymd(today)] && !openSession(tRec) && (getSessions(tRec).length || (tRec.manualWork!=null&&tRec.manualWork!=='') || (tRec.leave&&tRec.leave!=='none') || tRec.holiday);
     var todaySched = isScheduled(today);
-    var rdAll = remainWorkDays(seg, today);                         // 今日を含む残り所定日数
-    var rdOpen = rdAll - ((todaySettled && todaySched) ? 1 : 0);    // まだ働く日（今日が退勤済みなら除く）
-    var futureReq = Math.max(0, required - st.workedSettled);       // 残り日で必要な総量（今日の未労働分を含む）
+    var tkey=ymd(today);
+    // 残り勤務日（今日〜期末）。全休の日・退勤済みの今日は「まだ働く日」に数えない
+    var rdOpen=0, _d=new Date(today), _end=new Date(seg.end);
+    while(_d<=_end){
+      if(isScheduled(_d)){
+        var _rec=R[ymd(_d)];
+        var _full=_rec && _rec.leave==='full';
+        var _isTd=(ymd(_d)===tkey);
+        if(!_full && !(_isTd && todaySettled)) rdOpen++;
+      }
+      _d.setDate(_d.getDate()+1);
+    }
+    var todayIsWork = todaySched && !todaySettled && !(tRec.leave==='full');
+    var futureReq = Math.max(0, required - st.workedSettled);       // 残り日で必要な総量（有給控除後・今日の未労働分を含む）
     var perDay = rdOpen>0 ? Math.ceil(futureReq/rdOpen) : futureReq;
     var todayActual = actualWork(tRec, nowMM);
     var todayRemain = Math.max(0, perDay - todayActual);
+    var restDays = rdOpen - (todayIsWork ? 1 : 0);
+
+    function paceBreak(label, total){
+      var s = label+' <b>'+fmtDurJ(total)+'</b>。';
+      if(todayIsWork){
+        s += '今日はあと <b>'+fmtDur(todayRemain)+'</b>';
+        if(restDays>0) s += '、以降は1日 約 <b>'+fmtDur(perDay)+'</b>ペース（あと'+restDays+'日）';
+        s += '。';
+      } else {
+        s += '残り '+rdOpen+'日、1日 約 <b>'+fmtDur(perDay)+'</b>。';
+      }
+      return s;
+    }
 
     var co=$(ids.call);
     if(seg.kind==='over'){
       if(remain<=0){ co.className='att-callout ok'; co.innerHTML='✓ 必要(有給控除後)を <b>'+fmtDur(-remain)+'</b> 超過。20日締めはクリアです。'; }
-      else{
-        co.className='att-callout need';
-        co.innerHTML='期間トータルで あと <b>'+fmtDurJ(remain)+'</b>。残り勤務 '+rdAll+'日 → 1日の目安 約 <b>'+fmtDur(perDay)+'</b>'
-          +((todaySched && !todaySettled)?('（本日はあと '+fmtDur(todayRemain)+'）'):'')+'。';
-      }
+      else{ co.className='att-callout need'; co.innerHTML=paceBreak('期間トータルの残り', remain); }
     } else {
       if(Math.abs(diff)<=15){ co.className='att-callout ok'; co.innerHTML='ほぼ標準ちょうど（差 '+fmtDur(diff)+'）。良いペースです。'; }
       else if(diff>15){ co.className='att-callout over'; co.innerHTML='標準より <b>'+fmtDurJ(diff)+'</b> 多め。残業を抑えるなら、この期間はペースダウンを。'; }
-      else{ co.className='att-callout need'; co.innerHTML='期間トータルで標準まで あと <b>'+fmtDurJ(-diff)+'</b>（残り '+rdAll+'日 → 1日 約 '+fmtDur(perDay)+'）。'; }
+      else{ co.className='att-callout need'; co.innerHTML=paceBreak('標準まで あと', -diff); }
     }
 
     // finish（primary のみ、今日の目安）
@@ -21503,6 +21598,7 @@
         else{ fin.innerHTML='標準に到達済み（差 '+fmtDur(diff)+'）。これ以上は残業。区切りどきです。'; }
         return;
       }
+      if(tRec.leave==='full'){ fin.innerHTML='本日は全休です。次の勤務日は 1日 約 '+fmtDur(perDay)+' が目安。'; return; }
       if(todaySettled){ fin.innerHTML='本日は退勤済み（実働 '+fmtDur(todayActual)+'）。明日以降 1日 約 '+fmtDur(perDay)+' が目安です。'; return; }
       if(!todaySched){ fin.innerHTML='本日は所定労働日ではありません。次の勤務日は 1日 約 '+fmtDur(perDay)+' が目安。'; return; }
       var op=openSession(tRec);
@@ -21897,6 +21993,10 @@
 .wt-didit{flex:none;border:none;background:#12a150;color:#fff;font-size:13px;font-weight:800;border-radius:11px;padding:9px 14px;cursor:pointer;font-family:inherit}
 .wt-didit:active{transform:scale(.95)}
 .wt-notifyask{width:100%;margin-top:2px;border:1px dashed #e3c7ad;background:#fffaf5;color:#b5732a;font-size:12px;font-weight:700;border-radius:10px;padding:8px;cursor:pointer;font-family:inherit}
+.wt-cnt2{flex:none;font-size:10px;font-weight:800;color:#8a86a0;background:#efeef6;border-radius:6px;padding:1px 6px;margin-left:6px}
+.wt-more{width:100%;margin-top:6px;border:none;background:#f3f2f8;color:#6c5ce7;font-size:12px;font-weight:800;border-radius:10px;padding:9px;cursor:pointer;font-family:inherit}
+.wt-scope{flex:none;border:1px solid #e3e0ee;background:#fff;color:#6c5ce7;font-size:10px;font-weight:800;border-radius:8px;padding:3px 8px;cursor:pointer;font-family:inherit;margin-left:auto}
+.wt-head .wt-scope + .cnt{margin-left:6px}
 /* reschedule popup */
 #wtResched{position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 30);display:none;align-items:flex-end;justify-content:center;background:rgba(20,18,30,.4)}
 #wtResched.open{display:flex}
@@ -21942,7 +22042,9 @@
   function loadMeta(){ try{ return JSON.parse(localStorage.getItem(META)||'{}')||{}; }catch(e){ return {}; } }
   function saveMeta(m){ try{ localStorage.setItem(META, JSON.stringify(m)); }catch(e){} }
 
-  function isWork(t){ return t && t['(B)種類']==='仕事' && !t['(A)done'] && t._type!=='repeat'; }
+  function isWork(t){ return t && t['(B)種類']==='仕事' && !t['(A)done']
+      && t._type!=='repeat' && t._type!=='repeat_ended'
+      && !t._habitTemplateId && !t._repeatConfig && !t._pseudo; }
 
   // ---- ストリーク・ガード（連続記録が今日で途切れそうな習慣）----
   function todayYmd(){ var d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
@@ -22009,20 +22111,30 @@
     return { difficulty:diff, deadline:iso(dl), full:full?iso(full):null, manual:false };
   }
 
-  // 仕事タスクにメタ（締め切り）を用意。無ければ自動付与。
-  function ensureMeta(){
-    var tasks=loadTasks(), meta=loadMeta(), changed=false;
-    var ids={};
+  // 仕事タスクにメタ（締め切り）を用意。無ければ自動付与。繰り返し・重複名は除外。
+  function collectWorkItems(){
+    var tasks=loadTasks(), meta=loadMeta(), changed=false, ids={};
+    // 未完了の仕事タスクの名前カウント（同名が何度も出る＝繰り返し/routineとみなす）
+    var counts={};
+    tasks.forEach(function(t){ if(isWork(t)){ var k=(t.name||'').trim(); counts[k]=(counts[k]||0)+1; } });
+    var items=[];
     tasks.forEach(function(t){
       if(!isWork(t)) return;
+      var k=(t.name||'').trim();
+      if((counts[k]||0)>=3) return;                 // 繰り返し・重複は出さない
+      if(deadlineScope==='flagged'){                 // 「締め切り指定のみ」モード
+        var kikan = t['(B)実行期間']||'';
+        if(!/締切|締め切り/.test(kikan)) return;
+      }
       ids[t.id]=true;
       if(!meta[t.id] || !meta[t.id].deadline){ meta[t.id]=assignDeadline(t); changed=true; }
+      items.push({ t:t, meta:meta[t.id], dl:parseISO(meta[t.id].deadline) });
     });
-    // 完了/削除されたタスクのメタは掃除
     Object.keys(meta).forEach(function(id){ if(!ids[id]){ delete meta[id]; changed=true; } });
     if(changed) saveMeta(meta);
-    return meta;
+    return items;
   }
+  function ensureMeta(){ collectWorkItems(); return loadMeta(); }
 
   function fmtCountdown(ms){
     var neg=ms<0; var m=Math.abs(ms)/60000;
@@ -22034,6 +22146,10 @@
   function proximity(ms){ if(ms<0) return 'over'; var h=ms/3600000; if(h<=2) return 'now'; if(h<=24) return 'soon'; return 'ok'; }
 
   var mount=null;
+  var wtExpanded=false;
+  var deadlineScope = (function(){ try{ return localStorage.getItem('wtDeadlineScope')||'all'; }catch(e){ return 'all'; } })(); // 'all' | 'flagged'
+  function setScope(v){ deadlineScope=v; try{ localStorage.setItem('wtDeadlineScope', v); }catch(e){} render(); }
+  window.wtSetScope=setScope;
   function ensureMount(){
     var rs=document.getElementById('routineScreen'); if(!rs) return null;
     if(mount && mount.parentNode===rs) return mount;
@@ -22043,13 +22159,18 @@
     return mount;
   }
 
+  function hasNonRecurringWork(){
+    var tasks=loadTasks(); var counts={};
+    tasks.forEach(function(t){ if(isWork(t)){ var k=(t.name||'').trim(); counts[k]=(counts[k]||0)+1; } });
+    return tasks.some(function(t){ return isWork(t) && (counts[(t.name||'').trim()]||0)<3; });
+  }
+
   function render(){
     var m=ensureMount(); if(!m) return;
-    var meta=ensureMeta(); var tasks=loadTasks();
-    var items=[];
-    tasks.forEach(function(t){ if(isWork(t) && meta[t.id] && meta[t.id].deadline){ items.push({ t:t, meta:meta[t.id], dl:parseISO(meta[t.id].deadline) }); } });
+    var items=collectWorkItems();
     var risks=atRiskHabits();
-    if(!items.length && !risks.length){ m.innerHTML=''; return; }
+    var showWork = items.length>0 || (deadlineScope==='flagged' && hasNonRecurringWork());
+    if(!showWork && !risks.length){ m.innerHTML=''; return; }
     var html='';
 
     // 連続記録ガード（最優先で上に）
@@ -22069,30 +22190,48 @@
     }
 
     // 仕事の締め切りリスト
-    if(items.length){
+    if(showWork){
       items.sort(function(a,b){ return (a.dl?a.dl.getTime():9e15)-(b.dl?b.dl.getTime():9e15); });
+      // 同名はまとめる（繰り返し由来の重複対策）。代表は締切が最も近いもの。
+      var byName={}, groups=[];
+      items.forEach(function(it){
+        var key=(it.t.name||'(無題)').trim();
+        if(byName[key]){ byName[key].count++; return; }
+        var g={ rep:it, count:1 }; byName[key]=g; groups.push(g);
+      });
       var now=Date.now();
+      var LIMIT=5;
+      var visible = wtExpanded ? groups : groups.slice(0, LIMIT);
+      var hidden = groups.length - visible.length;
       html+='<div class="wt-card"><div class="wt-head"><div class="t">'
         +'<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 7v5l3 2"/></svg>仕事のやることリスト</div>'
-        +'<span class="cnt">'+items.length+'件</span></div><div class="wt-list">';
-      items.forEach(function(it){
-        var ms=it.dl.getTime()-now; var prox=proximity(ms);
+        +'<button class="wt-scope" data-scope="'+(deadlineScope==='all'?'flagged':'all')+'">'+(deadlineScope==='all'?'すべて':'締切指定のみ')+'</button>'
+        +'<span class="cnt">'+groups.length+'種類</span></div><div class="wt-list">';
+      if(!groups.length){
+        html+='<div class="wt-empty">「締切指定のみ」表示中。締め切りを付けた仕事だけがここに出ます（右上の切替で全部表示）。</div>';
+      }
+      visible.forEach(function(g){
+        var it=g.rep; var ms=it.dl.getTime()-now; var prox=proximity(ms);
         var rowcls = prox==='over'?'overdue':(prox==='now'?'due-now':(prox==='soon'?'due-soon':''));
         var ccls = prox==='over'?'c-over':(prox==='now'?'c-now':(prox==='soon'?'c-soon':'c-ok'));
         var diff=it.meta.difficulty||'normal';
         var dlabel={easy:'かんたん',normal:'ふつう',hard:'むずかしい'}[diff];
         var name=esc(it.t.name||'(無題)');
+        var cntBadge = g.count>1 ? '<span class="wt-cnt2">×'+g.count+'</span>' : '';
         var fullTxt='';
         if(diff==='hard' && it.meta.full){ var f=parseISO(it.meta.full); if(f) fullTxt='<span class="wt-full">完成 '+(f.getMonth()+1)+'/'+f.getDate()+'</span>'; }
         html+='<div class="wt-row '+rowcls+'" data-open="'+it.t.id+'">'
-          +'<button class="wt-check" data-done="'+it.t.id+'" title="完了"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></button>'
-          +'<div class="wt-body"><div class="wt-name">'+(diff==='hard'?'まず15分だけ ':'')+name+'</div>'
+          +'<button class="wt-check" data-done="'+it.t.id+'" data-name="'+esc(it.t.name||'')+'" title="完了"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></button>'
+          +'<div class="wt-body"><div class="wt-name">'+(diff==='hard'?'まず15分だけ ':'')+name+cntBadge+'</div>'
           +'<div class="wt-meta"><span class="wt-count '+ccls+'">'+fmtCountdown(ms)+'</span>'
           +'<span class="wt-diff d-'+diff+'">'+dlabel+'</span>'+fullTxt+'</div></div>'
           +'<button class="wt-resched" data-rc="'+it.t.id+'">期限</button>'
           +'</div>';
       });
-      html+='</div></div>';
+      html+='</div>';
+      if(hidden>0){ html+='<button class="wt-more" data-more="1">ほか '+hidden+' 種類を表示</button>'; }
+      else if(wtExpanded && groups.length>LIMIT){ html+='<button class="wt-more" data-more="0">上位だけ表示に戻す</button>'; }
+      html+='</div>';
     }
 
     m.innerHTML=html;
@@ -22115,17 +22254,40 @@
     });
     [].forEach.call(m.querySelectorAll('.wt-check'), function(b){
       b.addEventListener('click', function(e){ e.stopPropagation(); var id=b.getAttribute('data-done');
+        var nm=b.getAttribute('data-name')||'このタスク';
         if(typeof window.toggleTaskDone==='function'){ window.toggleTaskDone(id); }
+        wtToast('「'+nm+'」を完了にしました', function(){ if(typeof window.toggleTaskDone==='function'){ window.toggleTaskDone(id); } setTimeout(render,30); });
         setTimeout(render, 30);
       });
     });
     [].forEach.call(m.querySelectorAll('.wt-resched'), function(b){
       b.addEventListener('click', function(e){ e.stopPropagation(); openResched(b.getAttribute('data-rc')); });
     });
+    var more=m.querySelector('.wt-more');
+    if(more){ more.addEventListener('click', function(){ wtExpanded=(more.getAttribute('data-more')==='1'); render(); }); }
+    var scopeBtn=m.querySelector('.wt-scope');
+    if(scopeBtn){ scopeBtn.addEventListener('click', function(e){ e.stopPropagation(); setScope(scopeBtn.getAttribute('data-scope')); }); }
 
     maybeNotify(risks);
   }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  // 取り消しトースト
+  var wtToastEl=null, wtToastT=null;
+  function wtToast(msg, undoFn){
+    if(!wtToastEl){ wtToastEl=document.createElement('div'); wtToastEl.id='wtToast';
+      wtToastEl.style.cssText='position:fixed;left:50%;bottom:calc(var(--navh,60px) + 16px);transform:translateX(-50%);background:#2d2b3a;color:#fff;font-size:13px;font-weight:600;padding:10px 12px 10px 16px;border-radius:12px;z-index:var(--z-toast,9800);display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:92vw';
+      document.body.appendChild(wtToastEl);
+    }
+    wtToastEl.innerHTML='<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(msg)+'</span>';
+    if(undoFn){ var b=document.createElement('button'); b.textContent='取り消す';
+      b.style.cssText='flex:none;border:none;background:#6c5ce7;color:#fff;font-weight:800;font-size:13px;border-radius:9px;padding:7px 12px;cursor:pointer;font-family:inherit';
+      b.onclick=function(){ try{ undoFn(); }catch(e){} if(wtToastEl) wtToastEl.style.display='none'; };
+      wtToastEl.appendChild(b);
+    }
+    wtToastEl.style.display='flex';
+    clearTimeout(wtToastT); wtToastT=setTimeout(function(){ if(wtToastEl) wtToastEl.style.display='none'; }, 6000);
+  }
 
   // ---- reschedule ----
   var rcId=null;
