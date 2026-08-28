@@ -21014,16 +21014,11 @@
       <div class="att-today-total" id="attTodayTotal"></div>
     </div>
 
-    <!-- 表示モード切替 -->
-    <div class="att-mode-toggle" id="attModeToggle">
-      <button data-mode="month">暦月（1ヶ月）</button>
-      <button data-mode="shime">会社の締め</button>
-    </div>
-
-    <!-- リアルタイム ステータス（対象締めに合わせる） -->
+    <!-- 暦月（1ヶ月）のステータス -->
     <div class="att-card att-status" id="attStatusCard1">
-      <h3><span id="attStatusTitle">いま何時間足りない？</span> <span class="tag" id="attTgtTag">--</span></h3>
+      <h3>この1ヶ月、あと何時間？ <span class="tag" id="attTgtTag">--</span></h3>
       <div class="att-period" id="attPeriod"></div>
+      <div style="margin:2px 0 8px"><button class="att-sbtn" id="attMonthEdit" style="font-size:11px;padding:5px 10px">✎ 必要時間を手動設定（申請値に合わせる）</button></div>
       <div class="att-callout" id="attPace" style="margin-top:0;margin-bottom:10px"></div>
       <div class="att-bar"><i id="attBar" style="width:0%"></i></div>
       <div class="att-nums">
@@ -21035,9 +21030,9 @@
       <div class="att-finish" id="attFinish"></div>
     </div>
 
-    <!-- もう一方の締め -->
+    <!-- 20日締め -->
     <div class="att-card att-status" id="attStatusCard2">
-      <h3>もう一方の締め <span class="tag" id="attTgt2Tag">--</span></h3>
+      <h3>20日締め（会社） <span class="tag" id="attTgt2Tag">--</span></h3>
       <div class="att-period" id="attPeriod2"></div>
       <div class="att-callout" id="attPace2" style="margin-top:0;margin-bottom:10px"></div>
       <div class="att-nums">
@@ -21493,31 +21488,60 @@
       + (leaveCredit(rec.leave)>0?' <span style="color:#8e8b9e;font-size:11px">(有給 +'+fmtDur(leaveCredit(rec.leave))+'含む)</span>':'');
   }
 
-  var statusMode = (function(){ try{ return localStorage.getItem('attStatusMode')||'month'; }catch(e){ return 'month'; } })(); // 'month' | 'shime'
+  function monthKey(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1); }
+  function loadMonthTargets(){ try{ return JSON.parse(localStorage.getItem('attMonthTarget')||'{}')||{}; }catch(e){ return {}; } }
+  function saveMonthTargets(o){ try{ localStorage.setItem('attMonthTarget', JSON.stringify(o)); }catch(e){} }
+  function monthOverride(d){ var t=loadMonthTargets(); var v=t[monthKey(d)]; return (v!=null&&v!=='')?num(v):null; }
   function monthSeg(today){
     var y=today.getFullYear(), m=today.getMonth();
     var start=new Date(y,m,1), end=new Date(y,m,lastDayOfMonth(y,m));
-    return { start:start, end:end, target:new Date(end), kind:'near', ot:0, _month:true };
+    var seg={ start:start, end:end, target:new Date(end), kind:'near', ot:0, _month:true };
+    var ov=monthOverride(today); if(ov!=null) seg._override=ov;
+    return seg;
   }
   function renderStatus(){
     var today=new Date(); today.setHours(0,0,0,0);
-    var tog=$('attModeToggle');
-    if(tog){ [].forEach.call(tog.children,function(b){ b.className=(b.getAttribute('data-mode')===statusMode)?'on':''; }); }
-    var c2=$('attStatusCard2');
-    if(statusMode==='month'){
-      if($('attStatusTitle')) $('attStatusTitle').textContent='この1ヶ月、あと何時間？';
-      if(c2) c2.style.display='none';
-      var seg=monthSeg(today);
-      fillStatus(seg, today, { tag:'attTgtTag', period:'attPeriod', pace:'attPace', bar:'attBar', need:'attNeed', done:'attDone', diff:'attDiff', call:'attCallout', finish:'attFinish' }, true);
-    } else {
-      if($('attStatusTitle')) $('attStatusTitle').textContent='いま何時間足りない？';
-      if(c2) c2.style.display='';
-      var T=targetsFor(today);
-      fillStatus(T.primary, today, { tag:'attTgtTag', period:'attPeriod', pace:'attPace', bar:'attBar', need:'attNeed', done:'attDone', diff:'attDiff', call:'attCallout', finish:'attFinish' }, true);
-      fillStatus(T.other, today, { tag:'attTgt2Tag', period:'attPeriod2', pace:'attPace2', need:'attNeed2', done:'attDone2', diff:'attDiff2', call:'attCallout2' }, false);
-    }
+    // カード1：暦月（8/1〜8/31）
+    fillStatus(monthSeg(today), today, { tag:'attTgtTag', period:'attPeriod', pace:'attPace', bar:'attBar', need:'attNeed', done:'attDone', diff:'attDiff', call:'attCallout', finish:'attFinish' }, true);
+    // カード2：20日締め（会社）
+    var T=targetsFor(today);
+    var seg20 = (T.primary.kind==='over') ? T.primary : T.other;
+    fillStatus(seg20, today, { tag:'attTgt2Tag', period:'attPeriod2', pace:'attPace2', need:'attNeed2', done:'attDone2', diff:'attDiff2', call:'attCallout2' }, false);
   }
-  function setStatusMode(v){ statusMode=v; try{ localStorage.setItem('attStatusMode', v); }catch(e){} renderStatus(); }
+
+  // 20日締めの「残りを消化するのに必要な1日あたり」を算出
+  function seg20PerDay(today){
+    var T=targetsFor(today);
+    var seg20=(T.primary.kind==='over')?T.primary:T.other;
+    var st=segStats(seg20, today);
+    var required=st.reqTotal;
+    var tkey=ymd(today), trec=R[tkey]||{};
+    var todaySettled = R[tkey] && !openSession(trec) && (getSessions(trec).length || (trec.manualWork!=null&&trec.manualWork!=='') || (trec.leave&&trec.leave!=='none') || trec.holiday);
+    var rdOpen=0, d=new Date(today), end=new Date(seg20.end);
+    while(d<=end){ if(isScheduled(d)){ var rec=R[ymd(d)]; var full=rec&&rec.leave==='full'; var isTd=(ymd(d)===tkey); if(!full && !(isTd&&todaySettled)) rdOpen++; } d.setDate(d.getDate()+1); }
+    var futureReq=Math.max(0, required - st.workedSettled);
+    return { perDay: (rdOpen>0?Math.ceil(futureReq/rdOpen):futureReq), rdOpen:rdOpen, remain:Math.max(0,required-st.worked) };
+  }
+  // 記録時：20日締めが1日9時間以上ペースになっていたら警告
+  function check20Heavy(){
+    try{
+      var today=new Date(); today.setHours(0,0,0,0);
+      var r=seg20PerDay(today);
+      if(r.perDay>=540 && r.rdOpen>0){
+        warnBar('⚠️ 20日締め：このままだと残りは1日 約'+fmtDur(r.perDay)+' 必要（9時間超ペース）。残り勤務 '+r.rdOpen+'日で '+fmtDurJ(r.remain)+'。');
+      }
+    }catch(e){}
+  }
+  // 目立つ警告バー（上部・要タップ or 12秒で消える）
+  function warnBar(msg){
+    var ex=document.getElementById('attWarnBar'); if(ex) ex.remove();
+    var b=document.createElement('div'); b.id='attWarnBar';
+    b.style.cssText='position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 14px);transform:translateX(-50%);z-index:calc(var(--z-toast,9800) + 10);background:#e5484d;color:#fff;font-weight:800;font-size:13px;line-height:1.4;padding:12px 14px;border-radius:12px;box-shadow:0 6px 22px rgba(0,0,0,.3);max-width:92vw;display:flex;align-items:center;gap:12px;font-family:inherit';
+    b.innerHTML='<span style="flex:1">'+msg+'</span><button style="flex:none;border:none;background:rgba(255,255,255,.25);color:#fff;font-weight:800;border-radius:9px;padding:8px 12px;cursor:pointer;font-family:inherit">OK</button>';
+    b.querySelector('button').onclick=function(){ if(b.parentNode) b.remove(); };
+    document.body.appendChild(b);
+    setTimeout(function(){ if(b.parentNode) b.remove(); }, 12000);
+  }
 
   // セグメント統計：有給を所定から差し引く。過不足は「完了日」ベース（公式と同じ）。
   function segStats(seg, today){
@@ -21546,10 +21570,15 @@
     }
     var reqTotal=Math.max(0, schedTotal*base + seg.ot - leaveTotal);      // 期間・目標残業(バッファ)込み
     var reqSettled=Math.max(0, schedSettled*base - leaveSettled);         // 完了日・標準(バッファ無し)＝公式相当
+    // 手動で月の必要時間を指定している場合はそれを総合として使い、完了日ぶんは所定日数で按分
+    if(seg._override!=null){
+      reqTotal=Math.max(0, seg._override);
+      reqSettled=Math.max(0, schedTotal>0 ? Math.round(seg._override*(schedSettled/schedTotal)) : seg._override);
+    }
     return { schedTotal:schedTotal, leaveTotal:leaveTotal, base:base,
              reqTotal:reqTotal, worked:worked,
              schedSettled:schedSettled, reqSettled:reqSettled, workedSettled:workedSettled,
-             started:(today>=seg.start) };
+             started:(today>=seg.start), override:(seg._override!=null) };
   }
 
   function fillStatus(seg, today, ids, primary){
@@ -21561,7 +21590,8 @@
     var daysLeft=Math.round((seg.target-today)/86400000);
     $(ids.tag).textContent=(seg.target.getMonth()+1)+'/'+seg.target.getDate()+' まで'+(daysLeft>0?(' あと'+daysLeft+'日'):(daysLeft===0?' 本日':' 経過'));
     $(ids.period).textContent='対象期間 '+(seg.start.getMonth()+1)+'/'+seg.start.getDate()+' 〜 '+(seg.end.getMonth()+1)+'/'+seg.end.getDate()
-      +'（所定 '+st.schedTotal+'日'+(st.leaveTotal>0?(' − 有給 '+fmtDur(st.leaveTotal)):'')+(seg.ot?(' ＋目標残業'+fmtDur(seg.ot)):'')+'）';
+      +'（所定 '+st.schedTotal+'日'+(st.leaveTotal>0?(' − 有給 '+fmtDur(st.leaveTotal)):'')+(seg.ot?(' ＋目標残業'+fmtDur(seg.ot)):'')+'）'
+      +(st.override?(' ・必要=手動 '+fmtDur(required)):'');
     if($(ids.need)) $(ids.need).textContent=fmtDur(required);
     if($(ids.done)) $(ids.done).textContent=fmtDur(done);
     var dv=$(ids.diff);
@@ -21774,14 +21804,22 @@
   function endWork(){
     var rec=ensureToday(); ensureSessions(rec); var op=curOpen(rec);
     if(!op){ toast('勤務中ではありません'); return; }
-    op.out=nowHM(); saveRec(R); render(); toast('退勤 '+op.out);
+    op.out=nowHM(); saveRec(R); render(); toast('退勤 '+op.out); check20Heavy();
   }
 
   function bindToday(){
     $('attManual').onclick=function(){ openEdit(todayKey); };
     var ab=$('attAddBtn'); if(ab) ab.onclick=function(){ var k=$('attAddDate').value; if(!k){ toast('日付を選んでください'); return; } openEdit(k); };
-    var tog=$('attModeToggle');
-    if(tog){ [].forEach.call(tog.children,function(b){ b.onclick=function(){ setStatusMode(b.getAttribute('data-mode')); }; }); }
+    var me=$('attMonthEdit');
+    if(me) me.onclick=function(){
+      var d=new Date(); var cur=monthOverride(d);
+      var inp=prompt('この月（'+(d.getMonth()+1)+'月）の必要時間を手動設定\n例: 125h または 125:00\n（空欄にすると自動計算に戻します）', cur!=null?fmtDur(cur):'');
+      if(inp===null) return;
+      var t=loadMonthTargets(), k=monthKey(d);
+      if(String(inp).trim()===''){ delete t[k]; toast('自動計算に戻しました'); }
+      else { var mn=parseWork(inp); if(mn==null){ toast('形式が不正です（例: 125h / 125:00）'); return; } t[k]=mn; toast('必要時間を '+fmtDur(mn)+' に設定'); }
+      saveMonthTargets(t); render();
+    };
   }
 
   // ============ day editor ============
@@ -21856,7 +21894,7 @@
         if(last){ rec.loc=last.loc; rec.locType=last.locType; } // 表示用ミラー
         R[editKey]=rec;
       }
-      saveRec(R); $('attEdit').classList.remove('open'); render(); toast('保存しました');
+      saveRec(R); $('attEdit').classList.remove('open'); render(); toast('保存しました'); check20Heavy();
     };
     $('edDelete').onclick=function(){ if(!confirm('この日の記録を削除しますか？')) return; delete R[editKey]; saveRec(R); $('attEdit').classList.remove('open'); render(); toast('削除しました'); };
   }
