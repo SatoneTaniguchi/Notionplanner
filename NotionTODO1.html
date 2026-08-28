@@ -20953,6 +20953,12 @@
 .att-cal-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px}
 .att-cal-nav button{border:none;background:#f2f1f7;color:#5a5768;width:34px;height:34px;border-radius:10px;font-size:18px;cursor:pointer;font-family:inherit}
 .att-cal-nav #attCalTitle{font-size:15px;font-weight:800;color:#2d2b3a;min-width:120px;text-align:center}
+.att-month-total{margin-top:10px;background:#f3f2fb;border:1px solid #e7e4f4;border-radius:12px;padding:10px 12px}
+.att-month-total .mt-h{font-size:12px;color:#6c5ce7;font-weight:800;margin-bottom:6px}
+.att-month-total .mt-row{display:flex;gap:8px;flex-wrap:wrap}
+.att-month-total .mt-box{flex:1;min-width:90px;background:#fff;border-radius:9px;padding:7px 9px;text-align:center}
+.att-month-total .mt-box .k{font-size:10px;color:#8e8b9e;font-weight:700}
+.att-month-total .mt-box .v{font-size:16px;font-weight:800;color:#2d2b3a}
 .att-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .att-cal-wd{text-align:center;font-size:11px;font-weight:700;color:#a7a4b6;padding:2px 0}
 .att-cal-cell{aspect-ratio:1/1;border:1px solid #eeecf6;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:3px 1px 2px;cursor:pointer;overflow:hidden;position:relative}
@@ -21078,6 +21084,7 @@
           <button id="attCalNext">›</button>
         </div>
         <div class="att-cal-grid" id="attCalGrid"></div>
+        <div class="att-month-total" id="attMonthTotal"></div>
         <div class="att-sub" style="margin-top:8px">日付をタップ → 勤務地・勤務時間・有給をワンタッチ入力。数字は実働、緑は有給、灰色は休日。</div>
       </div>
     </div>
@@ -21658,9 +21665,16 @@
     });
     var first=new Date(y,m,1), startDow=first.getDay(), last=lastDayOfMonth(y,m);
     var tk=ymd(new Date());
+    var moWork=0, moLeaveMin=0, moLeaveDays=0, moWorkDays=0;   // その月の集計
     for(var i=0;i<startDow;i++){ var e=document.createElement('div'); e.className='att-cal-cell empty'; grid.appendChild(e); }
     for(var day=1; day<=last; day++){
       var d=new Date(y,m,day), key=ymd(d), rec=R[key];
+      // 月合計の集計（実働・有給）
+      if(rec){
+        var w=(key===tk)?actualWork(rec, (new Date()).getHours()*60+(new Date()).getMinutes()):actualWork(rec);
+        if(w>0){ moWork+=w; moWorkDays++; }
+        var lc=leaveCredit(rec.leave); if(lc>0){ moLeaveMin+=lc; moLeaveDays++; }
+      }
       var cell=document.createElement('div'); cell.className='att-cal-cell';
       var wd=d.getDay(); if(wd===0) cell.classList.add('sun'); if(wd===6) cell.classList.add('sat');
       var hn=jpHolidayName(d); if((S.jphol&&hn)||(rec&&rec.holiday)) cell.classList.add('holi');
@@ -21675,6 +21689,16 @@
       cell.innerHTML='<span class="dn">'+day+'</span>'+cv+dot;
       (function(k){ cell.onclick=function(){ openEdit(k); }; })(key);
       grid.appendChild(cell);
+    }
+    // 月合計カード（正規アプリの1ヶ月総合に対応）
+    var mt=$('attMonthTotal');
+    if(mt){
+      mt.innerHTML='<div class="mt-h">'+(m+1)+'月（'+(m+1)+'/1〜'+(m+1)+'/'+last+'）の合計</div>'
+        +'<div class="mt-row">'
+        +'<div class="mt-box"><div class="k">実働合計</div><div class="v">'+fmtDur(moWork)+'</div></div>'
+        +'<div class="mt-box"><div class="k">実働+有給</div><div class="v">'+fmtDur(moWork+moLeaveMin)+'</div></div>'
+        +'<div class="mt-box"><div class="k">出勤 / 有給</div><div class="v">'+moWorkDays+' / '+moLeaveDays+'日</div></div>'
+        +'</div>';
     }
   }
 
@@ -21944,6 +21968,9 @@
     window.closeAttendanceScreen=close;
     window.attQuickClockIn=attQuickClockIn;
     window.__attIsHoliday=function(d){ try{ return isJpHoliday(d); }catch(e){ return false; } };
+    // 下部ナビを押したら勤怠オーバーレイを閉じてから画面遷移（被さって「移動しない」問題の対策）
+    var _nav=document.getElementById('bottomNav');
+    if(_nav){ _nav.addEventListener('click', function(){ var ov=$('attOverlay'); if(ov && ov.classList.contains('open')) close(); }, true); }
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
