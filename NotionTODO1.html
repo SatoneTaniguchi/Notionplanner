@@ -15319,31 +15319,39 @@
   }
   function _itemTime(t){ try { var d=t['(A)実行日']; if(d&&d.start&&String(d.start).length>10) return String(d.start).substring(11,16); }catch(e){} return ''; }
 
-  // 指定日の予定（タスク＋習慣＋取得済みGoogleイベント）
+  // 指定日の予定（タスク＋習慣＋取得済みGoogleイベント）※重複除去つき
   function scheduleItemsForDate(date){
     var ds = date.toDateString();
-    var items = [];
+    var map = {}; var order = [];
+    function add(it){
+      var key = (it.time||'') + '|' + it.name + '|' + (it.ev?'e':'t');
+      if (map[key]){ if (it.done) map[key].done = true; return; }
+      map[key] = it; order.push(key);
+    }
     try {
       (tasks||[]).forEach(function(t){
         if (!t || !t.name) return;
         if (t._type==='later' || t._projectOnly) return;
         if (t._type==='repeat' || t._type==='repeat_ended'){
           try { if (typeof habitOccursOn==='function' && habitOccursOn(t, date)){
-            items.push({ name:t.name, cat:t['(B)種類']||'', time:_itemTime(t),
+            add({ name:t.name, cat:t['(B)種類']||'', time:_itemTime(t),
               done:(typeof isHabitDoneOn==='function' && isHabitDoneOn(t.id, _dayYmd(date))), ev:false });
           }} catch(e){}
           return;
         }
+        // 習慣インスタンス（テンプレ由来）はテンプレ側で拾うのでスキップ（二重防止）
+        if (t._habitTemplateId) return;
         if (getDateString(t) !== ds) return;
-        items.push({ name:t.name, cat:t['(B)種類']||'', time:_itemTime(t),
+        add({ name:t.name, cat:t['(B)種類']||'', time:_itemTime(t),
           done:(typeof taskDisplayDone==='function' ? taskDisplayDone(t, date) : !!t['(A)done']), ev:false });
       });
     } catch(e){}
     try {
       (gcalEvents[ds]||[]).forEach(function(e){
-        items.push({ name:e.title||'予定', cat:'__gcal', time:(e.startTime||'').slice(0,5), done:false, ev:true });
+        add({ name:e.title||'予定', cat:'__gcal', time:(e.startTime||'').slice(0,5), done:false, ev:true });
       });
     } catch(e){}
+    var items = order.map(function(k){ return map[k]; });
     items.sort(function(a,b){ if(a.time&&b.time) return a.time<b.time?-1:1; if(a.time) return -1; if(b.time) return 1; return 0; });
     return items;
   }
@@ -15367,23 +15375,26 @@
     for (var day=1; day<=last; day++){
       var d = new Date(y, m, day), dsStr = d.toDateString();
       var items = scheduleItemsForDate(d);
-      // カテゴリ別に色ドット（最大4色）
-      var seen = {}, dots = '';
-      var nd = 0;
-      for (var i=0; i<items.length && nd<4; i++){
-        var key = items[i].ev ? '__gcal' : (items[i].cat||'雑務');
-        if (seen[key]) continue; seen[key]=true;
-        var col = items[i].ev ? '#4a90e2' : _catStyle(items[i].cat).color;
-        dots += '<span class="cvm-dot" style="background:' + col + '"></span>'; nd++;
+      var bars = '';
+      var shown = 0, maxBars = 3;
+      // 祝日を最初に緑バーで
+      var holi = null;
+      try { if (typeof window.jpHolidayName === 'function') holi = window.jpHolidayName(d); } catch(e){}
+      if (holi){ bars += '<span class="cvm-bar holi">' + _esc(holi) + '</span>'; shown++; }
+      for (var i=0; i<items.length && shown<maxBars; i++){
+        var st = items[i].ev ? { color:'#2f6fb0', bg:'#e9f3fc' } : _catStyle(items[i].cat);
+        bars += '<span class="cvm-bar' + (items[i].done?' done':'') + '" style="color:' + st.color + ';background:' + st.bg + '">' + _esc(items[i].name) + '</span>';
+        shown++;
       }
-      var more = items.length > 0 ? '<span class="cvm-cnt">' + items.length + '</span>' : '';
+      var remain = items.length - (shown - (holi?1:0));
+      if (remain > 0) bars += '<span class="cvm-more">+' + remain + '</span>';
       var cls = 'cvm-cell';
       if (d.getDay()===0) cls += ' sun'; if (d.getDay()===6) cls += ' sat';
       if (dsStr===todayStr) cls += ' today';
       if (dsStr===selStr) cls += ' sel';
       h += '<div class="' + cls + '" onclick="schedPickDay(' + y + ',' + m + ',' + day + ')">'
         + '<span class="cvm-dn">' + day + '</span>'
-        + '<span class="cvm-dots">' + dots + '</span>' + more + '</div>';
+        + '<div class="cvm-bars">' + bars + '</div></div>';
     }
     h += '</div>';
     host.innerHTML = h;
@@ -15477,18 +15488,20 @@
     + '.cvm-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px;}'
     + '.cvm-navbtn{border:none;background:#f2f1f7;color:#5a5768;width:32px;height:32px;border-radius:10px;font-size:18px;cursor:pointer;}'
     + '.cvm-title{font-size:15px;font-weight:800;color:#1c1c1e;}'
-    + '.cvm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}'
+    + '.cvm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}'
     + '.cvm-wd{text-align:center;font-size:11px;font-weight:800;color:#8e8b9e;padding:2px 0;}'
     + '.cvm-wd.sun{color:#e5857f;}.cvm-wd.sat{color:#7f9fe5;}'
-    + '.cvm-cell{aspect-ratio:1/1;border:1px solid #eeecf6;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;padding:3px 1px;cursor:pointer;position:relative;overflow:hidden;}'
+    + '.cvm-cell{min-height:64px;border:1px solid #eeecf6;border-radius:9px;background:#fff;display:flex;flex-direction:column;padding:2px 2px 3px;cursor:pointer;overflow:hidden;}'
     + '.cvm-cell.empty{border:none;background:transparent;cursor:default;}'
     + '.cvm-cell.today{border-color:#6c5ce7;box-shadow:0 0 0 1px #6c5ce7 inset;}'
     + '.cvm-cell.sel{background:#f4f2fd;}'
-    + '.cvm-dn{font-size:12px;font-weight:700;color:#2d2b3a;line-height:1.1;}'
+    + '.cvm-dn{font-size:11px;font-weight:800;color:#2d2b3a;line-height:1.1;text-align:center;}'
     + '.cvm-cell.sun .cvm-dn{color:#e5484d;}.cvm-cell.sat .cvm-dn{color:#3b6bd6;}'
-    + '.cvm-dots{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:2px;}'
-    + '.cvm-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}'
-    + '.cvm-cnt{font-size:8.5px;font-weight:700;color:#a7a4b6;position:absolute;bottom:2px;right:4px;}'
+    + '.cvm-bars{display:flex;flex-direction:column;gap:1px;margin-top:1px;min-width:0;}'
+    + '.cvm-bar{font-size:8px;font-weight:700;line-height:1.25;border-radius:3px;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.cvm-bar.holi{color:#12a150;background:#e7f7ee;}'
+    + '.cvm-bar.done{opacity:.4;text-decoration:line-through;}'
+    + '.cvm-more{font-size:8px;font-weight:800;color:#a7a4b6;padding:0 3px;}'
     + '.cvw-list{display:flex;flex-direction:column;gap:6px;}'
     + '.cvw-day{display:flex;gap:8px;background:#fff;border:1px solid #ececf2;border-radius:13px;padding:8px 10px;cursor:pointer;}'
     + '.cvw-day.today{border-color:#6c5ce7;background:#faf9ff;}'
@@ -22537,6 +22550,7 @@
     _holCache[y]=set; return set;
   }
   function jpHolidayName(d){ return holidaysForYear(d.getFullYear())[ymd(d)]||null; }
+  try { window.jpHolidayName = jpHolidayName; } catch(e){}
   function isJpHoliday(d){ return !!jpHolidayName(d); }
   // その日が「所定労働日」か（＝必要時間の対象日か）。土日・祝日・ユーザー指定休日は除外。
   function isScheduled(d){
