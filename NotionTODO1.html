@@ -15590,25 +15590,36 @@
   // ============================================================
   function _swNotionSync(t){ try { if ((notionSettings.token||notionSettings.managed) && t._notionId) notionUpdateTask(t._notionId, t); } catch(e){} }
 
-  function _swCandidates(){
+  function _swCandidates(mode){
+    mode = mode || 'sort';
     var today = new Date(); today.setHours(0,0,0,0);
     var out = [];
+    // 繰り返し（ルーチン/習慣以外も含む）テンプレの名前集合 → 同名は繰り返し扱いで除外
+    var repNames = {};
+    (tasks||[]).forEach(function(t){
+      if (t && (t._type==='repeat' || t._type==='repeat_ended' || t._repeatConfig)) repNames[String(t.name||'').trim()] = true;
+    });
     (tasks||[]).forEach(function(t){
       if (!t || !t.name) return;
       if (t._type==='repeat' || t._type==='repeat_ended') return;
-      if (t._projectOnly || t._habitTemplateId || t._repeatConfig || t._pseudo) return;
+      if (t._projectOnly || t._habitTemplateId || t._repeatConfig || t._recurringId || t._pseudo) return;
       if (typeof isRoutineKind==='function' && isRoutineKind(t)) return; // 習慣・掃除・美容は出さない
+      if (repNames[String(t.name||'').trim()]) return;                   // 繰り返しと同名も出さない
       try { if (taskDisplayDone(t, new Date())) return; } catch(e){}
       var j = t['(A)実行日'];
       var later = (t._type==='later') || !j || !j.start;
       var overdue = false, od = null;
       try { if (j && j.start){ var dd = new Date(j.start); dd.setHours(0,0,0,0); if (dd < today){ overdue = true; od = dd; } } } catch(e){}
-      if (later || overdue) out.push({ t:t, overdue:overdue, od:od, later:later });
+      if (mode === 'date'){
+        if (later) out.push({ t:t, later:true });          // 日付モード = あとで/未定のみ
+      } else {
+        if (overdue) out.push({ t:t, overdue:true, od:od }); // 仕分けモード = 期限切れのみ
+      }
     });
-    // 期限切れ（古い順）→ あとで
+    // 期限切れ（古い順）
     out.sort(function(a,b){
       if (a.overdue && b.overdue) return a.od - b.od;
-      if (a.overdue) return -1; if (b.overdue) return 1; return 0;
+      return 0;
     });
     return out.map(function(x){ return x.t; });
   }
@@ -15673,7 +15684,9 @@
       + '<div class="sw-tag del">'+m.del.ic+' '+m.del.lb+'</div><div class="sw-tag later">'+m.later.ic+' '+m.later.lb+'</div>';
   }
   window.swSetMode = function(mode){
+    if (_swMode === mode) return;
     _swMode = mode;
+    _swQueue = _swCandidates(mode); _swIdx = 0;   // モードごとに対象を組み替え（仕分け=期限切れ／日付=あとで）
     var s=document.getElementById('swModeSort'), d=document.getElementById('swModeDate');
     if(s) s.classList.toggle('on', mode==='sort'); if(d) d.classList.toggle('on', mode==='date');
     var ch=document.getElementById('swChrome'); if(ch) ch.innerHTML=_swChromeHtml();
@@ -15681,14 +15694,17 @@
   };
 
   window.openSwipeTriage = function(){
-    _swQueue = _swCandidates(); _swIdx = 0; _swMode = 'sort';
+    _swMode = 'sort';
+    _swQueue = _swCandidates('sort');
+    if (!_swQueue.length){ _swMode = 'date'; _swQueue = _swCandidates('date'); } // 期限切れが無ければ日付モードで開始
+    _swIdx = 0;
     _swCounts = { del:0, deadline:0, auto:0, later:0, date:0 };
     var ov = document.getElementById('swipeTriage');
     if (ov) ov.remove();
     ov = document.createElement('div'); ov.id = 'swipeTriage';
     ov.innerHTML = ''
       + '<div class="sw-head"><div class="sw-title">🔀 タスク整理</div>'
-      +   '<div class="sw-modes"><button id="swModeSort" class="sw-mode on" onclick="swSetMode(\'sort\')">仕分け</button><button id="swModeDate" class="sw-mode" onclick="swSetMode(\'date\')">日付</button></div>'
+      +   '<div class="sw-modes"><button id="swModeSort" class="sw-mode' + (_swMode==='sort'?' on':'') + '" onclick="swSetMode(\'sort\')">仕分け</button><button id="swModeDate" class="sw-mode' + (_swMode==='date'?' on':'') + '" onclick="swSetMode(\'date\')">日付</button></div>'
       +   '<button class="sw-close" onclick="closeSwipeTriage()">×</button></div>'
       + '<div class="sw-sub" id="swSub"></div>'
       + '<div class="sw-stack" id="swStack"></div>'
@@ -23865,10 +23881,14 @@
     // 未完了の仕事タスクの名前カウント（同名が何度も出る＝繰り返し/routineとみなす）
     var counts={};
     tasks.forEach(function(t){ if(isWork(t)){ var k=(t.name||'').trim(); counts[k]=(counts[k]||0)+1; } });
+    // 繰り返しテンプレ（ルーチン/習慣以外も含む）の名前集合 → 同名は出さない
+    var repNames={};
+    tasks.forEach(function(t){ if(t && (t._type==='repeat'||t._type==='repeat_ended'||t._repeatConfig)) repNames[(t.name||'').trim()]=true; });
     var items=[];
     tasks.forEach(function(t){
       if(!isWork(t)) return;
       var k=(t.name||'').trim();
+      if(repNames[k]) return;                        // 繰り返しと同名は出さない
       if((counts[k]||0)>=3) return;                 // 繰り返し・重複は出さない
       if(deadlineScope==='flagged'){                 // 「締め切り指定のみ」モード
         var kikan = t['(B)実行期間']||'';
