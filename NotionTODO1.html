@@ -12986,16 +12986,17 @@
         tasks.forEach(t => {
           if (!t || !t.name || t._pseudo || t._projectOnly) return;
           const j = t['(A)実行日'];
-          // 繰り返し・習慣テンプレ → 発生日ごとに開始時刻で通知
+          // 繰り返し・習慣テンプレ → 発生日ごとに通知（時刻あり=その時刻／終日=9:30）
           if (t._type==='repeat' || t._type==='repeat_ended'){
-            if (!j || !j.start || String(j.start).length <= 10) return;   // 時刻なし（終日）はスキップ
-            const hm = String(j.start).substring(11,16); const p = hm.split(':');
-            const hh = parseInt(p[0],10)||0, mm = parseInt(p[1],10)||0;
+            if (!j || !j.start) return;
+            const allDayR = String(j.start).length <= 10;
+            let rhh=9, rmm=30;
+            if (!allDayR){ const hm=String(j.start).substring(11,16), pp=hm.split(':'); rhh=parseInt(pp[0],10)||0; rmm=parseInt(pp[1],10)||0; }
             for (let d=0; d<OT_DAYS; d++){
               const day = new Date(otBase); day.setDate(otBase.getDate()+d);
               try { if (typeof habitOccursOn==='function' && !habitOccursOn(t, day)) continue; } catch(e){ continue; }
               try { if (typeof isHabitDoneOn==='function' && isHabitDoneOn(t.id, ymd(day))) continue; } catch(e){}
-              const w = new Date(day); w.setHours(hh,mm,0,0);
+              const w = new Date(day); w.setHours(rhh,rmm,0,0);
               if (w.getTime() <= now || w.getTime() > horizon) continue;
               jobs.push({ id:'task'+(n++), when:w.getTime(), tag:'ontime_r_'+(t.id||n)+'_'+d,
                 url:_notifUrl('#challenge'),
@@ -13004,10 +13005,16 @@
             return;
           }
           if (t._habitTemplateId) return;                                  // 習慣インスタンスはテンプレで処理
-          // 単発の時間指定タスク
-          if (!j || !j.start || String(j.start).length <= 10) return;
+          // 単発タスク（時刻あり=その時刻／終日=9:30）
+          if (!j || !j.start) return;
+          const allDay = String(j.start).length <= 10;
           if (typeof taskDisplayDone==='function' && taskDisplayDone(t, new Date(j.start))) return;
-          const when = new Date(j.start).getTime();
+          let when;
+          if (allDay){
+            const dd = new Date(j.start + 'T00:00:00'); dd.setHours(9,30,0,0); when = dd.getTime();
+          } else {
+            when = new Date(j.start).getTime();
+          }
           if (when <= now || when > horizon) return;
           const isR = (typeof isRoutineKind==='function' && isRoutineKind(t));
           const cat = t['(B)種類'] || '';
@@ -15658,18 +15665,23 @@
     var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+off);
     return d;
   }
-  function _swAutoDate(maxDays){
+  function _swAutoDate(maxDays, weekdayOnly){
     maxDays = maxDays || 14;
     var base = new Date(); base.setHours(0,0,0,0);
-    var best = null, bestN = Infinity;
+    var best = null, bestN = Infinity, fallback = null;
     for (var i=1;i<=maxDays;i++){
       var d = new Date(base); d.setDate(base.getDate()+i);
+      var wd = d.getDay();
+      if (weekdayOnly && (wd===0 || wd===6)) continue;   // 仕事は土日を除外
+      if (!fallback) fallback = d;
       var n = 0; try { n = scheduleItemsForDate(d, false).length; } catch(e){}
       if (n < bestN){ bestN = n; best = d; }
     }
+    if (!best) best = fallback;
     if (!best){ best = new Date(base); best.setDate(base.getDate()+1); }
     return best;
   }
+  function _swIsWork(t){ return !!(t && t['(B)種類']==='仕事'); }
   function _swDayOffset(n){ var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return d; }
   function _swApplyDate(t, dateObj){
     var s = ymd(dateObj);
@@ -15764,13 +15776,68 @@
     var hours = isLong ? 1 : 0.5;
     return { kikan:kikan, hours:hours };
   }
+  // タイトルから種類（SHURUI）を推定
+  function _bulkCategory(name){
+    var t = String(name||'');
+    if (/(会議|打合せ|打ち合わせ|ミーティング|商談|プレゼン|報告|上司|部長|課長|顧客|取引|取引先|契約|請求|見積|納品|出張|議事録|稟議|決裁|業務|案件|クライアント|営業|メール返信|返信|Slack|チャット|タイムシート|勤怠|申請|承認|出社)/i.test(t)) return '仕事';
+    if (/(勉強|学習|復習|予習|講義|受講|テキスト|問題集|参考書|英単語|英語|数学|資格|過去問|暗記|TOEIC|試験)/i.test(t)) return '勉強';
+    if (/(課題|レポート|宿題|提出物|論文|ゼミ|卒論|演習)/.test(t)) return '課題';
+    if (/(掃除|片付|片づけ|洗濯|ゴミ|ごみ|整理整頓|部屋|水回り|拭き|模様替え|ふとん|布団)/.test(t)) return '掃除';
+    if (/(美容|スキンケア|化粧|メイク|エステ|ネイル|まつげ|まつ毛|ヘア|髪|美容院|美容室|パック|脱毛|眉)/.test(t)) return '美容';
+    if (/(習慣|ルーティン|毎日|ストレッチ|筋トレ|運動|ジョグ|ジョギング|散歩|瞑想|日記)/.test(t)) return '習慣';
+    if (/(欲しい|買いたい|行きたい|いつか|やってみたい|wish|ウィッシュ)/i.test(t)) return 'Wish_list';
+    return '雑務';
+  }
+  // 1行から日付・時刻・締切を抽出し、タスク名と分離
+  function _bulkParseLine(raw){
+    var s = String(raw||'').trim();
+    var isDeadline = /(締切|締め切り|〆切|〆)/.test(s);
+    var date = null, hasTime = false, hh = 0, mm = 0, m;
+    var base = new Date(); base.setHours(0,0,0,0);
+    function setDate(d){ date = new Date(d); date.setHours(0,0,0,0); }
+
+    // 時刻
+    m = s.match(/(\d{1,2}):(\d{2})/);
+    if (m){ hh=+m[1]; mm=+m[2]; hasTime=true; s = s.replace(m[0],' '); }
+    else {
+      m = s.match(/(午前|午後|朝|夜|夕方)?\s*(\d{1,2})\s*時\s*(半)?(?:\s*(\d{1,2})\s*分)?/);
+      if (m){
+        hh=+m[2];
+        if (m[1]==='午後'||m[1]==='夜'||m[1]==='夕方'){ if(hh<12) hh+=12; }
+        if ((m[1]==='午前'||m[1]==='朝') && hh===12) hh=0;
+        if (m[3]==='半') mm=30; else if (m[4]) mm=+m[4];
+        hasTime=true; s = s.replace(m[0],' ');
+      }
+    }
+    // 日付
+    if (/今日|本日|きょう/.test(s)){ setDate(base); s=s.replace(/今日|本日|きょう/,' '); }
+    else if (/明々後日|しあさって/.test(s)){ var da3=new Date(base); da3.setDate(base.getDate()+3); setDate(da3); s=s.replace(/明々後日|しあさって/,' '); }
+    else if (/明後日|あさって/.test(s)){ var da2=new Date(base); da2.setDate(base.getDate()+2); setDate(da2); s=s.replace(/明後日|あさって/,' '); }
+    else if (/明日|あした|あす/.test(s)){ var da1=new Date(base); da1.setDate(base.getDate()+1); setDate(da1); s=s.replace(/明日|あした|あす/,' '); }
+    else if ((m=s.match(/(\d{1,2})日後/))){ var dn=new Date(base); dn.setDate(base.getDate()+(+m[1])); setDate(dn); s=s.replace(m[0],' '); }
+    else if (/再来週/.test(s)){ var dw2=new Date(base); dw2.setDate(base.getDate()+14); setDate(dw2); s=s.replace(/再来週/,' '); }
+    else if (/来週/.test(s)){ var dw=new Date(base); dw.setDate(base.getDate()+7); setDate(dw); s=s.replace(/来週/,' '); }
+    else if ((m=s.match(/(今度の|次の|来週の)?([日月火水木金土])曜(日)?/))){
+      var wmap={'日':0,'月':1,'火':2,'水':3,'木':4,'金':5,'土':6};
+      var tg=wmap[m[2]]; var dwd=new Date(base); var add=(tg - dwd.getDay() + 7)%7; if(add===0) add=7; dwd.setDate(base.getDate()+add); setDate(dwd); s=s.replace(m[0],' ');
+    }
+    else if ((m=s.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})\s*日?/))){
+      var mo=+m[1], dd=+m[2], y=base.getFullYear();
+      var md=new Date(y, mo-1, dd); md.setHours(0,0,0,0);
+      if (md < base){ md=new Date(y+1, mo-1, dd); md.setHours(0,0,0,0); } // 過ぎてたら来年
+      setDate(md); s=s.replace(m[0],' ');
+    }
+    var name = s.replace(/[、,]\s*$/,'').replace(/\s+/g,' ').trim();
+    if (!name) name = String(raw||'').trim();
+    return { name:name, date:date, hasTime:hasTime, hh:hh, mm:mm, isDeadline:isDeadline };
+  }
   window.openBulkAdd = function(){
     var ov=document.getElementById('bulkAdd'); if(ov) ov.remove();
     ov=document.createElement('div'); ov.id='bulkAdd';
     ov.innerHTML = '<div class="ba-card">'
       + '<div class="ba-head"><div class="ba-title">📝 まとめてタスク登録</div><button class="ba-close" onclick="closeBulkAdd()">×</button></div>'
-      + '<div class="ba-sub">1行に1つずつタスクを書いて保存。優先度・所要時間はタイトルから自動で推定し、「あとでやる」に登録します。</div>'
-      + '<textarea id="baText" class="ba-text" placeholder="牛乳を買う\nメールの返信\n企画書を作成する\n歯医者を予約する" rows="9"></textarea>'
+      + '<div class="ba-sub">1行に1つずつ。種類・優先度・所要時間はタイトルから自動推定。<b>日付を書けば自動で分けます</b>（例「明日」「今日10:00」「10/30」）。「締切」と書くと締め切り扱いにします。</div>'
+      + '<textarea id="baText" class="ba-text" placeholder="メール返信 明日\nにんじん購入 今日10:00\n企画書の締切 10/30\n歯医者を予約する" rows="9"></textarea>'
       + '<div class="ba-count" id="baCount"></div>'
       + '<div class="ba-btns"><button class="ba-cancel" onclick="closeBulkAdd()">やめる</button>'
       + '<button class="ba-ok" onclick="bulkAddSave()">まとめて登録</button></div>'
@@ -15788,28 +15855,47 @@
     var ta=document.getElementById('baText'); if(!ta) return;
     var lines = ta.value.split('\n').map(function(l){return l.trim();}).filter(function(l){return l;});
     if(!lines.length){ closeBulkAdd(); return; }
-    var added=0;
+    var pad=function(n){ return String(n).padStart(2,'0'); };
+    var added=0, dated=0;
     lines.forEach(function(line, i){
-      var inf = _bulkInfer(line);
+      var p = _bulkParseLine(line);
+      var inf = _bulkInfer(p.name);
+      var cat = _bulkCategory(p.name);
+      var kikan = p.isDeadline ? '6.締め切り' : inf.kikan;
       var nt = {
         id:'bulk_'+Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,6),
-        name: line,
-        '(B)種類': null,
-        '(B)実行期間': inf.kikan,
+        name: p.name,
+        '(B)種類': cat,
+        '(B)実行期間': kikan,
         '(C)見込み/h': inf.hours,
         '(A)done': false,
-        _type:'later',
         _notionId:null,
         _source:'bulk',
         _localLastEdited:new Date().toISOString(),
       };
+      if (p.date){
+        var ymdStr = ymd(p.date);
+        if (p.hasTime){
+          var hm = pad(p.hh)+':'+pad(p.mm);
+          nt['(A)実行日'] = { start: ymdStr+'T'+hm+':00', end: ymdStr+'T'+hm+':00' };
+          nt._allDay = false;
+        } else {
+          nt['(A)実行日'] = { start: ymdStr, end: ymdStr };
+          nt._allDay = true;
+        }
+        nt._type = 'time';
+        dated++;
+      } else {
+        nt._type = 'later'; // 日付なし → あとで
+      }
       try { tasks.push(nt); added++; } catch(e){ return; }
       try { if (typeof pushNewTaskToNotion==='function' && typeof notionLinked==='function' && notionLinked() && notionSettings.dbId) pushNewTaskToNotion(nt); } catch(e){}
     });
     try { persistTasks(); } catch(e){}
+    try { if (typeof syncTaskAlarms==='function') syncTaskAlarms(); } catch(e){}
     closeBulkAdd();
     try { if (typeof appRefresh==='function') appRefresh(); } catch(e){}
-    try { alert(added + '件を「あとでやる」に登録しました。\n日付は「タスク整理」の日付モードで振り分けられます。'); } catch(e){}
+    try { alert(added + '件を登録しました。' + (dated? ('（うち日付つき '+dated+'件）') : '') + '\n日付なしは「あとでやる」に入ります。'); } catch(e){}
   };
   (function(){
     var css = ''
@@ -15906,13 +15992,13 @@
     } else if (act === 'later' || act === 'stay'){
       _swCounts.later++; _swApplyLater(t);
     } else if (act === 'auto'){
-      _swCounts.auto++; _swApplyDate(t, _swAutoDate(14));
+      _swCounts.auto++; _swApplyDate(t, _swAutoDate(14, _swIsWork(t)));
     } else if (act === 'today'){
       _swCounts.date++; _swApplyDate(t, _swDayOffset(0));
     } else if (act === 'tomorrow'){
       _swCounts.date++; _swApplyDate(t, _swDayOffset(1));
     } else if (act === 'week'){
-      _swCounts.date++; _swApplyDate(t, _swAutoDate(7));
+      _swCounts.date++; _swApplyDate(t, _swAutoDate(7, _swIsWork(t)));
     }
     if (act !== 'del') _swMarkTriaged(t);   // 振り分け記録（削除は不要）
     _swIdx++;
