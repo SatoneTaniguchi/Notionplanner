@@ -3506,6 +3506,7 @@
         <span class="later-count" id="laterCount">0</span>
       </div>
       <div class="later-actions">
+        <button class="later-action-btn" id="laterBulkBtn" title="まとめて登録" onclick="openBulkAdd()" style="font-size:15px;">📝</button>
         <button class="later-action-btn" id="laterSwipeBtn" title="スワイプで整理" onclick="openSwipeTriage()" style="font-size:15px;">🔀</button>
         <button class="later-action-btn" id="laterGroupBtn" title="プロジェクトでグループ" onclick="toggleLaterGroup()" style="font-size:15px;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></button>
         <button class="later-action-btn" id="laterSortBtn" title="並び順" style="font-size:15px;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
@@ -15594,6 +15595,9 @@
     mode = mode || 'sort';
     var today = new Date(); today.setHours(0,0,0,0);
     var out = [];
+    var tri = _swTriagedMap();                    // 振り分け履歴（1週間は再表示しない）
+    var COOL = 7*86400000;
+    var nowMs = Date.now();
     // 繰り返し（ルーチン/習慣以外も含む）テンプレの名前集合 → 同名は繰り返し扱いで除外
     var repNames = {};
     (tasks||[]).forEach(function(t){
@@ -15605,6 +15609,7 @@
       if (t._projectOnly || t._habitTemplateId || t._repeatConfig || t._recurringId || t._pseudo) return;
       if (typeof isRoutineKind==='function' && isRoutineKind(t)) return; // 習慣・掃除・美容は出さない
       if (repNames[String(t.name||'').trim()]) return;                   // 繰り返しと同名も出さない
+      if (tri[t.id] && (nowMs - tri[t.id] < COOL)) return;               // 振り分け後1週間は出さない
       try { if (taskDisplayDone(t, new Date())) return; } catch(e){}
       var j = t['(A)実行日'];
       var later = (t._type==='later') || !j || !j.start;
@@ -15656,6 +15661,12 @@
   }
 
   var _swQueue = [], _swIdx = 0, _swCounts = null;
+  // 振り分け履歴（taskId → 最終振り分け時刻）。1週間は再表示しない。
+  function _swTriagedMap(){ try { return JSON.parse(localStorage.getItem('swTriaged')||'{}') || {}; } catch(e){ return {}; } }
+  function _swMarkTriaged(id){ if(!id) return; try { var m=_swTriagedMap(); m[id]=Date.now();
+    // 古い記録（30日超）は掃除
+    var cut=Date.now()-30*86400000; Object.keys(m).forEach(function(k){ if(m[k]<cut) delete m[k]; });
+    localStorage.setItem('swTriaged', JSON.stringify(m)); } catch(e){} }
   var _swMode = 'sort';
   // 4隅スロット（auto=左上 / deadline=右上 / del=左下 / later=右下）→ モード別の意味
   var SW_SLOTS = {
@@ -15692,6 +15703,84 @@
     var ch=document.getElementById('swChrome'); if(ch) ch.innerHTML=_swChromeHtml();
     _swRender();
   };
+
+  // ============================================================
+  // 📝 まとめてタスク登録（改行区切り。優先度・所要時間はタイトルから推定）
+  // ============================================================
+  function _bulkInfer(title){
+    var t = String(title||'');
+    var urgent = /(至急|急ぎ|今すぐ|今日|明日|締切|締め切り|期限|重要|提出|返信|返事|支払|振込|予約|申込|申し込み|キャンセル|要連絡|電話|急ぎめ)/.test(t);
+    var longWords = /(資料|作成|準備|まとめ|書く|執筆|設計|レポート|勉強|学習|掃除|片付|整理|企画|計画|レビュー|読む|練習|制作|開発|調査|リサーチ|見直し|検討|対応|手続き|申請|作る|考える|まとめる)/.test(t);
+    var quickWords = /(確認|返信|メール|電話|送る|送信|買う|購入|予約|チェック|支払|振込|登録|連絡|返事|申込|コピー|印刷|提出|捨てる|返す)/.test(t);
+    var isLong = longWords && !quickWords;
+    var kikan = urgent
+      ? (isLong ? '2.🔥⏳ 優長 (>30m)' : '1.🔥⚡ 優短 (<30m)')
+      : (isLong ? '4.🧊⏳ 低長(>30m)'  : '3.🧊⚡ 低短 (<30m)');
+    var hours = isLong ? 1 : 0.5;
+    return { kikan:kikan, hours:hours };
+  }
+  window.openBulkAdd = function(){
+    var ov=document.getElementById('bulkAdd'); if(ov) ov.remove();
+    ov=document.createElement('div'); ov.id='bulkAdd';
+    ov.innerHTML = '<div class="ba-card">'
+      + '<div class="ba-head"><div class="ba-title">📝 まとめてタスク登録</div><button class="ba-close" onclick="closeBulkAdd()">×</button></div>'
+      + '<div class="ba-sub">1行に1つずつタスクを書いて保存。優先度・所要時間はタイトルから自動で推定し、「あとでやる」に登録します。</div>'
+      + '<textarea id="baText" class="ba-text" placeholder="牛乳を買う\nメールの返信\n企画書を作成する\n歯医者を予約する" rows="9"></textarea>'
+      + '<div class="ba-count" id="baCount"></div>'
+      + '<div class="ba-btns"><button class="ba-cancel" onclick="closeBulkAdd()">やめる</button>'
+      + '<button class="ba-ok" onclick="bulkAddSave()">まとめて登録</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    var ta=document.getElementById('baText');
+    ta.addEventListener('input', function(){
+      var n=ta.value.split('\n').filter(function(l){return l.trim();}).length;
+      var c=document.getElementById('baCount'); if(c) c.textContent = n? (n+'件を登録します') : '';
+    });
+    setTimeout(function(){ try{ ta.focus(); }catch(e){} }, 100);
+  };
+  window.closeBulkAdd = function(){ var ov=document.getElementById('bulkAdd'); if(ov) ov.remove(); };
+  window.bulkAddSave = function(){
+    var ta=document.getElementById('baText'); if(!ta) return;
+    var lines = ta.value.split('\n').map(function(l){return l.trim();}).filter(function(l){return l;});
+    if(!lines.length){ closeBulkAdd(); return; }
+    var added=0;
+    lines.forEach(function(line, i){
+      var inf = _bulkInfer(line);
+      var nt = {
+        id:'bulk_'+Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,6),
+        name: line,
+        '(B)種類': null,
+        '(B)実行期間': inf.kikan,
+        '(C)見込み/h': inf.hours,
+        '(A)done': false,
+        _type:'later',
+        _notionId:null,
+        _source:'bulk',
+        _localLastEdited:new Date().toISOString(),
+      };
+      try { tasks.push(nt); added++; } catch(e){ return; }
+      try { if (typeof pushNewTaskToNotion==='function' && typeof notionLinked==='function' && notionLinked() && notionSettings.dbId) pushNewTaskToNotion(nt); } catch(e){}
+    });
+    try { persistTasks(); } catch(e){}
+    closeBulkAdd();
+    try { if (typeof appRefresh==='function') appRefresh(); } catch(e){}
+    try { alert(added + '件を「あとでやる」に登録しました。\n日付は「タスク整理」の日付モードで振り分けられます。'); } catch(e){}
+  };
+  (function(){
+    var css = ''
+    + '#bulkAdd{position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 45);background:rgba(20,18,30,.55);display:flex;align-items:flex-end;justify-content:center;font-family:inherit;}'
+    + '.ba-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:18px 16px calc(env(safe-area-inset-bottom,0px) + 18px);}'
+    + '.ba-head{display:flex;align-items:center;margin-bottom:4px;}'
+    + '.ba-title{font-size:16px;font-weight:800;color:#1c1c1e;}'
+    + '.ba-close{margin-left:auto;border:none;background:#f2f1f7;width:32px;height:32px;border-radius:50%;font-size:18px;color:#5a5768;cursor:pointer;}'
+    + '.ba-sub{font-size:12px;color:#8e8e93;line-height:1.5;margin-bottom:10px;}'
+    + '.ba-text{width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;line-height:1.7;border:1px solid #e2defa;border-radius:14px;padding:12px;background:#faf9fd;color:#1c1c1e;resize:vertical;min-height:160px;}'
+    + '.ba-count{font-size:12.5px;color:#6c5ce7;font-weight:700;margin:8px 2px 0;min-height:16px;}'
+    + '.ba-btns{display:flex;gap:8px;margin-top:10px;}'
+    + '.ba-cancel{flex:1;font-family:inherit;font-size:14px;font-weight:700;color:#8e8b9e;background:#f2f1f7;border:none;border-radius:12px;padding:12px;cursor:pointer;}'
+    + '.ba-ok{flex:2;font-family:inherit;font-size:14px;font-weight:800;color:#fff;background:#6c5ce7;border:none;border-radius:12px;padding:12px;cursor:pointer;}';
+    try { var st=document.createElement('style'); st.id='bulkAddStyles'; st.textContent=css; document.head.appendChild(st); } catch(e){}
+  })();
 
   window.openSwipeTriage = function(){
     _swMode = 'sort';
@@ -15770,6 +15859,7 @@
     } else if (act === 'week'){
       _swCounts.date++; _swApplyDate(t, _swAutoDate(7));
     }
+    if (act !== 'del') _swMarkTriaged(t.id);   // 振り分け記録（削除は不要）
     _swIdx++;
     _swRender();
   };
@@ -15827,6 +15917,7 @@
       persistTasks(); _swNotionSync(t);
     } catch(e){}
     _swCounts.deadline++;
+    try { _swMarkTriaged(t.id); } catch(e){}
     var m=document.getElementById('swDeadlineModal'); if(m) m.remove();
     _swIdx++; _swRender();
   };
