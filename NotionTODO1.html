@@ -3506,6 +3506,7 @@
         <span class="later-count" id="laterCount">0</span>
       </div>
       <div class="later-actions">
+        <button class="later-action-btn" id="laterSwipeBtn" title="スワイプで整理" onclick="openSwipeTriage()" style="font-size:15px;">🔀</button>
         <button class="later-action-btn" id="laterGroupBtn" title="プロジェクトでグループ" onclick="toggleLaterGroup()" style="font-size:15px;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></button>
         <button class="later-action-btn" id="laterSortBtn" title="並び順" style="font-size:15px;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
         <button class="later-action-btn" id="laterReorderBtn" title="並び替え">↕</button>
@@ -15558,6 +15559,302 @@
   // 起動時に反映
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ try{ applySchedView(); }catch(e){} });
   else { try { applySchedView(); } catch(e){} }
+
+
+  // ============================================================
+  // 🔀 スワイプでタスク整理（マッチングアプリ風）
+  //   期限切れ・日付なし(あとで)のタスクを1枚ずつ捌く。
+  //   ← 削除 ／ → 締切あり(早めの日付) ／ ↑ おまかせ(空いてる日へ) ／ ↓ あとで
+  // ============================================================
+  function _swNotionSync(t){ try { if ((notionSettings.token||notionSettings.managed) && t._notionId) notionUpdateTask(t._notionId, t); } catch(e){} }
+
+  function _swCandidates(){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var out = [];
+    (tasks||[]).forEach(function(t){
+      if (!t || !t.name) return;
+      if (t._type==='repeat' || t._type==='repeat_ended') return;
+      if (t._projectOnly || t._habitTemplateId) return;
+      try { if (taskDisplayDone(t, new Date())) return; } catch(e){}
+      var j = t['(A)実行日'];
+      var later = (t._type==='later') || !j || !j.start;
+      var overdue = false, od = null;
+      try { if (j && j.start){ var dd = new Date(j.start); dd.setHours(0,0,0,0); if (dd < today){ overdue = true; od = dd; } } } catch(e){}
+      if (later || overdue) out.push({ t:t, overdue:overdue, od:od, later:later });
+    });
+    // 期限切れ（古い順）→ あとで
+    out.sort(function(a,b){
+      if (a.overdue && b.overdue) return a.od - b.od;
+      if (a.overdue) return -1; if (b.overdue) return 1; return 0;
+    });
+    return out.map(function(x){ return x.t; });
+  }
+
+  function _swDeadlineDate(t){
+    var k = t['(B)実行期間'] || '';
+    var off = /優|🔥/.test(k) ? 1 : 3;             // 優先度が高そうなら翌日、他は3日後
+    var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+off);
+    return d;
+  }
+  function _swAutoDate(){
+    var base = new Date(); base.setHours(0,0,0,0);
+    var best = null, bestN = Infinity;
+    for (var i=1;i<=14;i++){
+      var d = new Date(base); d.setDate(base.getDate()+i);
+      var n = 0; try { n = scheduleItemsForDate(d, false).length; } catch(e){}
+      if (n < bestN){ bestN = n; best = d; }
+    }
+    if (!best){ best = new Date(base); best.setDate(base.getDate()+1); }
+    return best;
+  }
+  function _swApplyDate(t, dateObj){
+    var s = ymd(dateObj);
+    t['(A)実行日'] = { start:s, end:s }; t._allDay = true; t._type = 'time';
+    t._localLastEdited = new Date().toISOString();
+    persistTasks(); _swNotionSync(t);
+  }
+  function _swApplyLater(t){
+    delete t['(A)実行日']; t._allDay = false; t._type = 'later';
+    t._localLastEdited = new Date().toISOString();
+    persistTasks(); _swNotionSync(t);
+  }
+
+  var _swQueue = [], _swIdx = 0, _swCounts = null;
+
+  window.openSwipeTriage = function(){
+    _swQueue = _swCandidates(); _swIdx = 0;
+    _swCounts = { del:0, deadline:0, auto:0, later:0 };
+    var ov = document.getElementById('swipeTriage');
+    if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'swipeTriage';
+    ov.innerHTML = ''
+      + '<div class="sw-head"><div class="sw-title">🔀 タスク整理</div>'
+      +   '<button class="sw-close" onclick="closeSwipeTriage()">×</button></div>'
+      + '<div class="sw-sub" id="swSub"></div>'
+      + '<div class="sw-stack" id="swStack"></div>'
+      + '<div class="sw-actions">'
+      +   '<button class="sw-act del" onclick="swipeAct(\'del\')"><span class="sw-ic">🗑</span>削除</button>'
+      +   '<button class="sw-act later" onclick="swipeAct(\'later\')"><span class="sw-ic">🕒</span>あとで</button>'
+      +   '<button class="sw-act auto" onclick="swipeAct(\'auto\')"><span class="sw-ic">✨</span>おまかせ</button>'
+      +   '<button class="sw-act deadline" onclick="swipeAct(\'deadline\')"><span class="sw-ic">📌</span>締切あり</button>'
+      + '</div>'
+      + '<div class="sw-hint">← 削除　→ 締切あり　↑ おまかせ　↓ あとで</div>';
+    document.body.appendChild(ov);
+    _swRender();
+  };
+  window.closeSwipeTriage = function(){
+    var ov = document.getElementById('swipeTriage'); if (ov) ov.remove();
+    try { appRefresh(); } catch(e){}
+  };
+
+  function _swRender(){
+    var stack = document.getElementById('swStack');
+    var sub = document.getElementById('swSub');
+    if (!stack) return;
+    if (_swIdx >= _swQueue.length){
+      stack.innerHTML = '<div class="sw-done">🎉 整理おつかれさま！<br><span>削除' + _swCounts.del + '・締切' + _swCounts.deadline + '・おまかせ' + _swCounts.auto + '・あとで' + _swCounts.later + '</span></div>';
+      if (sub) sub.textContent = '';
+      return;
+    }
+    if (sub) sub.textContent = (_swIdx+1) + ' / ' + _swQueue.length + ' 件';
+    var html = '';
+    // 背面カード（次の1枚）
+    if (_swIdx+1 < _swQueue.length){ html += '<div class="sw-card behind">' + _swCardInner(_swQueue[_swIdx+1]) + '</div>'; }
+    html += '<div class="sw-card top" id="swTop">' + _swCardInner(_swQueue[_swIdx])
+      + '<div class="sw-tag del">🗑 削除</div><div class="sw-tag deadline">📌 締切</div>'
+      + '<div class="sw-tag auto">✨ おまかせ</div><div class="sw-tag later">🕒 あとで</div></div>';
+    stack.innerHTML = html;
+    _swBindDrag(document.getElementById('swTop'));
+  }
+
+  function _swCardInner(t){
+    var name = _esc ? _esc(t.name) : String(t.name||'');
+    var cat = t['(B)種類'] || '';
+    var st = (typeof SHURUI_OPTIONS!=='undefined') ? (SHURUI_OPTIONS.find(function(o){return o.value===cat;})) : null;
+    var badge = st ? '<span class="sw-badge" style="color:' + st.color + ';background:' + st.bg + '">' + st.label + '</span>' : '';
+    var when = '日付なし（あとで）';
+    try { var j = t['(A)実行日']; if (j && j.start){
+      var d = new Date(j.start); var today = new Date(); today.setHours(0,0,0,0); d.setHours(0,0,0,0);
+      var diff = Math.round((today - d)/86400000);
+      var md = (d.getMonth()+1)+'/'+d.getDate();
+      when = (diff>0) ? ('⚠️ ' + md + '（' + diff + '日すぎてる）') : (md + ' 予定');
+    }} catch(e){}
+    return '<div class="sw-when' + (/⚠️/.test(when)?' over':'') + '">' + when + '</div>'
+      + '<div class="sw-name">' + name + '</div>' + badge;
+  }
+
+  window.swipeAct = function(kind){
+    if (_swIdx >= _swQueue.length) return;
+    var t = _swQueue[_swIdx];
+    if (kind === 'deadline'){ _swAskDeadline(t); return; } // 締切は入力ステップへ
+    var msg = '';
+    if (kind === 'del'){
+      _swCounts.del++;
+      try { deleteTaskById(t.id); } catch(e){}
+    } else if (kind === 'later'){
+      _swCounts.later++; _swApplyLater(t); msg = 'あとで';
+    } else if (kind === 'auto'){
+      _swCounts.auto++; var ad = _swAutoDate(); _swApplyDate(t, ad); msg = (ad.getMonth()+1)+'/'+ad.getDate()+' に配分';
+    }
+    _swIdx++;
+    _swRender();
+  };
+
+  // 本締切から早めの作業締切を逆算
+  function _swEarlyFromDeadline(deadline){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var dl = new Date(deadline); dl.setHours(0,0,0,0);
+    var D = Math.round((dl - today)/86400000);
+    var buffer = (D <= 1) ? 0 : Math.min(Math.max(1, Math.round(D*0.3)), 7); // 残り日数の約3割・最大7日前
+    var e = new Date(dl); e.setDate(dl.getDate() - buffer);
+    if (e < today) e = new Date(today); // 今日より前にはしない
+    return e;
+  }
+  function _swParseYmd(s){ if(!s) return null; var p=String(s).split('-'); if(p.length<3) return null; var d=new Date(+p[0],+p[1]-1,+p[2]); return isNaN(d.getTime())?null:d; }
+  function _swDaysBetween(a,b){ var x=new Date(a);x.setHours(0,0,0,0);var y=new Date(b);y.setHours(0,0,0,0); return Math.round((y-x)/86400000); }
+
+  function _swAskDeadline(t){
+    var host = document.getElementById('swipeTriage'); if (!host) return;
+    var ex = document.getElementById('swDeadlineModal'); if (ex) ex.remove();
+    var def = new Date(); def.setDate(def.getDate()+7);
+    var ov = document.createElement('div'); ov.id = 'swDeadlineModal';
+    ov.innerHTML = '<div class="swd-card">'
+      + '<div class="swd-title">📌 締切を入力</div>'
+      + '<div class="swd-sub">「' + (_esc?_esc(t.name):String(t.name||'')) + '」の<b>本当の締切日</b>を入れてください</div>'
+      + '<input type="date" id="swdInput" value="' + ymd(def) + '" min="' + ymd(new Date()) + '" class="swd-input">'
+      + '<div class="swd-preview" id="swdPreview"></div>'
+      + '<div class="swd-btns"><button class="swd-cancel" onclick="swDeadlineCancel()">やめる</button>'
+      + '<button class="swd-ok" onclick="swDeadlineConfirm()">逆算して設定</button></div>'
+      + '</div>';
+    host.appendChild(ov);
+    var inp = document.getElementById('swdInput');
+    function upd(){
+      var d = _swParseYmd(inp.value); var pv = document.getElementById('swdPreview');
+      if (!d || !pv){ if(pv) pv.textContent=''; return; }
+      var early = _swEarlyFromDeadline(d);
+      var buf = _swDaysBetween(early, d);
+      pv.innerHTML = '作業締切 → <b>' + (early.getMonth()+1)+'/'+early.getDate() + '</b>'
+        + (buf>0 ? '（本締切の' + buf + '日前）' : '（締切当日）');
+    }
+    inp.addEventListener('input', upd); inp.addEventListener('change', upd); upd();
+  }
+  window.swDeadlineCancel = function(){ var m=document.getElementById('swDeadlineModal'); if(m) m.remove(); };
+  window.swDeadlineConfirm = function(){
+    if (_swIdx >= _swQueue.length) return;
+    var inp = document.getElementById('swdInput');
+    var d = _swParseYmd(inp && inp.value);
+    if (!d){ alert('締切日を選んでください'); return; }
+    var t = _swQueue[_swIdx];
+    var early = _swEarlyFromDeadline(d);
+    _swApplyDate(t, early);
+    try {
+      var note = '🎯 本締切 ' + (d.getMonth()+1)+'/'+d.getDate() + '（逆算で早め設定）';
+      t['(e)memo'] = (t['(e)memo'] ? t['(e)memo']+'\n' : '') + note;
+      persistTasks(); _swNotionSync(t);
+    } catch(e){}
+    _swCounts.deadline++;
+    var m=document.getElementById('swDeadlineModal'); if(m) m.remove();
+    _swIdx++; _swRender();
+  };
+
+  // ドラッグ／スワイプ
+  function _swBindDrag(card){
+    if (!card) return;
+    var sx=0, sy=0, dx=0, dy=0, dragging=false;
+    var TH = 90; // しきい値
+    function setTag(){
+      card.classList.remove('show-del','show-deadline','show-auto','show-later');
+      if (Math.abs(dx) > Math.abs(dy)){
+        if (dx < -20) card.classList.add('show-del');
+        else if (dx > 20) card.classList.add('show-deadline');
+      } else {
+        if (dy < -20) card.classList.add('show-auto');
+        else if (dy > 20) card.classList.add('show-later');
+      }
+    }
+    function move(x,y){
+      dx = x - sx; dy = y - sy;
+      card.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + (dx*0.04) + 'deg)';
+      setTag();
+    }
+    function end(){
+      dragging = false;
+      card.classList.remove('show-del','show-deadline','show-auto','show-later');
+      var kind = null;
+      if (Math.abs(dx) > Math.abs(dy)){
+        if (dx < -TH) kind='del'; else if (dx > TH) kind='deadline';
+      } else {
+        if (dy < -TH) kind='auto'; else if (dy > TH) kind='later';
+      }
+      if (kind === 'deadline'){
+        // 締切は入力が必要 → カードは飛ばさず戻して入力モーダルを出す
+        card.style.transition = 'transform .2s ease'; card.style.transform = '';
+        setTimeout(function(){ card.style.transition=''; }, 200);
+        swipeAct('deadline');
+      } else if (kind){
+        var ox = kind==='del'?-500:0;
+        var oy = kind==='auto'?-600:(kind==='later'?600:0);
+        card.style.transition = 'transform .25s ease';
+        card.style.transform = 'translate(' + ox + 'px,' + oy + 'px) rotate(' + (ox*0.03) + 'deg)';
+        setTimeout(function(){ swipeAct(kind); }, 180);
+      } else {
+        card.style.transition = 'transform .2s ease';
+        card.style.transform = '';
+        setTimeout(function(){ card.style.transition=''; }, 200);
+      }
+    }
+    card.addEventListener('touchstart', function(e){ var t=e.touches[0]; sx=t.clientX; sy=t.clientY; dragging=true; card.style.transition=''; }, {passive:true});
+    card.addEventListener('touchmove', function(e){ if(!dragging) return; var t=e.touches[0]; move(t.clientX,t.clientY); }, {passive:true});
+    card.addEventListener('touchend', function(){ if(dragging) end(); });
+    // マウス（PC確認用）
+    card.addEventListener('mousedown', function(e){ sx=e.clientX; sy=e.clientY; dragging=true; card.style.transition='';
+      function mm(ev){ if(dragging) move(ev.clientX,ev.clientY); }
+      function mu(){ document.removeEventListener('mousemove',mm); document.removeEventListener('mouseup',mu); if(dragging) end(); }
+      document.addEventListener('mousemove',mm); document.addEventListener('mouseup',mu);
+    });
+  }
+
+  // スタイル
+  (function(){
+    var css = ''
+    + '#swipeTriage{position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 40);background:rgba(20,18,30,.55);backdrop-filter:blur(3px);display:flex;flex-direction:column;font-family:inherit;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px calc(env(safe-area-inset-bottom,0px) + 16px);}'
+    + '.sw-head{display:flex;align-items:center;margin-bottom:2px;}'
+    + '.sw-title{font-size:17px;font-weight:800;color:#fff;}'
+    + '.sw-close{margin-left:auto;border:none;background:rgba(255,255,255,.2);color:#fff;width:34px;height:34px;border-radius:50%;font-size:20px;cursor:pointer;}'
+    + '.sw-sub{color:rgba(255,255,255,.85);font-size:12px;font-weight:700;margin-bottom:8px;}'
+    + '.sw-stack{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;}'
+    + '.sw-card{position:absolute;width:min(88vw,360px);background:#fff;border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:26px 22px;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:10px;}'
+    + '.sw-card.behind{transform:scale(.94) translateY(14px);opacity:.6;}'
+    + '.sw-card.top{cursor:grab;touch-action:none;z-index:2;}'
+    + '.sw-when{font-size:12.5px;font-weight:800;color:#8e8b9e;}'
+    + '.sw-when.over{color:#e5484d;}'
+    + '.sw-name{font-size:22px;font-weight:800;color:#1c1c1e;line-height:1.35;word-break:break-word;}'
+    + '.sw-badge{font-size:12px;font-weight:800;border-radius:8px;padding:3px 10px;}'
+    + '.sw-tag{position:absolute;top:18px;font-size:15px;font-weight:900;padding:5px 12px;border-radius:10px;opacity:0;transition:opacity .1s;border:2.5px solid;}'
+    + '.sw-tag.del{left:18px;color:#e5484d;border-color:#e5484d;transform:rotate(-12deg);}'
+    + '.sw-tag.deadline{right:18px;color:#6c5ce7;border-color:#6c5ce7;transform:rotate(12deg);}'
+    + '.sw-tag.auto{left:50%;transform:translateX(-50%);color:#e08a1e;border-color:#e08a1e;}'
+    + '.sw-tag.later{left:50%;bottom:18px;top:auto;transform:translateX(-50%);color:#3a8fd6;border-color:#3a8fd6;}'
+    + '.sw-card.show-del .sw-tag.del,.sw-card.show-deadline .sw-tag.deadline,.sw-card.show-auto .sw-tag.auto,.sw-card.show-later .sw-tag.later{opacity:1;}'
+    + '.sw-done{color:#fff;text-align:center;font-size:19px;font-weight:800;line-height:1.7;}'
+    + '.sw-done span{font-size:13px;font-weight:700;color:rgba(255,255,255,.85);}'
+    + '.sw-actions{display:flex;gap:8px;margin-top:12px;}'
+    + '.sw-act{flex:1;font-family:inherit;font-size:12px;font-weight:800;border:none;border-radius:14px;padding:11px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:#fff;}'
+    + '.sw-ic{font-size:19px;}'
+    + '.sw-act.del{background:#e5484d;}.sw-act.later{background:#3a8fd6;}.sw-act.auto{background:#e08a1e;}.sw-act.deadline{background:#6c5ce7;}'
+    + '.sw-hint{text-align:center;color:rgba(255,255,255,.7);font-size:11px;margin-top:8px;}'
+    + '#swDeadlineModal{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(20,18,30,.5);padding:20px;}'
+    + '.swd-card{background:#fff;border-radius:20px;width:min(90vw,340px);padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.35);}'
+    + '.swd-title{font-size:16px;font-weight:800;color:#1c1c1e;margin-bottom:4px;}'
+    + '.swd-sub{font-size:12.5px;color:#6b6880;line-height:1.5;margin-bottom:12px;}'
+    + '.swd-input{width:100%;box-sizing:border-box;font-family:inherit;font-size:16px;border:1px solid #e2defa;border-radius:12px;padding:11px;background:#faf9fd;color:#1c1c1e;}'
+    + '.swd-preview{font-size:13px;color:#6c5ce7;font-weight:700;margin:10px 2px 4px;min-height:18px;}'
+    + '.swd-preview b{font-size:15px;}'
+    + '.swd-btns{display:flex;gap:8px;margin-top:12px;}'
+    + '.swd-cancel{flex:1;font-family:inherit;font-size:14px;font-weight:700;color:#8e8b9e;background:#f2f1f7;border:none;border-radius:12px;padding:11px;cursor:pointer;}'
+    + '.swd-ok{flex:2;font-family:inherit;font-size:14px;font-weight:800;color:#fff;background:#6c5ce7;border:none;border-radius:12px;padding:11px;cursor:pointer;}';
+    try { var st=document.createElement('style'); st.id='swipeTriageStyles'; st.textContent=css; document.head.appendChild(st); } catch(e){}
+  })();
 
   // ドラッグ関連
   let dragState = null;
