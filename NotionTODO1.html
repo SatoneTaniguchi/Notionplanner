@@ -15608,6 +15608,8 @@
       if (t._type==='repeat' || t._type==='repeat_ended') return;
       if (t._projectOnly || t._habitTemplateId || t._repeatConfig || t._recurringId || t._pseudo) return;
       if (typeof isRoutineKind==='function' && isRoutineKind(t)) return; // 習慣・掃除・美容は出さない
+      if (typeof taskHasProject==='function' && taskHasProject(t)) return; // プロジェクト所属は出さない
+      if (t.project) return;                                              // プロジェクト名つきも除外
       if (repNames[String(t.name||'').trim()]) return;                   // 繰り返しと同名も出さない
       if (tri[t.id] && (nowMs - tri[t.id] < COOL)) return;               // 振り分け後1週間は出さない
       try { if (taskDisplayDone(t, new Date())) return; } catch(e){}
@@ -15686,13 +15688,15 @@
   function _swChromeHtml(){
     var m = SW_SLOTS[_swMode];
     function btn(slot){ var s=m[slot]; return '<button class="sw-corner '+slot+'" onclick="swipeAct(\''+slot+'\')"><span class="sw-ic">'+s.ic+'</span>'+s.lb+'</button>'; }
-    var hint = '↖ '+m.auto.lb+'　↗ '+m.deadline.lb+'　↙ '+m.del.lb+'　↘ '+m.later.lb;
-    return btn('auto')+btn('deadline')+btn('del')+btn('later')+'<div class="sw-hint">'+hint+'</div>';
+    var doneBtn = '<button class="sw-corner done" onclick="swipeAct(\'done\')"><span class="sw-ic">✅</span>完了</button>';
+    var hint = '← 完了　↖ '+m.auto.lb+'　↗ '+m.deadline.lb+'　↙ '+m.del.lb+'　↘ '+m.later.lb;
+    return btn('auto')+btn('deadline')+btn('del')+btn('later')+doneBtn+'<div class="sw-hint">'+hint+'</div>';
   }
   function _swTagsHtml(){
     var m = SW_SLOTS[_swMode];
     return '<div class="sw-tag auto">'+m.auto.ic+' '+m.auto.lb+'</div><div class="sw-tag deadline">'+m.deadline.ic+' '+m.deadline.lb+'</div>'
-      + '<div class="sw-tag del">'+m.del.ic+' '+m.del.lb+'</div><div class="sw-tag later">'+m.later.ic+' '+m.later.lb+'</div>';
+      + '<div class="sw-tag del">'+m.del.ic+' '+m.del.lb+'</div><div class="sw-tag later">'+m.later.ic+' '+m.later.lb+'</div>'
+      + '<div class="sw-tag done">✅ 完了</div>';
   }
   window.swSetMode = function(mode){
     if (_swMode === mode) return;
@@ -15787,7 +15791,7 @@
     _swQueue = _swCandidates('sort');
     if (!_swQueue.length){ _swMode = 'date'; _swQueue = _swCandidates('date'); } // 期限切れが無ければ日付モードで開始
     _swIdx = 0;
-    _swCounts = { del:0, deadline:0, auto:0, later:0, date:0 };
+    _swCounts = { del:0, deadline:0, auto:0, later:0, date:0, done:0 };
     var ov = document.getElementById('swipeTriage');
     if (ov) ov.remove();
     ov = document.createElement('div'); ov.id = 'swipeTriage';
@@ -15811,7 +15815,7 @@
     var sub = document.getElementById('swSub');
     if (!stack) return;
     if (_swIdx >= _swQueue.length){
-      stack.innerHTML = '<div class="sw-done">🎉 整理おつかれさま！<br><span>削除' + _swCounts.del + '・締切' + _swCounts.deadline + '・おまかせ' + _swCounts.auto + '・あとで' + _swCounts.later + (_swCounts.date? '・日付指定'+_swCounts.date : '') + '</span></div>';
+      stack.innerHTML = '<div class="sw-done">🎉 整理おつかれさま！<br><span>' + (_swCounts.done? '完了'+_swCounts.done+'・':'') + '削除' + _swCounts.del + '・締切' + _swCounts.deadline + '・おまかせ' + _swCounts.auto + '・あとで' + _swCounts.later + (_swCounts.date? '・日付指定'+_swCounts.date : '') + '</span></div>';
       if (sub) sub.textContent = '';
       return;
     }
@@ -15840,9 +15844,19 @@
       + '<div class="sw-name">' + name + '</div>' + badge;
   }
 
+  function _swComplete(t){
+    try {
+      t['(A)done'] = true; t._localLastEdited = new Date().toISOString();
+      persistTasks();
+      try { if (typeof awardCompletion==='function') awardCompletion(t.id, t.name, ymd(new Date()), (typeof taskCoins==='function'?taskCoins(t):0)); } catch(e){}
+      try { if (t._notionId && typeof notionLinked==='function' && notionLinked() && typeof notionUpdateDone==='function') notionUpdateDone(t._notionId, true).catch(function(){}); } catch(e){}
+    } catch(e){}
+  }
+
   window.swipeAct = function(slot){
     if (_swIdx >= _swQueue.length) return;
     var t = _swQueue[_swIdx];
+    if (slot === 'done'){ _swCounts.done = (_swCounts.done||0)+1; _swComplete(t); _swMarkTriaged(t.id); _swIdx++; _swRender(); return; }
     var act = ((SW_SLOTS[_swMode]||{})[slot] || {}).act || slot;
     if (act === 'deadline'){ _swAskDeadline(t); return; } // 締切は入力ステップへ
     if (act === 'del'){
@@ -15927,7 +15941,7 @@
     if (!card) return;
     var sx=0, sy=0, dx=0, dy=0, dragging=false;
     var TH = 70; // しきい値（対角距離）
-    // 象限 → 種類：左上=おまかせ / 右上=締切 / 左下=削除 / 右下=あとで
+    // 象限 → 種類：左上=おまかせ / 右上=締切 / 左下=削除 / 右下=あとで、真左=完了
     function quad(){
       var right = dx > 0, down = dy > 0;
       if (!down && !right) return 'auto';
@@ -15935,9 +15949,14 @@
       if ( down && !right) return 'del';
       return 'later';
     }
+    function dir(){
+      // 真左（水平左）＝完了。それ以外は4隅。
+      if (dx < 0 && Math.abs(dy) < Math.abs(dx) * 0.45) return 'done';
+      return quad();
+    }
     function setTag(){
-      card.classList.remove('show-del','show-deadline','show-auto','show-later');
-      if (Math.sqrt(dx*dx+dy*dy) > 25) card.classList.add('show-' + quad());
+      card.classList.remove('show-del','show-deadline','show-auto','show-later','show-done');
+      if (Math.sqrt(dx*dx+dy*dy) > 25) card.classList.add('show-' + dir());
     }
     function move(x,y){
       dx = x - sx; dy = y - sy;
@@ -15946,16 +15965,16 @@
     }
     function end(){
       dragging = false;
-      card.classList.remove('show-del','show-deadline','show-auto','show-later');
-      var kind = (Math.sqrt(dx*dx+dy*dy) > TH) ? quad() : null;
-      var act = kind ? (((SW_SLOTS[_swMode]||{})[kind]||{}).act || kind) : null;
+      card.classList.remove('show-del','show-deadline','show-auto','show-later','show-done');
+      var kind = (Math.sqrt(dx*dx+dy*dy) > TH) ? dir() : null;
+      var act = (kind && kind!=='done') ? (((SW_SLOTS[_swMode]||{})[kind]||{}).act || kind) : kind;
       if (act === 'deadline'){
         // 締切は入力が必要 → カードは飛ばさず戻して入力モーダルを出す
         card.style.transition = 'transform .2s ease'; card.style.transform = '';
         setTimeout(function(){ card.style.transition=''; }, 200);
         swipeAct(kind);
       } else if (kind){
-        var ox = (kind==='del') ? -500 : (kind==='later' ? 500 : (kind==='auto' ? -500 : 0));
+        var ox = (kind==='done') ? -520 : (kind==='del') ? -500 : (kind==='later' ? 500 : (kind==='auto' ? -500 : 0));
         var oy = (kind==='auto') ? -600 : ((kind==='del'||kind==='later') ? 600 : 0);
         card.style.transition = 'transform .25s ease';
         card.style.transform = 'translate(' + ox + 'px,' + oy + 'px) rotate(' + (ox*0.03) + 'deg)';
@@ -16002,7 +16021,9 @@
     + '.sw-tag.deadline{top:16px;right:16px;color:#6c5ce7;border-color:#6c5ce7;transform:rotate(10deg);}'
     + '.sw-tag.del{bottom:16px;left:16px;color:#e5484d;border-color:#e5484d;transform:rotate(10deg);}'
     + '.sw-tag.later{bottom:16px;right:16px;color:#3a8fd6;border-color:#3a8fd6;transform:rotate(-10deg);}'
-    + '.sw-card.show-del .sw-tag.del,.sw-card.show-deadline .sw-tag.deadline,.sw-card.show-auto .sw-tag.auto,.sw-card.show-later .sw-tag.later{opacity:1;}'
+    + '.sw-tag.done{top:50%;left:16px;margin-top:-16px;color:#12a150;border-color:#12a150;transform:rotate(-6deg);}'
+    + '.sw-card.show-del .sw-tag.del,.sw-card.show-deadline .sw-tag.deadline,.sw-card.show-auto .sw-tag.auto,.sw-card.show-later .sw-tag.later,.sw-card.show-done .sw-tag.done{opacity:1;}'
+    + '.sw-corner.done{top:50%;left:16px;transform:translateY(-50%);width:76px;background:#12a150;}'
     + '.sw-done{color:#fff;text-align:center;font-size:19px;font-weight:800;line-height:1.7;}'
     + '.sw-done span{font-size:13px;font-weight:700;color:rgba(255,255,255,.85);}'
     + '.sw-corner{position:absolute;width:96px;font-family:inherit;font-size:12px;font-weight:800;border:none;border-radius:16px;padding:10px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:3;}'
