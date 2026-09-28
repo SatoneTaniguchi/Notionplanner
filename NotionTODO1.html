@@ -15611,7 +15611,8 @@
       if (typeof taskHasProject==='function' && taskHasProject(t)) return; // プロジェクト所属は出さない
       if (t.project) return;                                              // プロジェクト名つきも除外
       if (repNames[String(t.name||'').trim()]) return;                   // 繰り返しと同名も出さない
-      if (tri[t.id] && (nowMs - tri[t.id] < COOL)) return;               // 振り分け後1週間は出さない
+      if (tri[t.id] && (nowMs - tri[t.id] < COOL)) return;               // 振り分け後1週間は出さない（端末内）
+      if (t._swSnoozeUntil && t._swSnoozeUntil > nowMs) return;           // タスクに記録されたスヌーズ（端末間で持ち越し）
       try { if (taskDisplayDone(t, new Date())) return; } catch(e){}
       var j = t['(A)実行日'];
       var later = (t._type==='later') || !j || !j.start;
@@ -15665,10 +15666,30 @@
   var _swQueue = [], _swIdx = 0, _swCounts = null;
   // 振り分け履歴（taskId → 最終振り分け時刻）。1週間は再表示しない。
   function _swTriagedMap(){ try { return JSON.parse(localStorage.getItem('swTriaged')||'{}') || {}; } catch(e){ return {}; } }
-  function _swMarkTriaged(id){ if(!id) return; try { var m=_swTriagedMap(); m[id]=Date.now();
-    // 古い記録（30日超）は掃除
-    var cut=Date.now()-30*86400000; Object.keys(m).forEach(function(k){ if(m[k]<cut) delete m[k]; });
-    localStorage.setItem('swTriaged', JSON.stringify(m)); } catch(e){} }
+  var _SW_COOL_MS = 7*86400000;
+  function _swMarkTriaged(t){
+    var id = (t && typeof t === 'object') ? t.id : t;
+    if(!id) return;
+    var now = Date.now();
+    // ① localStorage（端末内・即時）
+    try { var m=_swTriagedMap(); m[id]=now;
+      var cut=now-30*86400000; Object.keys(m).forEach(function(k){ if(m[k]<cut) delete m[k]; });
+      localStorage.setItem('swTriaged', JSON.stringify(m)); } catch(e){}
+    // ② タスク自体にも記録（tasksと一緒に保存＝バックアップ／同期に乗せやすい）
+    try {
+      if (t && typeof t === 'object'){
+        t._swSnoozeUntil = now + _SW_COOL_MS;
+        t._localLastEdited = new Date().toISOString();
+        persistTasks();
+        // Notion同期があれば、スヌーズ期限をメモに残して端末間で持ち越す
+        try {
+          if (t._notionId && typeof notionLinked==='function' && notionLinked() && typeof notionUpdateTask==='function'){
+            notionUpdateTask(t._notionId, t);
+          }
+        } catch(e){}
+      }
+    } catch(e){}
+  }
   var _swMode = 'sort';
   // 4隅スロット（auto=左上 / deadline=右上 / del=左下 / later=右下）→ モード別の意味
   var SW_SLOTS = {
@@ -15856,7 +15877,7 @@
   window.swipeAct = function(slot){
     if (_swIdx >= _swQueue.length) return;
     var t = _swQueue[_swIdx];
-    if (slot === 'done'){ _swCounts.done = (_swCounts.done||0)+1; _swComplete(t); _swMarkTriaged(t.id); _swIdx++; _swRender(); return; }
+    if (slot === 'done'){ _swCounts.done = (_swCounts.done||0)+1; _swComplete(t); _swMarkTriaged(t); _swIdx++; _swRender(); return; }
     var act = ((SW_SLOTS[_swMode]||{})[slot] || {}).act || slot;
     if (act === 'deadline'){ _swAskDeadline(t); return; } // 締切は入力ステップへ
     if (act === 'del'){
@@ -15873,7 +15894,7 @@
     } else if (act === 'week'){
       _swCounts.date++; _swApplyDate(t, _swAutoDate(7));
     }
-    if (act !== 'del') _swMarkTriaged(t.id);   // 振り分け記録（削除は不要）
+    if (act !== 'del') _swMarkTriaged(t);   // 振り分け記録（削除は不要）
     _swIdx++;
     _swRender();
   };
@@ -15931,7 +15952,7 @@
       persistTasks(); _swNotionSync(t);
     } catch(e){}
     _swCounts.deadline++;
-    try { _swMarkTriaged(t.id); } catch(e){}
+    try { _swMarkTriaged(t); } catch(e){}
     var m=document.getElementById('swDeadlineModal'); if(m) m.remove();
     _swIdx++; _swRender();
   };
@@ -16009,12 +16030,12 @@
     + '.sw-head .sw-close{margin-left:8px;}'
     + '.sw-sub{color:rgba(255,255,255,.85);font-size:12px;font-weight:700;margin-bottom:8px;}'
     + '.sw-stack{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;}'
-    + '.sw-card{position:absolute;width:min(88vw,360px);background:#fff;border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:26px 22px;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:10px;}'
-    + '.sw-card.behind{transform:scale(.94) translateY(14px);opacity:.6;}'
+    + '.sw-card{position:absolute;width:min(66vw,270px);background:#fff;border-radius:20px;box-shadow:0 10px 34px rgba(0,0,0,.3);padding:20px 16px;min-height:168px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:9px;}'
+    + '.sw-card.behind{transform:scale(.94) translateY(12px);opacity:.6;}'
     + '.sw-card.top{cursor:grab;touch-action:none;z-index:2;}'
-    + '.sw-when{font-size:12.5px;font-weight:800;color:#8e8b9e;}'
+    + '.sw-when{font-size:12px;font-weight:800;color:#8e8b9e;}'
     + '.sw-when.over{color:#e5484d;}'
-    + '.sw-name{font-size:22px;font-weight:800;color:#1c1c1e;line-height:1.35;word-break:break-word;}'
+    + '.sw-name{font-size:19px;font-weight:800;color:#1c1c1e;line-height:1.35;word-break:break-word;}'
     + '.sw-badge{font-size:12px;font-weight:800;border-radius:8px;padding:3px 10px;}'
     + '.sw-tag{position:absolute;font-size:15px;font-weight:900;padding:5px 12px;border-radius:10px;opacity:0;transition:opacity .1s;border:2.5px solid;}'
     + '.sw-tag.auto{top:16px;left:16px;color:#e08a1e;border-color:#e08a1e;transform:rotate(-10deg);}'
@@ -16026,8 +16047,8 @@
     + '.sw-corner.done{top:50%;left:16px;transform:translateY(-50%);width:76px;background:#12a150;}'
     + '.sw-done{color:#fff;text-align:center;font-size:19px;font-weight:800;line-height:1.7;}'
     + '.sw-done span{font-size:13px;font-weight:700;color:rgba(255,255,255,.85);}'
-    + '.sw-corner{position:absolute;width:96px;font-family:inherit;font-size:12px;font-weight:800;border:none;border-radius:16px;padding:10px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:3;}'
-    + '.sw-corner .sw-ic{font-size:20px;}'
+    + '.sw-corner{position:absolute;width:84px;font-family:inherit;font-size:11px;font-weight:800;border:none;border-radius:15px;padding:9px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:3;}'
+    + '.sw-corner .sw-ic{font-size:19px;}'
     + '.sw-corner.auto{top:calc(env(safe-area-inset-top,0px) + 58px);left:16px;background:#e08a1e;}'
     + '.sw-corner.deadline{top:calc(env(safe-area-inset-top,0px) + 58px);right:16px;background:#6c5ce7;}'
     + '.sw-corner.del{bottom:calc(env(safe-area-inset-bottom,0px) + 40px);left:16px;background:#e5484d;}'
