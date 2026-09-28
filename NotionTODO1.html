@@ -3041,6 +3041,11 @@
     </div>
   </div>
   <div class="week-nav" id="weekNav"></div>
+  <div class="cal-view-switch" id="calViewSwitch">
+    <button id="cvs-day" class="cvs-btn active" onclick="setSchedView('day')">日</button>
+    <button id="cvs-week" class="cvs-btn" onclick="setSchedView('week')">週</button>
+    <button id="cvs-month" class="cvs-btn" onclick="setSchedView('month')">月</button>
+  </div>
 </div>
 
 <!-- Googleカレンダーパネル -->
@@ -3484,6 +3489,7 @@
   <div class="timeline-scroll" id="timelineScroll">
     <!-- 天気 & 洗濯パネル（Open-Meteo 使用・APIキー不要） -->
     <div id="weatherPanel" class="wx-panel" style="display:none;"></div>
+    <div id="calView" style="display:none;"></div>
     <div class="timeline" id="timeline">
       <div class="timeline-line"></div>
     </div>
@@ -6826,6 +6832,7 @@
       if (j && j.start) return new Date(j.start).toDateString() === currentDate.toDateString();
       return false;
     }));
+    try { if (typeof applySchedView === 'function') applySchedView(); } catch(e){}
   }
 
   function createNowIndicator(now) {
@@ -15248,6 +15255,258 @@
     el.textContent = el.classList.contains('checked') ? '✓' : '';
   }
 
+  // 勤怠でオフィス出社を記録したとき：今日の「出社」タスクにタイトルへ場所を足して完了。
+  //   無ければ「出社: <場所>」タスクを作って完了にする（Googleカレンダーには書かない）。
+  window.appRecordClockInTask = function(location){
+    try {
+      if (!location) return false;
+      const todayStr = new Date().toDateString();
+      let found = null;
+      for (let i=0;i<tasks.length;i++){
+        const t = tasks[i];
+        if (!t || !t.name) continue;
+        if (t._type === 'repeat' || t._type === 'repeat_ended') continue; // テンプレは除外
+        if (getDateString(t) !== todayStr) continue;
+        const nm = String(t.name).replace(/\s/g,'');
+        if (nm === '出社' || /^出社[:：]/.test(nm)) { found = t; break; } // 「出社」または既に「出社: 〜」
+      }
+      const newName = '出社: ' + location;
+      if (found){
+        const wasDone = !!found['(A)done'];
+        found.name = newName;
+        found['(A)done'] = true;
+        found._localLastEdited = new Date().toISOString();
+        persistTasks();
+        if (!wasDone){ try { awardCompletion(found.id, found.name, ymd(new Date()), taskCoins(found)); } catch(e){} }
+        if (found._notionId && notionLinked()){ try { notionUpdateDone(found._notionId, true).catch(function(){}); } catch(e){} }
+      } else {
+        const ymdStr = ymd(new Date());
+        const nt = { id:'clockin_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+          name:newName, '(B)種類':'仕事', '(A)done':true,
+          '(A)実行日':{ start:ymdStr, end:ymdStr }, _type:'time', _allDay:true,
+          _notionId:null, _source:'attendance', _localLastEdited:new Date().toISOString() };
+        tasks.push(nt);
+        persistTasks();
+        try { awardCompletion(nt.id, nt.name, ymdStr, taskCoins(nt)); } catch(e){}
+        try { if (typeof pushNewTaskToNotion === 'function' && notionLinked() && notionSettings.dbId) pushNewTaskToNotion(nt); } catch(e){}
+      }
+      try { if (typeof appRefresh === 'function') appRefresh(); } catch(e){}
+      return true;
+    } catch(e){ return false; }
+  };
+
+
+  // ============================================================
+  // 📅 スケジュールの 日/週/月 ビュー切替（＋カテゴリ色分け）
+  //   day  = 既存のタイムライン
+  //   week = 今週7日を縦リスト（各日を色付きチップで）
+  //   month= 月グリッド（各日にカテゴリ色ドット）／日タップで日ビューへ
+  // ============================================================
+  var CAL_VIEW_KEY = 'schedViewMode';
+  function schedViewMode(){ try { return localStorage.getItem(CAL_VIEW_KEY) || 'day'; } catch(e){ return 'day'; } }
+  function setSchedView(mode){
+    try { localStorage.setItem(CAL_VIEW_KEY, mode); } catch(e){}
+    applySchedView();
+  }
+  window.setSchedView = setSchedView;
+
+  var WD_J = ['日','月','火','水','木','金','土'];
+
+  // カテゴリ→色（既存 SHURUI_OPTIONS を利用）
+  function _catStyle(cat){
+    try { var o = SHURUI_OPTIONS.find(function(x){ return x.value===cat; }); if (o) return { color:o.color, bg:o.bg }; } catch(e){}
+    return { color:'#8e8b9e', bg:'#f2f2f7' };
+  }
+  function _itemTime(t){ try { var d=t['(A)実行日']; if(d&&d.start&&String(d.start).length>10) return String(d.start).substring(11,16); }catch(e){} return ''; }
+
+  // 指定日の予定（タスク＋習慣＋取得済みGoogleイベント）
+  function scheduleItemsForDate(date){
+    var ds = date.toDateString();
+    var items = [];
+    try {
+      (tasks||[]).forEach(function(t){
+        if (!t || !t.name) return;
+        if (t._type==='later' || t._projectOnly) return;
+        if (t._type==='repeat' || t._type==='repeat_ended'){
+          try { if (typeof habitOccursOn==='function' && habitOccursOn(t, date)){
+            items.push({ name:t.name, cat:t['(B)種類']||'', time:_itemTime(t),
+              done:(typeof isHabitDoneOn==='function' && isHabitDoneOn(t.id, _dayYmd(date))), ev:false });
+          }} catch(e){}
+          return;
+        }
+        if (getDateString(t) !== ds) return;
+        items.push({ name:t.name, cat:t['(B)種類']||'', time:_itemTime(t),
+          done:(typeof taskDisplayDone==='function' ? taskDisplayDone(t, date) : !!t['(A)done']), ev:false });
+      });
+    } catch(e){}
+    try {
+      (gcalEvents[ds]||[]).forEach(function(e){
+        items.push({ name:e.title||'予定', cat:'__gcal', time:(e.startTime||'').slice(0,5), done:false, ev:true });
+      });
+    } catch(e){}
+    items.sort(function(a,b){ if(a.time&&b.time) return a.time<b.time?-1:1; if(a.time) return -1; if(b.time) return 1; return 0; });
+    return items;
+  }
+
+  // ---- 月ビュー ----
+  function renderMonthView(host){
+    var base = new Date(currentDate);
+    var y = base.getFullYear(), m = base.getMonth();
+    var first = new Date(y, m, 1), startDow = first.getDay();
+    var last = new Date(y, m+1, 0).getDate();
+    var todayStr = new Date().toDateString();
+    var selStr = currentDate.toDateString();
+
+    var h = '<div class="cvm-nav">'
+      + '<button class="cvm-navbtn" onclick="schedMonthShift(-1)">‹</button>'
+      + '<span class="cvm-title">' + y + '年 ' + (m+1) + '月</span>'
+      + '<button class="cvm-navbtn" onclick="schedMonthShift(1)">›</button></div>';
+    h += '<div class="cvm-grid">';
+    for (var w=0; w<7; w++){ h += '<div class="cvm-wd' + (w===0?' sun':'') + (w===6?' sat':'') + '">' + WD_J[w] + '</div>'; }
+    for (var e=0; e<startDow; e++){ h += '<div class="cvm-cell empty"></div>'; }
+    for (var day=1; day<=last; day++){
+      var d = new Date(y, m, day), dsStr = d.toDateString();
+      var items = scheduleItemsForDate(d);
+      // カテゴリ別に色ドット（最大4色）
+      var seen = {}, dots = '';
+      var nd = 0;
+      for (var i=0; i<items.length && nd<4; i++){
+        var key = items[i].ev ? '__gcal' : (items[i].cat||'雑務');
+        if (seen[key]) continue; seen[key]=true;
+        var col = items[i].ev ? '#4a90e2' : _catStyle(items[i].cat).color;
+        dots += '<span class="cvm-dot" style="background:' + col + '"></span>'; nd++;
+      }
+      var more = items.length > 0 ? '<span class="cvm-cnt">' + items.length + '</span>' : '';
+      var cls = 'cvm-cell';
+      if (d.getDay()===0) cls += ' sun'; if (d.getDay()===6) cls += ' sat';
+      if (dsStr===todayStr) cls += ' today';
+      if (dsStr===selStr) cls += ' sel';
+      h += '<div class="' + cls + '" onclick="schedPickDay(' + y + ',' + m + ',' + day + ')">'
+        + '<span class="cvm-dn">' + day + '</span>'
+        + '<span class="cvm-dots">' + dots + '</span>' + more + '</div>';
+    }
+    h += '</div>';
+    host.innerHTML = h;
+  }
+  window.schedMonthShift = function(delta){
+    var d = new Date(currentDate); d.setDate(1); d.setMonth(d.getMonth()+delta);
+    currentDate = d;
+    try { renderHeader(); } catch(e){}
+    applySchedView();
+  };
+  window.schedPickDay = function(y,m,day){
+    currentDate = new Date(y, m, day);
+    setSchedView('day');
+    try { renderHeader(); } catch(e){}
+    try {
+      if (typeof gcalAccessToken !== 'undefined' && gcalAccessToken && !gcalEvents[currentDate.toDateString()] && typeof gcalFetchEvents==='function'){
+        gcalFetchEvents(new Date(currentDate)).then(function(){ try{ renderTimeline(); }catch(e){} });
+      }
+    } catch(e){}
+    try { renderTimeline(); } catch(e){}
+    try { renderLater(); } catch(e){}
+  };
+
+  // ---- 週ビュー ----
+  function renderWeekView(host){
+    var d = new Date(currentDate);
+    var sunday = new Date(d); sunday.setDate(d.getDate() - d.getDay());
+    var todayStr = new Date().toDateString();
+    var h = '<div class="cvm-nav">'
+      + '<button class="cvm-navbtn" onclick="schedWeekShift(-1)">‹</button>'
+      + '<span class="cvm-title">' + (sunday.getMonth()+1) + '/' + sunday.getDate() + ' の週</span>'
+      + '<button class="cvm-navbtn" onclick="schedWeekShift(1)">›</button></div>';
+    h += '<div class="cvw-list">';
+    for (var i=0; i<7; i++){
+      var day = new Date(sunday); day.setDate(sunday.getDate()+i);
+      var dsStr = day.toDateString();
+      var items = scheduleItemsForDate(day);
+      var chips = '';
+      items.forEach(function(it){
+        var st = it.ev ? { color:'#2f6fb0', bg:'#e9f3fc' } : _catStyle(it.cat);
+        var tm = it.time ? '<b>' + it.time + '</b> ' : '';
+        chips += '<span class="cvw-chip' + (it.done?' done':'') + '" style="color:' + st.color + ';background:' + st.bg + '">'
+          + tm + _esc(it.name) + '</span>';
+      });
+      if (!chips) chips = '<span class="cvw-empty">予定なし</span>';
+      var wd = WD_J[day.getDay()];
+      var wdColor = day.getDay()===0?'#e5484d':(day.getDay()===6?'#3b6bd6':'#3a3846');
+      h += '<div class="cvw-day' + (dsStr===todayStr?' today':'') + '" onclick="schedPickDay(' + day.getFullYear() + ',' + day.getMonth() + ',' + day.getDate() + ')">'
+        + '<div class="cvw-date"><span class="cvw-dn" style="color:' + wdColor + '">' + (day.getMonth()+1) + '/' + day.getDate() + '</span>'
+        + '<span class="cvw-wd" style="color:' + wdColor + '">' + wd + '</span></div>'
+        + '<div class="cvw-chips">' + chips + '</div></div>';
+    }
+    h += '</div>';
+    host.innerHTML = h;
+  }
+  window.schedWeekShift = function(delta){
+    var d = new Date(currentDate); d.setDate(d.getDate() + delta*7);
+    currentDate = d;
+    try { renderHeader(); } catch(e){}
+    applySchedView();
+  };
+
+  function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ---- 表示切替 ----
+  function applySchedView(){
+    var mode = schedViewMode();
+    var tl = document.getElementById('timeline');
+    var ts = document.getElementById('tomorrowSummary');
+    var cv = document.getElementById('calView');
+    ['day','week','month'].forEach(function(x){ var b=document.getElementById('cvs-'+x); if(b) b.classList.toggle('active', x===mode); });
+    if (mode === 'day'){
+      if (tl) tl.style.display='';
+      if (ts) ts.style.display='';
+      if (cv){ cv.style.display='none'; cv.innerHTML=''; }
+    } else {
+      if (tl) tl.style.display='none';
+      if (ts) ts.style.display='none';
+      if (cv){ cv.style.display='block'; if (mode==='month') renderMonthView(cv); else renderWeekView(cv); }
+    }
+  }
+  window.applySchedView = applySchedView;
+
+  // スタイル
+  (function(){
+    var css = ''
+    + '.cal-view-switch{display:flex;gap:4px;justify-content:center;padding:6px 12px 2px;}'
+    + '.cvs-btn{flex:1;max-width:90px;font-family:inherit;font-size:13px;font-weight:800;color:#8e8b9e;background:#f2f1f7;border:none;border-radius:9px;padding:6px 0;cursor:pointer;}'
+    + '.cvs-btn.active{background:#6c5ce7;color:#fff;}'
+    + '#calView{padding:8px 12px 20px;}'
+    + '.cvm-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px;}'
+    + '.cvm-navbtn{border:none;background:#f2f1f7;color:#5a5768;width:32px;height:32px;border-radius:10px;font-size:18px;cursor:pointer;}'
+    + '.cvm-title{font-size:15px;font-weight:800;color:#1c1c1e;}'
+    + '.cvm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}'
+    + '.cvm-wd{text-align:center;font-size:11px;font-weight:800;color:#8e8b9e;padding:2px 0;}'
+    + '.cvm-wd.sun{color:#e5857f;}.cvm-wd.sat{color:#7f9fe5;}'
+    + '.cvm-cell{aspect-ratio:1/1;border:1px solid #eeecf6;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;padding:3px 1px;cursor:pointer;position:relative;overflow:hidden;}'
+    + '.cvm-cell.empty{border:none;background:transparent;cursor:default;}'
+    + '.cvm-cell.today{border-color:#6c5ce7;box-shadow:0 0 0 1px #6c5ce7 inset;}'
+    + '.cvm-cell.sel{background:#f4f2fd;}'
+    + '.cvm-dn{font-size:12px;font-weight:700;color:#2d2b3a;line-height:1.1;}'
+    + '.cvm-cell.sun .cvm-dn{color:#e5484d;}.cvm-cell.sat .cvm-dn{color:#3b6bd6;}'
+    + '.cvm-dots{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:2px;}'
+    + '.cvm-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}'
+    + '.cvm-cnt{font-size:8.5px;font-weight:700;color:#a7a4b6;position:absolute;bottom:2px;right:4px;}'
+    + '.cvw-list{display:flex;flex-direction:column;gap:6px;}'
+    + '.cvw-day{display:flex;gap:8px;background:#fff;border:1px solid #ececf2;border-radius:13px;padding:8px 10px;cursor:pointer;}'
+    + '.cvw-day.today{border-color:#6c5ce7;background:#faf9ff;}'
+    + '.cvw-date{flex:none;width:44px;text-align:center;}'
+    + '.cvw-dn{display:block;font-size:14px;font-weight:800;line-height:1.1;}'
+    + '.cvw-wd{display:block;font-size:10px;font-weight:700;}'
+    + '.cvw-chips{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;}'
+    + '.cvw-chip{font-size:11px;font-weight:700;border-radius:8px;padding:3px 7px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+    + '.cvw-chip.done{opacity:.45;text-decoration:line-through;}'
+    + '.cvw-chip b{font-variant-numeric:tabular-nums;}'
+    + '.cvw-empty{font-size:11px;color:#c2c0cc;padding:3px 0;}';
+    try { var st=document.createElement('style'); st.id='schedViewStyles'; st.textContent=css; document.head.appendChild(st); } catch(e){}
+  })();
+
+  // 起動時に反映
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ try{ applySchedView(); }catch(e){} });
+  else { try { applySchedView(); } catch(e){} }
+
   // ドラッグ関連
   let dragState = null;
 
@@ -19478,7 +19737,7 @@
     var WX_CACHE_KEY = 'wxForecastCache';
     var WX_CUR_KEY = 'wxCurCache';        // 現在地の予報キャッシュ
     var WX_HOME_DEFAULT = { lat:35.5637, lon:139.7000, place:'矢口渡' };
-    var WX_VER = '3';                     // これを上げると天気キャッシュを一度クリア（データ刷新用）
+    var WX_VER = '4';                     // これを上げると天気キャッシュを一度クリア（データ刷新用）
 
     function wxCfg(){
       var saved = {};
@@ -19570,18 +19829,26 @@
       });
     }
 
-    // ---- 予報取得（7日ぶん・気象庁JMAモデル） ----
+    // ---- 予報取得（天気=気象庁JMA、降水確率=best_matchを合成） ----
     function wxFetchForecast(lat, lon){
-      var u = 'https://api.open-meteo.com/v1/forecast'
-        + '?latitude=' + lat + '&longitude=' + lon
-        + '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,windspeed_10m_max,sunshine_duration'
-        + '&models=jma_seamless'      // ★ 日本の気象庁モデル（iOS/日本の予報に近い）
-        + '&timezone=auto&forecast_days=7';
-      return fetch(u).then(function(r){ return r.json(); }).then(function(j){
+      var base = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&timezone=auto&forecast_days=7';
+      var jmaU  = base + '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,sunshine_duration&models=jma_seamless';
+      var probU = base + '&daily=precipitation_probability_max'; // 既定モデル（確率あり）
+      return Promise.all([
+        fetch(jmaU).then(function(r){ return r.json(); }),
+        fetch(probU).then(function(r){ return r.json(); }).catch(function(){ return null; })
+      ]).then(function(res){
+        var j = res[0], pj = res[1];
         if (!j || !j.daily || !j.daily.time) throw new Error('予報を取得できませんでした');
-        var d = j.daily, out = [];
+        var d = j.daily;
+        var probByDate = {};
+        if (pj && pj.daily && pj.daily.time && pj.daily.precipitation_probability_max){
+          for (var q=0;q<pj.daily.time.length;q++){ probByDate[pj.daily.time[q]] = pj.daily.precipitation_probability_max[q]; }
+        }
+        var out = [];
         for (var i=0;i<d.time.length;i++){
-          var prob = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
+          var date = d.time[i];
+          var prob = (date in probByDate) ? probByDate[date] : null;
           var psum = d.precipitation_sum ? d.precipitation_sum[i] : null;
           var sun  = d.sunshine_duration ? d.sunshine_duration[i] : null;
           var wind = d.windspeed_10m_max ? d.windspeed_10m_max[i] : null;
@@ -19589,7 +19856,7 @@
           var tmin = d.temperature_2m_min ? d.temperature_2m_min[i] : null;
           var code = d.weathercode[i];
           var score = wxLaundryScore(prob, psum, sun, wind, tmax, code);
-          out.push({ date: d.time[i], code: code, tmax: tmax, tmin: tmin, prob: prob, psum: psum, score: score });
+          out.push({ date: date, code: code, tmax: tmax, tmin: tmin, prob: prob, psum: psum, score: score });
         }
         return out;
       });
@@ -19724,9 +19991,11 @@
           + '</div>';
       }
 
-      // 今週のおすすめ洗濯日（家の予報から）
-      var best = null;
-      for (var i=0;i<homeDays.length;i++){ if (!best || homeDays[i].score > best.score) best = homeDays[i]; }
+      // 今週のおすすめ洗濯日：いちばん近い◎（score>=75）→無ければ近い○（>=55）→無ければ最高スコア
+      var best = null, bi;
+      for (bi=0; bi<homeDays.length; bi++){ if (homeDays[bi].score >= 75){ best = homeDays[bi]; break; } }
+      if (!best){ for (bi=0; bi<homeDays.length; bi++){ if (homeDays[bi].score >= 55){ best = homeDays[bi]; break; } } }
+      if (!best){ for (bi=0; bi<homeDays.length; bi++){ if (!best || homeDays[bi].score > best.score) best = homeDays[bi]; } }
       var bestDt = new Date(best.date + 'T00:00:00');
       var bestIdx = homeDays.indexOf(best);
       var bestLabel = bestIdx===0?'今日':(bestIdx===1?'明日':((bestDt.getMonth()+1)+'/'+bestDt.getDate()+'('+WDAY[bestDt.getDay()]+')'));
@@ -21906,6 +22175,9 @@
 .att-cal-cell.today{border-color:#6c5ce7;box-shadow:0 0 0 1px #6c5ce7 inset}
 .att-cal-cell .cv{font-size:10px;font-weight:700;margin-top:3px;line-height:1.15;text-align:center}
 .att-cal-cell .cv.h{color:#6c5ce7}
+.att-cal-cell .cloc{font-size:8.5px;font-weight:800;line-height:1.1;margin-top:1px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-cal-cell .cloc.home{color:#12a150}
+.att-cal-cell .cloc.office{color:#3b6bd6}
 .att-cal-cell .cv.lv{color:#12a150}
 .att-cal-cell .cv.off{color:#c3bfd6}
 .att-cal-cell .dot{position:absolute;bottom:3px;width:5px;height:5px;border-radius:50%}
@@ -22696,8 +22968,14 @@
         else { var mins=(key===tk)?liveTodayMinutes(rec):dayMinutes(rec); if(mins>0) cv='<div class="cv h">'+fmtDur(mins)+'</div>'; }
       }
       if(!cv && ((S.jphol&&hn)||(rec&&rec.holiday)||(S.weekend&&(wd===0||wd===6)))) cv='<div class="cv off">休</div>';
-      var dot=''; if(rec&&rec.loc){ var lt=rec.locType||((rec.loc==='在宅'||rec.loc==='自宅')?'home':'office'); dot='<span class="dot" style="background:'+(lt==='home'?'#12a150':'#3b6bd6')+'"></span>'; }
-      cell.innerHTML='<span class="dn">'+day+'</span>'+cv+dot;
+      var locHtml='';
+      if(rec&&rec.loc){
+        var lt=rec.locType||((rec.loc==='在宅'||rec.loc==='自宅')?'home':'office');
+        var locTxt=(lt==='home')?'在宅':String(rec.loc);
+        if(locTxt.length>3) locTxt=locTxt.slice(0,3);
+        locHtml='<div class="cloc '+(lt==='home'?'home':'office')+'">'+locTxt+'</div>';
+      }
+      cell.innerHTML='<span class="dn">'+day+'</span>'+cv+locHtml;
       (function(k){ cell.onclick=function(){ openEdit(k); }; })(key);
       grid.appendChild(cell);
     }
@@ -22734,7 +23012,7 @@
     rec.loc=loc; rec.locType=locType;
     officePickOpen=false; attLocOnly=false; saveRec(R); render();
     toast((locType==='home'?'在宅':loc)+'で出勤 '+ss[ss.length-1].in);
-    if(locType==='office') logOfficeToCalendar(loc); // オフィス出勤はカレンダーにも記録
+    if(locType==='office'){ try { if(window.appRecordClockInTask) window.appRecordClockInTask(loc); } catch(e){} } // 出社タスクを完了＋場所付与
   }
   // 打刻せず「場所だけ」記録する
   function recordLocationOnly(loc, locType){
@@ -22743,21 +23021,7 @@
     rec.loc=loc; rec.locType=locType; // 表示ミラー
     officePickOpen=false; attLocOnly=false; saveRec(R); render();
     toast('場所を記録: '+(locType==='home'?'在宅':loc));
-    if(locType==='office') logOfficeToCalendar(loc); // オフィスならカレンダーにも記録
-  }
-  // オフィス出勤/場所記録を Googleカレンダーに終日予定として追加（同じ場所は1日1回）
-  function logOfficeToCalendar(loc){
-    try{
-      if(typeof window.gcalQuickAddEvent!=='function') return;
-      if(typeof window.gcalCanWrite==='function' && !window.gcalCanWrite()) return; // 書き込み未許可なら静かにスキップ
-      var rec=R[todayKey]; if(!rec) return;
-      rec.calLogged=rec.calLogged||{};
-      if(rec.calLogged[loc]) return; // 同じ場所は二重登録しない
-      window.gcalQuickAddEvent({ title:'🏢 出社: '+loc, allDay:true, dateISO:todayKey, description:'勤怠アプリから自動記録' })
-        .then(function(res){
-          if(res && res.ok){ rec.calLogged[loc]=res.id||'1'; saveRec(R); toast('カレンダーに「出社: '+loc+'」を追加'); }
-        });
-    }catch(e){}
+    if(locType==='office'){ try { if(window.appRecordClockInTask) window.appRecordClockInTask(loc); } catch(e){} } // 出社タスクを完了＋場所付与
   }
   function startHome(){ startSession('在宅','home'); }
   function pickOffice(name){
