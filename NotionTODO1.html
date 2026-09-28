@@ -19476,11 +19476,20 @@
     'use strict';
     var WX_KEY = 'wxConfig';
     var WX_CACHE_KEY = 'wxForecastCache';
+    var WX_CUR_KEY = 'wxCurCache';        // 現在地の予報キャッシュ
+    var WX_HOME_DEFAULT = { lat:35.5637, lon:139.7000, place:'矢口渡' };
 
     function wxCfg(){
-      var d = { lat:null, lon:null, place:'', notify:false, notifyTime:'07:00' };
-      try { return Object.assign(d, JSON.parse(localStorage.getItem(WX_KEY) || '{}')); }
-      catch(e){ return d; }
+      var d = { lat:WX_HOME_DEFAULT.lat, lon:WX_HOME_DEFAULT.lon, place:WX_HOME_DEFAULT.place, notify:false, notifyTime:'07:00', _home:1 };
+      var c;
+      try { c = Object.assign(d, JSON.parse(localStorage.getItem(WX_KEY) || '{}')); }
+      catch(e){ c = d; }
+      // 「家の天気は基本 矢口渡」を一度だけ適用（旧・現在地設定を家＝矢口渡へ）
+      if (c._home !== 1) {
+        c.lat = WX_HOME_DEFAULT.lat; c.lon = WX_HOME_DEFAULT.lon; c.place = WX_HOME_DEFAULT.place; c._home = 1;
+        try { localStorage.setItem(WX_KEY, JSON.stringify(c)); localStorage.removeItem(WX_CACHE_KEY); } catch(e){}
+      }
+      return c;
     }
     function wxSave(c){ try { localStorage.setItem(WX_KEY, JSON.stringify(c)); } catch(e){} }
 
@@ -19501,20 +19510,23 @@
       return m[code] || ['🌡','—'];
     }
 
-    // 洗濯（外干し）指数 0〜100 を計算する。雨の確率を最重視。
-    //   prob: 降水確率%   psum: 降水量mm   sun: 日照時間(秒)   wind: 最大風速km/h   tmax: 最高気温℃
-    function wxLaundryScore(prob, psum, sun, wind, tmax){
-      prob = prob==null?0:prob; psum = psum==null?0:psum;
-      sun  = sun==null?0:sun;   wind = wind==null?0:wind; tmax = tmax==null?15:tmax;
+    // 洗濯（外干し）指数 0〜100。天気コードを主軸に、降水量・確率・日照で補正。
+    //   （JMAモデルは降水確率を返さないことがあるため、コード＋降水量で頑健に判定）
+    function wxLaundryScore(prob, psum, sun, wind, tmax, code){
+      psum = psum==null?0:psum; sun = sun==null?0:sun; wind = wind==null?0:wind; tmax = tmax==null?15:tmax;
       var score = 100;
-      score -= prob * 0.85;                 // 降水確率が主役（50%で-42）
-      if (psum >= 1)  score -= 20;          // 少しでも降る予報なら大きく減点
-      if (psum >= 5)  score -= 25;
-      var sunH = sun / 3600;                // 日照ボーナス（最大+12）
+      var wetSure = (code>=61&&code<=67)||(code>=71&&code<=77)||(code>=80&&code<=86)||(code>=95&&code<=99);
+      var drizzle = (code>=51&&code<=57);
+      if (wetSure) score -= 55;            // 雨/雪/にわか雨/雷雨のコード → 大幅減点
+      else if (drizzle) score -= 30;       // 霧雨
+      if (prob != null) score -= prob * 0.6;  // 降水確率があれば加味（やや軽め）
+      if (psum >= 1)  score -= 18;
+      if (psum >= 5)  score -= 22;
+      var sunH = sun / 3600;               // 日照ボーナス（最大+12）
       score += Math.min(sunH, 6) * 2;
-      if (wind >= 8 && wind <= 35) score += 8;   // ほどよい風は乾く
-      else if (wind > 45) score -= 8;            // 強すぎは飛ぶ/ほこり
-      if (tmax < 8)  score -= 12;                // 寒いと乾きにくい
+      if (wind >= 8 && wind <= 35) score += 6;
+      else if (wind > 45) score -= 8;
+      if (tmax < 8)  score -= 12;
       if (tmax >= 20) score += 4;
       return Math.max(0, Math.min(100, Math.round(score)));
     }
@@ -19550,11 +19562,12 @@
       });
     }
 
-    // ---- 予報取得（7日ぶん） ----
+    // ---- 予報取得（7日ぶん・気象庁JMAモデル） ----
     function wxFetchForecast(lat, lon){
       var u = 'https://api.open-meteo.com/v1/forecast'
         + '?latitude=' + lat + '&longitude=' + lon
         + '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,windspeed_10m_max,sunshine_duration'
+        + '&models=jma_seamless'      // ★ 日本の気象庁モデル（iOS/日本の予報に近い）
         + '&timezone=auto&forecast_days=7';
       return fetch(u).then(function(r){ return r.json(); }).then(function(j){
         if (!j || !j.daily || !j.daily.time) throw new Error('予報を取得できませんでした');
@@ -19566,12 +19579,9 @@
           var wind = d.windspeed_10m_max ? d.windspeed_10m_max[i] : null;
           var tmax = d.temperature_2m_max ? d.temperature_2m_max[i] : null;
           var tmin = d.temperature_2m_min ? d.temperature_2m_min[i] : null;
-          var score = wxLaundryScore(prob, psum, sun, wind, tmax);
-          out.push({
-            date: d.time[i], code: d.weathercode[i],
-            tmax: tmax, tmin: tmin, prob: prob, psum: psum,
-            score: score
-          });
+          var code = d.weathercode[i];
+          var score = wxLaundryScore(prob, psum, sun, wind, tmax, code);
+          out.push({ date: d.time[i], code: code, tmax: tmax, tmin: tmin, prob: prob, psum: psum, score: score });
         }
         return out;
       });
@@ -19593,6 +19603,23 @@
       if (cfg.lat == null || cfg.lon == null) return Promise.resolve(null);
       if (!force){ var c = wxCacheGet(); if (c) return Promise.resolve(c.days); }
       return wxFetchForecast(cfg.lat, cfg.lon).then(function(days){ wxCacheSet(days); return days; });
+    }
+
+    // 現在地（GPS）の予報。取得できなければ null。30分キャッシュ。
+    function wxCurGet(){
+      try { var c = JSON.parse(localStorage.getItem(WX_CUR_KEY) || 'null');
+        if (c && c.at && (Date.now() - c.at) < 30*60*1000) return c; } catch(e){}
+      return null;
+    }
+    function wxEnsureCurrent(force){
+      if (!force){ var c = wxCurGet(); if (c) return Promise.resolve(c); }
+      return wxGetGeo().then(function(g){
+        return wxFetchForecast(g.lat, g.lon).then(function(days){
+          var c = { at:Date.now(), lat:g.lat, lon:g.lon, place:'現在地', days:days };
+          try { localStorage.setItem(WX_CUR_KEY, JSON.stringify(c)); } catch(e){}
+          return c;
+        });
+      });
     }
 
     // ---- 描画 ----
@@ -19627,26 +19654,44 @@
         + '</div>';
     }
 
-    function wxRenderDays(days){
-      var cfg = wxCfg();
-      // 明日の詳細（無ければ今日）
-      var hero = days[1] || days[0];
-      var heroIdx = days[1] ? 1 : 0;
-      var hInfo = wxInfo(hero.code);
-      var hMk = wxLaundryMark(hero.score);
-      var hDt = new Date(hero.date + 'T00:00:00');
-      var heroLabel = heroIdx===1 ? '明日' : '今日';
+    // 1か所ぶんのコンパクト・カード（明日の天気＋洗濯判定）
+    function wxMiniCard(kind, place, days){
+      var badge = kind==='home' ? '🏠' : '📍';
+      if (!days || !days.length){
+        var emptyMsg = kind==='cur' ? '現在地を取得中…' : '—';
+        var tapAttr = kind==='cur' ? ' onclick="wxUseCurrent()"' : '';
+        return '<div class="wx-mini"'+tapAttr+'><div class="wx-mini-h"><span class="wx-mini-place">'+badge+' '+place+'</span></div><div class="wx-mini-empty">'+emptyMsg+'</div></div>';
+      }
+      var idx = days[1] ? 1 : 0;
+      var day = days[idx];
+      var info = wxInfo(day.code);
+      var mk = wxLaundryMark(day.score);
+      var lbl = idx===1 ? '明日' : '今日';
+      var edit = kind==='home' ? '<span class="wx-mini-edit" onclick="wxAskCity()">変更</span>' : '';
+      return ''
+        + '<div class="wx-mini">'
+        +   '<div class="wx-mini-h"><span class="wx-mini-place">' + badge + ' ' + place + '</span>' + edit + '</div>'
+        +   '<div class="wx-mini-body"><span class="wx-mini-ico">' + info[0] + '</span>'
+        +     '<span class="wx-mini-t"><b>' + (day.tmax==null?'—':Math.round(day.tmax)) + '°</b>/<span>' + (day.tmin==null?'—':Math.round(day.tmin)) + '°</span></span></div>'
+        +   '<div class="wx-mini-sub">' + lbl + ' ' + info[1] + (day.prob==null?'':' 💧'+day.prob+'%') + '</div>'
+        +   '<div class="wx-mini-mark" style="color:' + mk.color + ';background:' + mk.bg + '">' + mk.mark + ' ' + mk.word + '</div>'
+        + '</div>';
+    }
 
-      // 今週のおすすめ洗濯日（スコア最大、同点は近い日を優先）
+    function wxRenderDays(homeDays){
+      var cfg = wxCfg();
+      var cur = wxCurGet(); // {place, days} または null
+
+      // 今週のおすすめ洗濯日（家の予報から。スコア最大・同点は近い日）
       var best = null;
-      for (var i=0;i<days.length;i++){ if (!best || days[i].score > best.score) best = days[i]; }
+      for (var i=0;i<homeDays.length;i++){ if (!best || homeDays[i].score > best.score) best = homeDays[i]; }
       var bestDt = new Date(best.date + 'T00:00:00');
-      var bestIdx = days.indexOf(best);
+      var bestIdx = homeDays.indexOf(best);
       var bestLabel = bestIdx===0?'今日':(bestIdx===1?'明日':((bestDt.getMonth()+1)+'/'+bestDt.getDate()+'('+WDAY[bestDt.getDay()]+')'));
       var bestOk = best.score >= 55;
 
       var strip = '';
-      for (var k=0;k<days.length;k++){ strip += wxDayCard(days[k], k); }
+      for (var k=0;k<homeDays.length;k++){ strip += wxDayCard(homeDays[k], k); }
 
       var bell = cfg.notify
         ? '<button class="wx-bell on" onclick="wxToggleNotify()" title="通知オン">🔔</button>'
@@ -19654,27 +19699,25 @@
 
       return ''
       + '<div class="wx-top">'
-      +   '<div class="wx-place" onclick="wxAskCity()">📍 ' + (cfg.place || '設定地') + ' <span class="wx-edit">変更</span></div>'
-      +   '<div class="wx-top-r">'
-      +     bell
-      +     '<button class="wx-refresh" onclick="wxRefresh()" title="更新">↻</button>'
-      +   '</div>'
+      +   '<div class="wx-title">🧺 天気 &amp; 洗濯</div>'
+      +   '<div class="wx-top-r">' + bell + '<button class="wx-refresh" onclick="wxRefresh()" title="更新">↻</button></div>'
       + '</div>'
-      + '<div class="wx-hero" style="border-color:' + hMk.color + '33">'
-      +   '<div class="wx-hero-ico">' + hInfo[0] + '</div>'
-      +   '<div class="wx-hero-main">'
-      +     '<div class="wx-hero-l">' + heroLabel + ' ' + (hDt.getMonth()+1) + '/' + hDt.getDate() + '（' + WDAY[hDt.getDay()] + '）</div>'
-      +     '<div class="wx-hero-w">' + hInfo[1] + '　<b>' + (hero.tmax==null?'—':Math.round(hero.tmax)) + '°</b>/<span>' + (hero.tmin==null?'—':Math.round(hero.tmin)) + '°</span>'
-      +       (hero.prob==null?'':('　💧' + hero.prob + '%')) + '</div>'
-      +   '</div>'
-      +   '<div class="wx-hero-verdict" style="color:' + hMk.color + ';background:' + hMk.bg + '"><span class="wx-hero-mk">' + hMk.mark + '</span>' + hMk.word + '</div>'
+      + '<div class="wx-minis">'
+      +   wxMiniCard('home', cfg.place || '家', homeDays)
+      +   wxMiniCard('cur', (cur && cur.place) || '現在地', cur && cur.days)
       + '</div>'
       + '<div class="wx-reco ' + (bestOk?'ok':'warn') + '">'
       +   (bestOk
-          ? ('🧺 今週のおすすめ洗濯日：<b>' + bestLabel + '</b>')
-          : ('🧺 今週は外干しに向く日が少なめ…（best: ' + bestLabel + '）部屋干し／乾燥機がおすすめ'))
+          ? ('🧺 家の今週のおすすめ洗濯日：<b>' + bestLabel + '</b>')
+          : ('🧺 家は今週 外干しに向く日が少なめ…（best: ' + bestLabel + '）部屋干し／乾燥機がおすすめ'))
       + '</div>'
       + '<div class="wx-strip">' + strip + '</div>';
+    }
+
+    // 家キャッシュがあれば描画（家/現在地どちらの取得完了後でも呼べる）
+    function wxPaint(){
+      var el = document.getElementById('weatherPanel'); if (!el) return;
+      var h = wxCacheGet(); if (h) el.innerHTML = wxRenderDays(h.days);
     }
 
     function renderWeatherPanel(){
@@ -19683,17 +19726,27 @@
       var cfg = wxCfg();
       el.style.display = 'block';
       if (cfg.lat == null || cfg.lon == null){ el.innerHTML = wxHtmlNeedLocation(); return; }
-      // まずキャッシュがあれば即描画、その後最新へ
       var cached = wxCacheGet();
       if (cached){ el.innerHTML = wxRenderDays(cached.days); }
       else { el.innerHTML = '<div class="wx-loading">☀️ 天気を読み込み中…</div>'; }
+      // 家の予報
       wxEnsureForecast(false).then(function(days){
-        if (days) el.innerHTML = wxRenderDays(days);
+        if (days) wxPaint();
       }).catch(function(e){
-        if (!cached) el.innerHTML = '<div class="wx-need"><div class="wx-need-d">天気を取得できませんでした。<br>' + (e && e.message || '') + '</div><div class="wx-need-btns"><button class="wx-btn" onclick="wxRefresh()">再試行</button><button class="wx-btn" onclick="wxAskCity()">地域を設定</button></div></div>';
+        if (!wxCacheGet()) el.innerHTML = '<div class="wx-need"><div class="wx-need-d">天気を取得できませんでした。<br>' + (e && e.message || '') + '</div><div class="wx-need-btns"><button class="wx-btn" onclick="wxRefresh()">再試行</button><button class="wx-btn" onclick="wxAskCity()">家の地域を設定</button></div></div>';
       });
+      // 現在地の予報（取れたら差し込む・拒否/失敗は静かに）
+      wxEnsureCurrent(false).then(function(){ wxPaint(); }).catch(function(){});
     }
     window.renderWeatherPanel = renderWeatherPanel;
+
+    // 現在地を（再）取得
+    function wxUseCurrent(){
+      wxEnsureCurrent(true).then(function(){ wxPaint(); }).catch(function(){
+        alert('現在地を取得できませんでした。位置情報を許可しているか確認してください。');
+      });
+    }
+    window.wxUseCurrent = wxUseCurrent;
 
     // ---- 操作 ----
     function wxUseGeo(){
@@ -19713,7 +19766,7 @@
 
     function wxAskCity(){
       var cur = wxCfg().place || '';
-      var name = window.prompt('地域名を入力してください（例：東京 / Osaka / 札幌市）', cur.replace(/（.*/,''));
+      var name = window.prompt('家の地域を検索（駅名・市区町村名でOK。例：矢口渡 / 蒲田 / 川崎市）', cur.replace(/（.*/,''));
       if (name == null) { renderWeatherPanel(); return; }
       name = name.trim();
       if (!name) { renderWeatherPanel(); return; }
@@ -19734,10 +19787,8 @@
     function wxRefresh(){
       var el = document.getElementById('weatherPanel');
       if (el) el.innerHTML = '<div class="wx-loading">↻ 更新中…</div>';
-      wxEnsureForecast(true).then(function(days){
-        if (days) el.innerHTML = wxRenderDays(days);
-        else renderWeatherPanel();
-      }).catch(function(){ renderWeatherPanel(); });
+      wxEnsureForecast(true).then(function(){ wxPaint(); }).catch(function(){ renderWeatherPanel(); });
+      wxEnsureCurrent(true).then(function(){ wxPaint(); }).catch(function(){});
     }
     window.wxRefresh = wxRefresh;
 
@@ -19928,6 +19979,19 @@
     + '.wx-place{font-size:12.5px;font-weight:700;color:#6b6880;cursor:pointer;}'
     + '.wx-edit{font-size:10.5px;color:#6c5ce7;background:#efedfb;border-radius:7px;padding:2px 6px;margin-left:2px;}'
     + '.wx-top-r{display:flex;gap:6px;}'
+    + '.wx-title{font-size:13px;font-weight:800;color:#5a5769;}'
+    + '.wx-minis{display:flex;gap:8px;margin-bottom:9px;}'
+    + '.wx-mini{flex:1 1 0;min-width:0;background:#fff;border:1px solid #ececf2;border-radius:15px;padding:9px 10px;box-shadow:0 1px 6px rgba(20,10,60,0.04);}'
+    + '.wx-mini-h{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:4px;}'
+    + '.wx-mini-place{font-size:11.5px;font-weight:800;color:#3a3846;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.wx-mini-edit{flex:none;font-size:10px;color:#6c5ce7;background:#efedfb;border-radius:7px;padding:2px 6px;cursor:pointer;}'
+    + '.wx-mini-body{display:flex;align-items:center;gap:6px;}'
+    + '.wx-mini-ico{font-size:26px;line-height:1;}'
+    + '.wx-mini-t{font-size:12px;color:#8e8b9e;}'
+    + '.wx-mini-t b{font-size:17px;color:#1c1c1e;}'
+    + '.wx-mini-sub{font-size:10.5px;color:#6b6880;margin:3px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + '.wx-mini-mark{font-size:11px;font-weight:800;border-radius:9px;padding:4px 6px;text-align:center;}'
+    + '.wx-mini-empty{font-size:11px;color:#a7a4b6;padding:14px 4px;text-align:center;}'
     + '.wx-bell,.wx-refresh{font-family:inherit;font-size:14px;line-height:1;border:1px solid #e7e4f2;background:#f6f5fb;border-radius:10px;padding:6px 9px;cursor:pointer;color:#6b6880;}'
     + '.wx-bell.on{background:#efedfb;border-color:#d9d2fb;}'
     + '.wx-hero{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #ececf2;border-radius:16px;padding:12px 14px;box-shadow:0 2px 10px rgba(20,10,60,0.04);}'
