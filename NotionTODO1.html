@@ -12977,11 +12977,33 @@
         });
       });
     } catch(e){}
+    // ── オンタイム通知：時間指定の単発タスクを「開始時刻ちょうど」に通知（習慣・ルーチンは除外）──
+    if (_taskOntimeOn()){
+      try {
+        tasks.forEach(t => {
+          if (!t || !t.name) return;
+          if (t._type==='repeat' || t._type==='repeat_ended') return;
+          if (t._habitTemplateId || t._repeatConfig || t._pseudo) return;
+          if (typeof isRoutineKind==='function' && isRoutineKind(t)) return;
+          const j = t['(A)実行日']; if (!j || !j.start) return;
+          if (String(j.start).length <= 10) return;                    // 終日（時刻なし）は対象外
+          if (typeof taskDisplayDone==='function' && taskDisplayDone(t, new Date(j.start))) return;
+          const when = new Date(j.start).getTime();
+          if (when <= now || when > horizon) return;
+          const cat = t['(B)種類'] || '';
+          jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n),
+            url:_notifUrl('#task='+(t.id||'')),
+            title:'💚タスク｜'+t.name, body:'いまの時間です' + (cat?'（'+cat+'）':'') });
+        });
+      } catch(e){}
+    }
     jobs.sort((a,b) => a.when - b.when);
     const capped = jobs.slice(0, 80);
     try { await _postJobsIfChanged('-task', capped); } catch(e){}
   }
   window.syncTaskAlarms = syncTaskAlarms;
+  function _taskOntimeOn(){ try { return localStorage.getItem('taskOntimeNotify') !== '0'; } catch(e){ return true; } }
+  window.setTaskOntimeNotify = function(on){ try { localStorage.setItem('taskOntimeNotify', on?'1':'0'); } catch(e){} try { syncTaskAlarms(); } catch(e){} };
 
   // ===== Googleイベントのアラーム／強調（イベントIDにローカルで紐づけ）=====
   function _gcalAlarms() { try { return JSON.parse(localStorage.getItem('gcalEventAlarms') || '{}') || {}; } catch(e) { return {}; } }
@@ -15597,10 +15619,11 @@
     var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+off);
     return d;
   }
-  function _swAutoDate(){
+  function _swAutoDate(maxDays){
+    maxDays = maxDays || 14;
     var base = new Date(); base.setHours(0,0,0,0);
     var best = null, bestN = Infinity;
-    for (var i=1;i<=14;i++){
+    for (var i=1;i<=maxDays;i++){
       var d = new Date(base); d.setDate(base.getDate()+i);
       var n = 0; try { n = scheduleItemsForDate(d, false).length; } catch(e){}
       if (n < bestN){ bestN = n; best = d; }
@@ -15608,6 +15631,7 @@
     if (!best){ best = new Date(base); best.setDate(base.getDate()+1); }
     return best;
   }
+  function _swDayOffset(n){ var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return d; }
   function _swApplyDate(t, dateObj){
     var s = ymd(dateObj);
     t['(A)実行日'] = { start:s, end:s }; t._allDay = true; t._type = 'time';
@@ -15621,23 +15645,54 @@
   }
 
   var _swQueue = [], _swIdx = 0, _swCounts = null;
+  var _swMode = 'sort';
+  // 4隅スロット（auto=左上 / deadline=右上 / del=左下 / later=右下）→ モード別の意味
+  var SW_SLOTS = {
+    sort: {
+      auto:    { act:'auto',     ic:'✨', lb:'おまかせ' },
+      deadline:{ act:'deadline', ic:'📌', lb:'締切あり' },
+      del:     { act:'del',      ic:'🗑', lb:'削除' },
+      later:   { act:'later',    ic:'🕒', lb:'あとで' },
+    },
+    date: {
+      auto:    { act:'today',    ic:'📅', lb:'今日' },
+      deadline:{ act:'tomorrow', ic:'➡️', lb:'明日' },
+      del:     { act:'stay',     ic:'🕓', lb:'ステイ' },
+      later:   { act:'week',     ic:'✨', lb:'今週以内' },
+    }
+  };
+  function _swChromeHtml(){
+    var m = SW_SLOTS[_swMode];
+    function btn(slot){ var s=m[slot]; return '<button class="sw-corner '+slot+'" onclick="swipeAct(\''+slot+'\')"><span class="sw-ic">'+s.ic+'</span>'+s.lb+'</button>'; }
+    var hint = '↖ '+m.auto.lb+'　↗ '+m.deadline.lb+'　↙ '+m.del.lb+'　↘ '+m.later.lb;
+    return btn('auto')+btn('deadline')+btn('del')+btn('later')+'<div class="sw-hint">'+hint+'</div>';
+  }
+  function _swTagsHtml(){
+    var m = SW_SLOTS[_swMode];
+    return '<div class="sw-tag auto">'+m.auto.ic+' '+m.auto.lb+'</div><div class="sw-tag deadline">'+m.deadline.ic+' '+m.deadline.lb+'</div>'
+      + '<div class="sw-tag del">'+m.del.ic+' '+m.del.lb+'</div><div class="sw-tag later">'+m.later.ic+' '+m.later.lb+'</div>';
+  }
+  window.swSetMode = function(mode){
+    _swMode = mode;
+    var s=document.getElementById('swModeSort'), d=document.getElementById('swModeDate');
+    if(s) s.classList.toggle('on', mode==='sort'); if(d) d.classList.toggle('on', mode==='date');
+    var ch=document.getElementById('swChrome'); if(ch) ch.innerHTML=_swChromeHtml();
+    _swRender();
+  };
 
   window.openSwipeTriage = function(){
-    _swQueue = _swCandidates(); _swIdx = 0;
-    _swCounts = { del:0, deadline:0, auto:0, later:0 };
+    _swQueue = _swCandidates(); _swIdx = 0; _swMode = 'sort';
+    _swCounts = { del:0, deadline:0, auto:0, later:0, date:0 };
     var ov = document.getElementById('swipeTriage');
     if (ov) ov.remove();
     ov = document.createElement('div'); ov.id = 'swipeTriage';
     ov.innerHTML = ''
       + '<div class="sw-head"><div class="sw-title">🔀 タスク整理</div>'
+      +   '<div class="sw-modes"><button id="swModeSort" class="sw-mode on" onclick="swSetMode(\'sort\')">仕分け</button><button id="swModeDate" class="sw-mode" onclick="swSetMode(\'date\')">日付</button></div>'
       +   '<button class="sw-close" onclick="closeSwipeTriage()">×</button></div>'
       + '<div class="sw-sub" id="swSub"></div>'
       + '<div class="sw-stack" id="swStack"></div>'
-      + '<button class="sw-corner auto" onclick="swipeAct(\'auto\')"><span class="sw-ic">✨</span>おまかせ</button>'
-      + '<button class="sw-corner deadline" onclick="swipeAct(\'deadline\')"><span class="sw-ic">📌</span>締切あり</button>'
-      + '<button class="sw-corner del" onclick="swipeAct(\'del\')"><span class="sw-ic">🗑</span>削除</button>'
-      + '<button class="sw-corner later" onclick="swipeAct(\'later\')"><span class="sw-ic">🕒</span>あとで</button>'
-      + '<div class="sw-hint">↖ おまかせ　↗ 締切あり　↙ 削除　↘ あとで</div>';
+      + '<div id="swChrome">' + _swChromeHtml() + '</div>';
     document.body.appendChild(ov);
     _swRender();
   };
@@ -15651,7 +15706,7 @@
     var sub = document.getElementById('swSub');
     if (!stack) return;
     if (_swIdx >= _swQueue.length){
-      stack.innerHTML = '<div class="sw-done">🎉 整理おつかれさま！<br><span>削除' + _swCounts.del + '・締切' + _swCounts.deadline + '・おまかせ' + _swCounts.auto + '・あとで' + _swCounts.later + '</span></div>';
+      stack.innerHTML = '<div class="sw-done">🎉 整理おつかれさま！<br><span>削除' + _swCounts.del + '・締切' + _swCounts.deadline + '・おまかせ' + _swCounts.auto + '・あとで' + _swCounts.later + (_swCounts.date? '・日付指定'+_swCounts.date : '') + '</span></div>';
       if (sub) sub.textContent = '';
       return;
     }
@@ -15659,9 +15714,7 @@
     var html = '';
     // 背面カード（次の1枚）
     if (_swIdx+1 < _swQueue.length){ html += '<div class="sw-card behind">' + _swCardInner(_swQueue[_swIdx+1]) + '</div>'; }
-    html += '<div class="sw-card top" id="swTop">' + _swCardInner(_swQueue[_swIdx])
-      + '<div class="sw-tag auto">✨ おまかせ</div><div class="sw-tag deadline">📌 締切</div>'
-      + '<div class="sw-tag del">🗑 削除</div><div class="sw-tag later">🕒 あとで</div></div>';
+    html += '<div class="sw-card top" id="swTop">' + _swCardInner(_swQueue[_swIdx]) + _swTagsHtml() + '</div>';
     stack.innerHTML = html;
     _swBindDrag(document.getElementById('swTop'));
   }
@@ -15682,18 +15735,24 @@
       + '<div class="sw-name">' + name + '</div>' + badge;
   }
 
-  window.swipeAct = function(kind){
+  window.swipeAct = function(slot){
     if (_swIdx >= _swQueue.length) return;
     var t = _swQueue[_swIdx];
-    if (kind === 'deadline'){ _swAskDeadline(t); return; } // 締切は入力ステップへ
-    var msg = '';
-    if (kind === 'del'){
+    var act = ((SW_SLOTS[_swMode]||{})[slot] || {}).act || slot;
+    if (act === 'deadline'){ _swAskDeadline(t); return; } // 締切は入力ステップへ
+    if (act === 'del'){
       _swCounts.del++;
       try { deleteTaskById(t.id); } catch(e){}
-    } else if (kind === 'later'){
-      _swCounts.later++; _swApplyLater(t); msg = 'あとで';
-    } else if (kind === 'auto'){
-      _swCounts.auto++; var ad = _swAutoDate(); _swApplyDate(t, ad); msg = (ad.getMonth()+1)+'/'+ad.getDate()+' に配分';
+    } else if (act === 'later' || act === 'stay'){
+      _swCounts.later++; _swApplyLater(t);
+    } else if (act === 'auto'){
+      _swCounts.auto++; _swApplyDate(t, _swAutoDate(14));
+    } else if (act === 'today'){
+      _swCounts.date++; _swApplyDate(t, _swDayOffset(0));
+    } else if (act === 'tomorrow'){
+      _swCounts.date++; _swApplyDate(t, _swDayOffset(1));
+    } else if (act === 'week'){
+      _swCounts.date++; _swApplyDate(t, _swAutoDate(7));
     }
     _swIdx++;
     _swRender();
@@ -15782,11 +15841,12 @@
       dragging = false;
       card.classList.remove('show-del','show-deadline','show-auto','show-later');
       var kind = (Math.sqrt(dx*dx+dy*dy) > TH) ? quad() : null;
-      if (kind === 'deadline'){
+      var act = kind ? (((SW_SLOTS[_swMode]||{})[kind]||{}).act || kind) : null;
+      if (act === 'deadline'){
         // 締切は入力が必要 → カードは飛ばさず戻して入力モーダルを出す
         card.style.transition = 'transform .2s ease'; card.style.transform = '';
         setTimeout(function(){ card.style.transition=''; }, 200);
-        swipeAct('deadline');
+        swipeAct(kind);
       } else if (kind){
         var ox = (kind==='del') ? -500 : (kind==='later' ? 500 : (kind==='auto' ? -500 : 0));
         var oy = (kind==='auto') ? -600 : ((kind==='del'||kind==='later') ? 600 : 0);
@@ -15817,6 +15877,10 @@
     + '.sw-head{display:flex;align-items:center;margin-bottom:2px;}'
     + '.sw-title{font-size:17px;font-weight:800;color:#fff;}'
     + '.sw-close{margin-left:auto;border:none;background:rgba(255,255,255,.2);color:#fff;width:34px;height:34px;border-radius:50%;font-size:20px;cursor:pointer;}'
+    + '.sw-modes{margin-left:auto;display:flex;gap:4px;background:rgba(255,255,255,.15);border-radius:11px;padding:3px;}'
+    + '.sw-mode{border:none;background:transparent;color:rgba(255,255,255,.8);font-family:inherit;font-size:12px;font-weight:800;border-radius:8px;padding:5px 12px;cursor:pointer;}'
+    + '.sw-mode.on{background:#fff;color:#6c5ce7;}'
+    + '.sw-head .sw-close{margin-left:8px;}'
     + '.sw-sub{color:rgba(255,255,255,.85);font-size:12px;font-weight:700;margin-bottom:8px;}'
     + '.sw-stack{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;}'
     + '.sw-card{position:absolute;width:min(88vw,360px);background:#fff;border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:26px 22px;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:10px;}'
