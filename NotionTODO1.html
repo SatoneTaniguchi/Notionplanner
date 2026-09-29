@@ -6404,22 +6404,27 @@
       const durLabel = durMin >= 60
         ? (durMin % 60 === 0 ? `${durMin/60}時間` : `${Math.floor(durMin/60)}時間${durMin%60}分`)
         : `${durMin}分`;
-      // 並列時の最小高さ
-      const evTitleLines = Math.ceil(ev.title.length / 6) || 1;
-      const evMinH = isNarrow ? Math.max(14 + (evTitleLines * 17) + 16 + 12, 48) : finalH;
-      const evCardH = Math.max(evMinH, finalH);
+      // ── 高さ：所要時間では変えず内容ベースに統一。次の同列カードまでにクランプして重なり防止 ──
+      const evContentH = (isNarrow ? 60 : 52);
+      let evNextColMin = Infinity;
+      allItems.forEach(o => {
+        if (o === ev || o._col !== ev._col) return;
+        if (o.startMin >= ev.endMin - 0.5 && o.startMin < evNextColMin) evNextColMin = o.startMin;
+      });
+      const evAvailH = (evNextColMin === Infinity) ? Infinity : Math.max(30, toY(evNextColMin) - evTopBase - 8);
+      let evCardH = evContentH;
+      if (evAvailH !== Infinity) evCardH = Math.min(evCardH, evAvailH);
+      evCardH = Math.max(evCardH, 40);
       // 全カード共通: 開始時刻の線から上にOVERHANG分（0:00開始は除く）
       const evCardTop = evTopBase;
-      // 並列時: 開始時刻・タイトル・所要時間。単独時: 開始〜終了・タイトル
+      // 並列時: 開始時刻・タイトル。単独時: 開始〜終了・タイトル
       const timeHTML = isNarrow
-        ? `<div class="tl-event-time" style="color:#8e8e93;">${ev.startTime}</div>`
-        : `<div class="tl-event-time" style="color:#8e8e93;">${ev.startTime}〜${ev.endTime}<span style="margin-left:4px;padding:1px 4px;border-radius:6px;background:${color}22;color:${color};font-size:10px;">${ev.calendarName||''}</span></div>`;
-      const durHTML = isNarrow
-        ? `<div class="tl-task-dur" style="color:#8e8e93;">${durLabel}</div>`
-        : '';
+        ? `<div class="tl-event-time" style="color:${color};font-weight:700;">${ev.startTime}〜${ev.endTime}</div>`
+        : `<div class="tl-event-time" style="color:${color};font-weight:700;">${ev.startTime}〜${ev.endTime}<span style="margin-left:4px;padding:1px 4px;border-radius:6px;background:${color}22;color:${color};font-size:10px;">${ev.calendarName||''}</span></div>`;
+      const durHTML = '';
       const el = document.createElement('div');
       el.className = 'tl-event';
-      el.style.cssText = `position:absolute;top:${evCardTop}px;height:${evCardH}px;left:${cardLeft}px;width:${cardWidth}px;background:${color}15;border-left:3px solid ${color};border-radius:10px;padding:6px 8px;overflow:hidden;cursor:pointer;box-sizing:border-box;z-index:2;${isPast?'opacity:0.4;filter:saturate(0.5);':''}`;
+      el.style.cssText = `position:absolute;top:${evCardTop}px;height:${evCardH}px;left:${cardLeft}px;width:${cardWidth}px;background:${color}14;border:2.5px solid ${color};border-radius:12px;padding:6px 9px;overflow:hidden;cursor:pointer;box-sizing:border-box;z-index:2;box-shadow:0 1px 3px ${color}22;${isPast?'opacity:0.4;filter:saturate(0.5);':''}`;
       window._maxCardBottom = Math.max(window._maxCardBottom || 0, evCardTop + evCardH);
       gcalCardSpans.push({ top: evCardTop, bottom: evCardTop + evCardH });
       const evLocked = (typeof gcalIsTaskDerived === 'function') && gcalIsTaskDerived(ev);
@@ -6499,18 +6504,19 @@
           : `${mikomimin}分`)
         : '';
 
-      // ── 高さ：所要時間ベース(spanH)で統一（同じ所要時間なら必ず同じ高さ）──
-      // さらに「同じ列で次に来るカードの開始位置」までにクランプして、カード同士の重なりを防ぐ。
-      const cardMinH = isNarrow ? 60 : 46;
+      // ── 高さ：所要時間では変えず「内容ベースの固定高さ」に統一（同じ見た目で揃う）──
+      // 同じ列で次に来るカードの開始位置までにクランプして、カード同士の重なりを防ぐ。
+      const _hasChildSum = !!_cs;
+      const contentH = (isNarrow ? 60 : 52) + (_hasChildSum ? 18 : 0);
       let nextColStartMin = Infinity;
       allItems.forEach(o => {
         if (o === item || o._col !== item._col) return;
         if (o.startMin >= item.endMin - 0.5 && o.startMin < nextColStartMin) nextColStartMin = o.startMin;
       });
       const availH = (nextColStartMin === Infinity) ? Infinity : Math.max(30, toY(nextColStartMin) - cardTopBase - 8);
-      let cardH = Math.max(cardMinH, spanH);
+      let cardH = contentH;
       if (availH !== Infinity) cardH = Math.min(cardH, availH);
-      cardH = Math.max(cardH, 38);
+      cardH = Math.max(cardH, 40);
       const cardTop = cardTopBase;
 
       const card = document.createElement('div');
