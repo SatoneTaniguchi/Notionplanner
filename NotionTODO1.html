@@ -6328,7 +6328,7 @@
       {
         const lbl = document.createElement('div');
         // 24時以降は 24:00 / 25:00 表記（深夜のタスク用）
-        lbl.style.cssText = `position:absolute;left:0;width:58px;top:${y}px;transform:translateY(-50%);font-size:11px;color:${h >= 24 ? '#b9b4d6' : '#c7c7cc'};text-align:right;padding-right:8px;z-index:1;pointer-events:none;`;
+        lbl.style.cssText = `position:absolute;left:0;width:58px;top:${y}px;transform:translateY(-50%);font-size:11.5px;font-weight:600;color:${h >= 24 ? '#8b83c7' : '#636366'};text-align:right;padding-right:8px;z-index:1;pointer-events:none;`;
         lbl.textContent = h + ':00';   // 24:00 は当日の終端を示す
         timeline.appendChild(lbl);
       }
@@ -6364,7 +6364,7 @@
       timeline.appendChild(line);
       // ラベル
       const lbl = document.createElement('div');
-      lbl.style.cssText = `position:absolute;left:0;width:58px;top:${y}px;transform:translateY(-50%);font-size:10px;color:#c7c7cc;text-align:right;padding-right:8px;z-index:1;pointer-events:none;`;
+      lbl.style.cssText = `position:absolute;left:0;width:58px;top:${y}px;transform:translateY(-50%);font-size:10.5px;font-weight:600;color:#6d6d72;text-align:right;padding-right:8px;z-index:1;pointer-events:none;`;
       lbl.textContent = `${hh}:${mm.toString().padStart(2,'0')}`;
       timeline.appendChild(lbl);
     });
@@ -6504,6 +6504,13 @@
           : `${mikomimin}分`)
         : '';
 
+      // 子タスクをまとめている親は、進み具合をカード内に出す
+      const _cs = childSummary(t);
+      const childLine = _cs
+        ? `<div class="tl-child-sum"><span class="bar"><span style="width:${Math.round((_cs.done / _cs.n) * 100)}%"></span></span>`
+          + `子 ${_cs.done}/${_cs.n}${_cs.min ? ' ・ 計 ' + fmtMinShort(_cs.min) : ''}</div>`
+        : '';
+
       // ── 高さ：所要時間では変えず「内容ベースの固定高さ」に統一（同じ見た目で揃う）──
       // 同じ列で次に来るカードの開始位置までにクランプして、カード同士の重なりを防ぐ。
       const _hasChildSum = !!_cs;
@@ -6526,13 +6533,6 @@
       window._maxCardBottom = Math.max(window._maxCardBottom || 0, cardTop + cardH);
       const badgeHTML = _shuruiOpt ? `<span style="background:${_shuruiOpt.bg};color:${_shuruiOpt.color};padding:1px 5px;border-radius:7px;font-size:10px;font-weight:600;">${_shuruiOpt.label}</span>` : '';
       const repeatBadge = isHabit ? '<span style="font-size:10px;margin-left:3px;opacity:0.6;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg></span>' : '';
-
-      // 子タスクをまとめている親は、進み具合をカード内に出す
-      const _cs = childSummary(t);
-      const childLine = _cs
-        ? `<div class="tl-child-sum"><span class="bar"><span style="width:${Math.round((_cs.done / _cs.n) * 100)}%"></span></span>`
-          + `子 ${_cs.done}/${_cs.n}${_cs.min ? ' ・ 計 ' + fmtMinShort(_cs.min) : ''}</div>`
-        : '';
 
       const info = document.createElement('div');
       info.className = 'tl-task-info';
