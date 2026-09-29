@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929k</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929l</div>
       </div>
     </div>
     <div class="header-right">
@@ -12534,6 +12534,30 @@
   function _chalHeaders() { const p = _mzPush(); const h = { 'Content-Type':'application/json' }; if (p && p.token) h['X-Auth'] = p.token; return h; }
   function _u8FromB64(b64) { const pad = '='.repeat((4 - b64.length % 4) % 4); const s = (b64 + pad).replace(/-/g,'+').replace(/_/g,'/'); const raw = atob(s); const out = new Uint8Array(raw.length); for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i); return out; }
   // 既存の購読を再利用。無ければ購読を作成して mzPush にも保存（タイマーと共用）。
+  // SW登録を確実に取得し、activeになるまで待つ（無ければ sw.js を登録）
+  async function _ensureSWReg(waitMs){
+    waitMs = waitMs || 12000;
+    if (!('serviceWorker' in navigator)) return null;
+    var reg = null;
+    try { reg = await navigator.serviceWorker.getRegistration(); } catch(e){}
+    if (!reg){ try { var regs = await navigator.serviceWorker.getRegistrations(); if (regs && regs.length) reg = regs[0]; } catch(e){} }
+    if (!reg){ try { reg = await navigator.serviceWorker.register('sw.js'); } catch(e){} }
+    if (!reg) return null;
+    if (reg.active) return reg;
+    // activeになるまで待つ
+    await new Promise(function(res){
+      var done=false; var fin=function(){ if(!done){ done=true; res(); } };
+      var t=setTimeout(fin, waitMs);
+      try {
+        var sw = reg.installing || reg.waiting;
+        if (sw){ sw.addEventListener('statechange', function(){ if(sw.state==='activated'){ clearTimeout(t); fin(); } }); }
+      } catch(e){}
+      try { navigator.serviceWorker.ready.then(function(){ clearTimeout(t); fin(); }).catch(function(){}); } catch(e){}
+    });
+    try { reg = await navigator.serviceWorker.getRegistration() || reg; } catch(e){}
+    return reg;
+  }
+  window._ensureSWReg = _ensureSWReg;
   async function _ensurePushSub() {
     let p = _mzPush() || { enabled:false, url:NOTION_PROXY, token:'', sub:null, client:'' };
     if (p.sub) return p;
@@ -12541,7 +12565,8 @@
       throw new Error('この端末/ブラウザは通知に未対応です');
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') throw new Error('通知が許可されていません');
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await _ensureSWReg(12000);
+    if (!reg || !reg.active) throw new Error('サービスワーカーが有効化できませんでした');
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(CHAL_VAPID) });
     p.sub = sub.toJSON(); p.enabled = true;
@@ -12797,10 +12822,9 @@
     var localMsg='';
     try {
       if ('serviceWorker' in navigator){
-        var reg=await _swReady(3000);
-        if (reg){ await reg.showNotification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています',tag:'localtest'}); localMsg='送信（今すぐ出ればOK）'; }
-        else if (typeof Notification==='function'){ new Notification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています'}); localMsg='送信（SW待ちタイムアウト→直接通知）'; }
-        else localMsg='SWが準備できませんでした';
+        var reg=await _ensureSWReg(12000);
+        if (reg && reg.active){ await reg.showNotification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています',tag:'localtest'}); localMsg='送信（今すぐ出ればOK）'; }
+        else { localMsg='SWが有効化できませんでした（要 再起動 or 追加し直し）'; }
       } else if (typeof Notification==='function'){ new Notification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています'}); localMsg='送信'; }
     } catch(e){ localMsg='失敗:'+(e&&e.message||e); }
     // ② サーバー経由プッシュ（8秒後）
@@ -12841,8 +12865,8 @@
         var pm = await Notification.requestPermission();
         if (pm!=='granted'){ _notifMsg('通知が許可されませんでした（'+pm+'）。設定→通知 で許可してください。'); return; }
       }
-      var reg = await Promise.race([ navigator.serviceWorker.ready, new Promise(function(r){ setTimeout(function(){r(null);},4000); }) ]);
-      if (!reg){ _notifMsg('サービスワーカーの準備ができませんでした。アプリを完全終了→再起動してからもう一度お試しください。'); return; }
+      var reg = await _ensureSWReg(12000);
+      if (!reg || !reg.active){ _notifMsg('サービスワーカーを有効化できませんでした。\n\n対処：\n1. アプリを完全終了→再起動\n2. それでもダメなら、一度ホーム画面のアイコンを削除→Safariで開き直して「ホーム画面に追加」し直す\n\n（データ＝タスク/コインはlocalStorageにあるので消えません）'); return; }
       // 古い購読を破棄
       try { var oldSub = await reg.pushManager.getSubscription(); if (oldSub) await oldSub.unsubscribe(); } catch(e){}
       // 新規購読
@@ -20719,7 +20743,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09m';
+    var ICON_VER = 'icon-2026-09n';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
