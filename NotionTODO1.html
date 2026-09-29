@@ -3022,6 +3022,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929b</div>
       </div>
     </div>
     <div class="header-right">
@@ -5655,11 +5656,11 @@
     try { cleanupHabitInstances(); } catch(e) { console.error('習慣クリーンアップエラー', e); }
     // 習慣テンプレートから不足インスタンスを補充（過去2週〜未来2週）
     try { expandAllHabitsAndSync(); } catch(e) { console.error('習慣展開エラー', e); }
-    renderTimeline();
-    renderLater();
-    scrollToNow();
-    document.getElementById('laterList').classList.remove('expanded');
-    initLaterPanel();
+    try { renderTimeline(); } catch(e) { console.error('タイムライン描画エラー', e); }
+    try { renderLater(); } catch(e) { console.error('あとでやる描画エラー', e); }
+    try { scrollToNow(); } catch(e){}
+    try { document.getElementById('laterList').classList.remove('expanded'); } catch(e){}
+    try { initLaterPanel(); } catch(e){}
     try { updateCoinDisplays(); } catch(e) {}
 
     // Notion自動同期 - GCalより独立して実行（GCalキャッシュは触らない）
@@ -6445,6 +6446,7 @@
 
     // ── タスク描画 ──
     taskItems.forEach(item => {
+     try {
       const t = item.task;
       const startMin = item.startMin;
       const endMin = item.endMin;
@@ -6565,6 +6567,7 @@
       card.addEventListener('click', () => editTask(t.id));
       timeline.appendChild(card);
       setupDrag(card, t);
+     } catch(_cardErr){ console.error('タスクカード描画エラー', _cardErr, item && item.task && item.task.name); }
     });
 
     // ── 空き時間カード ──
@@ -20519,19 +20522,14 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09c';
+    var ICON_VER = 'icon-2026-09d';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
+        // 新バージョン反映：SWキャッシュを一度だけ全クリアして最新HTMLを取り直す（データ=localStorageは無関係）
         if (window.caches && caches.keys) {
           caches.keys().then(function(names){
-            return Promise.all(names.map(function(nm){ return caches.open(nm).then(function(c){
-              return c.keys().then(function(reqs){
-                return Promise.all(reqs.filter(function(rq){
-                  return /icon|manifest|apple-touch|\.png$/i.test(rq.url);
-                }).map(function(rq){ return c.delete(rq); }));
-              });
-            }); }));
+            return Promise.all(names.map(function(nm){ return caches.delete(nm); }));
           }).then(function(){
             try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ try{ r.update(); }catch(e){} }); }); } catch(e){}
           }).catch(function(){});
