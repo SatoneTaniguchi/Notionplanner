@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929h</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929i</div>
       </div>
     </div>
     <div class="header-right">
@@ -3405,7 +3405,7 @@
       <div style="border:1px solid #e0dcf3;border-radius:14px;padding:12px;margin-bottom:12px;background:#faf9ff;">
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">通知（プッシュ）</div>
         <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・ルーチンの通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
-        <button onclick="try{ if(typeof notifTestWithDiag==='function'){ notifTestWithDiag(); } else if(typeof _notifMsg==='function'){ _notifMsg('タップは効いています。通知機能の読み込み待ちの可能性があるので、アプリを完全終了→再起動してからお試しください。'); } else { alert('タップは効いています（機能読込待ち）'); } }catch(_e){ try{ _notifMsg('タップOK / エラー: '+(_e&&_e.message||_e)); }catch(__e){ alert('タップOK / エラー: '+(_e&&_e.message||_e)); } }" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔔 テスト通知を送る（8秒後）</button>
+        <button onclick="_notifTapTest()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔔 テスト通知を送る（8秒後）</button>
         <button onclick="notifResubscribeAll()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔄 通知を貼り直す（購読を作り直す）</button>
       </div>
 
@@ -12771,6 +12771,8 @@
   };
   // 押した瞬間に画面内メッセージで状態を出し、ローカル通知＋サーバー通知の両方をテスト
   window.notifTestWithDiag = async function(){
+    // 押した瞬間に必ず反応を出す（タップが届いている証明＋処理中表示）
+    try { _notifMsg('通知テストを実行中…\nそのまま数秒お待ちください。'); } catch(e){}
     var isPWA=false; try{ isPWA=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){}
     var isiOS=/iP(hone|ad|od)/.test(navigator.userAgent||'');
     var perm=(typeof Notification!=='undefined')?Notification.permission:'なし';
@@ -12782,11 +12784,17 @@
       try { perm = await Notification.requestPermission(); } catch(e){ _notifMsg('通知許可の取得に失敗:'+(e&&e.message||e)); return; }
       if (perm!=='granted'){ _notifMsg('通知が許可されませんでした（'+perm+'）。'); return; }
     }
+    // SW待ちはハングし得るのでタイムアウト付き
+    var _swReady = function(ms){ return Promise.race([ navigator.serviceWorker.ready, new Promise(function(res){ setTimeout(function(){res(null);}, ms||3000); }) ]); };
     // ① ローカル通知（サーバー不要）
     var localMsg='';
     try {
-      if ('serviceWorker' in navigator){ var reg=await navigator.serviceWorker.ready; await reg.showNotification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています',tag:'localtest'}); localMsg='送信（今すぐ出ればOK）'; }
-      else if (typeof Notification==='function'){ new Notification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています'}); localMsg='送信'; }
+      if ('serviceWorker' in navigator){
+        var reg=await _swReady(3000);
+        if (reg){ await reg.showNotification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています',tag:'localtest'}); localMsg='送信（今すぐ出ればOK）'; }
+        else if (typeof Notification==='function'){ new Notification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています'}); localMsg='送信（SW待ちタイムアウト→直接通知）'; }
+        else localMsg='SWが準備できませんでした';
+      } else if (typeof Notification==='function'){ new Notification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています'}); localMsg='送信'; }
     } catch(e){ localMsg='失敗:'+(e&&e.message||e); }
     // ② サーバー経由プッシュ（8秒後）
     var pushMsg='';
@@ -12796,10 +12804,19 @@
       var client=(p.client||'c')+'-test-'+stamp;
       var url=(typeof _notifUrl==='function')?_notifUrl('#challenge'):location.href;
       var job={id:'test'+stamp,when:when,tag:'test'+stamp,url:url,title:'🔔 テスト通知',body:'これが見えればサーバー通知もOK'};
-      var res=await fetch((p.url||NOTION_PROXY)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]})});
+      var ctrl = ('AbortController' in window) ? new AbortController() : null;
+      if (ctrl) setTimeout(function(){ try{ctrl.abort();}catch(e){} }, 8000);
+      var res=await fetch((p.url||NOTION_PROXY)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}), signal: ctrl?ctrl.signal:undefined});
       pushMsg='サーバー応答 '+(res?res.status:'不明')+'（8秒後に届く予定）';
     } catch(e){ pushMsg='送信エラー:'+(e&&e.message||e); }
-    _notifMsg('テストを実行しました。\n\n① ローカル通知：'+localMsg+'\n② サーバー通知：'+pushMsg+'\n\n[状態] PWA:'+(isPWA?'はい':'いいえ')+' / 許可:'+perm+'\n\n①が出るのに②が来ない→サーバー/購読の問題。①も出ない→通知許可の問題です。');
+    _notifMsg('テスト結果\n\n① ローカル通知：'+localMsg+'\n② サーバー通知：'+pushMsg+'\n\n[状態] PWA:'+(isPWA?'はい':'いいえ')+' / 許可:'+perm+'\n\n①が出るのに②が来ない→サーバー/購読の問題。①も出ない→通知許可の問題です。');
+  };
+  // ボタンから呼ぶ入口（必ず即時に反応を出す）
+  window._notifTapTest = function(){
+    try {
+      if (typeof notifTestWithDiag === 'function') { notifTestWithDiag(); return; }
+    } catch(e){}
+    try { if (typeof _notifMsg==='function') _notifMsg('通知機能の読み込みが未完了です。アプリを完全終了→再起動してからお試しください。'); else alert('機能の読み込み待ちです。アプリを再起動してください。'); } catch(e){}
   };
   // 通知を作り直す：購読を確保→pushHashクリア→全通知を貼り直す
   window.notifResubscribeAll = async function(){
@@ -20661,7 +20678,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09j';
+    var ICON_VER = 'icon-2026-09k';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
