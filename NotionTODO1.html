@@ -3022,7 +3022,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929d</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929e</div>
       </div>
     </div>
     <div class="header-right">
@@ -3395,6 +3395,14 @@
         padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:12px;">
         <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 今すぐ同期
       </button>
+
+      <!-- 通知（テスト送信・貼り直し） -->
+      <div style="border:1px solid #e0dcf3;border-radius:14px;padding:12px;margin-bottom:12px;background:#faf9ff;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">通知（プッシュ）</div>
+        <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・ルーチンの通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
+        <button onclick="notifTestWithDiag()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;">🔔 テスト通知を送る（8秒後）</button>
+        <button onclick="notifResubscribeAll()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">🔄 通知を貼り直す（購読を作り直す）</button>
+      </div>
 
       <!-- 端末間コピー（全データのバックアップ/復元・繰り返しテンプレ含む） -->
       <div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:12px;background:#fafafa;">
@@ -12737,6 +12745,54 @@
     }
   }
   window.sendTestNotification = sendTestNotification;
+  // 押した瞬間に状態を表示してからテスト送信（iPhoneはPWA以外だと通知不可なので明示）
+  window.notifTestWithDiag = function(){
+    var isPWA = false;
+    try { isPWA = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; } catch(e){}
+    var perm = (typeof Notification !== 'undefined') ? Notification.permission : 'なし';
+    var hasPush = ('PushManager' in window);
+    var p = null; try { p = _mzPush(); } catch(e){}
+    var hasSub = !!(p && p.sub);
+    var isiOS = /iP(hone|ad|od)/.test(navigator.userAgent || '');
+    if (isiOS && !isPWA){
+      alert('⚠️ いまSafariのタブで開いています。\niPhone/iPadでは「ホーム画面に追加したアプリ（PWA）」でしか通知は届きません。\n\n手順：共有 → ホーム画面に追加 → 追加されたアイコンから開く → もう一度この画面でテスト。\n\n[状態] PWA:いいえ / 通知許可:' + perm + ' / Push:' + (hasPush?'あり':'なし') + ' / 購読:' + (hasSub?'あり':'なし'));
+      return;
+    }
+    if (typeof Notification === 'undefined' || !hasPush){
+      alert('この端末/ブラウザは通知（Web Push）に未対応のようです。\n\n[状態] PWA:' + (isPWA?'はい':'いいえ') + ' / 通知許可:' + perm + ' / Push:' + (hasPush?'あり':'なし'));
+      return;
+    }
+    if (perm === 'denied'){
+      alert('通知が「拒否」になっています。\niPhoneの「設定」アプリ →（このアプリ名）→ 通知 をオンにしてから、もう一度お試しください。');
+      return;
+    }
+    if (perm !== 'granted'){
+      try {
+        Notification.requestPermission().then(function(pm){
+          if (pm === 'granted'){ try { sendTestNotification(); } catch(e){ alert('送信エラー:' + (e&&e.message||e)); } }
+          else { alert('通知が許可されませんでした（' + pm + '）。'); }
+        });
+      } catch(e){ alert('通知許可の取得に失敗:' + (e && e.message || e)); }
+      return;
+    }
+    // PWA & 許可済み → テスト送信
+    try { sendTestNotification(); } catch(e){ alert('送信エラー:' + (e && e.message || e)); }
+  };
+  // 通知を作り直す：購読を確保→pushHashクリア→全通知を貼り直す
+  window.notifResubscribeAll = async function(){
+    try {
+      var p = await _ensurePushSub();
+      if (!p || !p.sub){ alert('通知を有効にできませんでした。iPhoneはホーム画面に追加したアプリ（PWA）で開き、通知を許可してください。'); return; }
+      try { if (typeof _clearPushHashes==='function') _clearPushHashes(); } catch(e){}
+      _lastAmbientNotifSync = 0;
+      var run = function(fn){ try { if (typeof window[fn]==='function') window[fn](); } catch(e){} };
+      run('syncChallengeNotifications'); run('syncBriefingNotifications'); run('syncWeatherNotifications');
+      run('syncTaskAlarms'); run('syncGcalEventAlarms');
+      alert('通知を作り直しました。\nこのあと「🔔 テスト通知」で届くか確認してください。\n※ iPhoneはホーム画面のアプリ（PWA）でのみ通知が届きます。');
+    } catch(e){
+      alert('通知の作り直しに失敗しました：' + (e && e.message || e) + '\n\niPhoneはホーム画面に追加したアプリ（PWA）で開いて、通知を許可してください。');
+    }
+  };
 
   // ===== 明日の予定まとめ通知（既存Web Push基盤を再利用） =====
   //  ・毎日きまった時刻に「翌日の予定（アプリのタスク＋Googleの予定）」を1通でまとめて通知
@@ -20582,7 +20638,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09f';
+    var ICON_VER = 'icon-2026-09g';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
