@@ -3022,7 +3022,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929e</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929g</div>
       </div>
     </div>
     <div class="header-right">
@@ -3400,7 +3400,7 @@
       <div style="border:1px solid #e0dcf3;border-radius:14px;padding:12px;margin-bottom:12px;background:#faf9ff;">
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">通知（プッシュ）</div>
         <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・ルーチンの通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
-        <button onclick="notifTestWithDiag()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;">🔔 テスト通知を送る（8秒後）</button>
+        <button onclick="try{ if(typeof notifTestWithDiag==='function'){ notifTestWithDiag(); } else if(typeof _notifMsg==='function'){ _notifMsg('タップは効いています。通知機能の読み込み待ちの可能性があるので、アプリを完全終了→再起動してからお試しください。'); } else { alert('タップは効いています（機能読込待ち）'); } }catch(_e){ try{ _notifMsg('タップOK / エラー: '+(_e&&_e.message||_e)); }catch(__e){ alert('タップOK / エラー: '+(_e&&_e.message||_e)); } }" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-tap-highlight-color:rgba(108,92,231,0.3);">🔔 テスト通知を送る（8秒後）</button>
         <button onclick="notifResubscribeAll()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">🔄 通知を貼り直す（購読を作り直す）</button>
       </div>
 
@@ -12745,52 +12745,70 @@
     }
   }
   window.sendTestNotification = sendTestNotification;
-  // 押した瞬間に状態を表示してからテスト送信（iPhoneはPWA以外だと通知不可なので明示）
-  window.notifTestWithDiag = function(){
-    var isPWA = false;
-    try { isPWA = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; } catch(e){}
-    var perm = (typeof Notification !== 'undefined') ? Notification.permission : 'なし';
-    var hasPush = ('PushManager' in window);
-    var p = null; try { p = _mzPush(); } catch(e){}
-    var hasSub = !!(p && p.sub);
-    var isiOS = /iP(hone|ad|od)/.test(navigator.userAgent || '');
-    if (isiOS && !isPWA){
-      alert('⚠️ いまSafariのタブで開いています。\niPhone/iPadでは「ホーム画面に追加したアプリ（PWA）」でしか通知は届きません。\n\n手順：共有 → ホーム画面に追加 → 追加されたアイコンから開く → もう一度この画面でテスト。\n\n[状態] PWA:いいえ / 通知許可:' + perm + ' / Push:' + (hasPush?'あり':'なし') + ' / 購読:' + (hasSub?'あり':'なし'));
-      return;
+  // iOS PWAでは alert() が出ないため、画面内メッセージ（OKで閉じる）で結果を表示する
+  window._notifMsg = function(text){
+    try {
+      var id='__notifMsgBox'; var old=document.getElementById(id); if(old) old.remove();
+      var wrap=document.createElement('div'); wrap.id=id;
+      wrap.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:24px;';
+      var box=document.createElement('div');
+      box.style.cssText='background:#fff;border-radius:16px;max-width:340px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,0.3);font-family:inherit;';
+      var msg=document.createElement('div');
+      msg.style.cssText='font-size:14px;line-height:1.6;color:#1c1c1e;white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow:auto;';
+      msg.textContent=text;
+      var btn=document.createElement('button'); btn.textContent='OK';
+      btn.style.cssText='margin-top:14px;width:100%;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:700;font-family:inherit;';
+      btn.onclick=function(){ wrap.remove(); };
+      box.appendChild(msg); box.appendChild(btn); wrap.appendChild(box);
+      wrap.addEventListener('click', function(e){ if(e.target===wrap) wrap.remove(); });
+      document.body.appendChild(wrap);
+    } catch(e){ try{ alert(text); }catch(_){} }
+  };
+  // 押した瞬間に画面内メッセージで状態を出し、ローカル通知＋サーバー通知の両方をテスト
+  window.notifTestWithDiag = async function(){
+    var isPWA=false; try{ isPWA=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){}
+    var isiOS=/iP(hone|ad|od)/.test(navigator.userAgent||'');
+    var perm=(typeof Notification!=='undefined')?Notification.permission:'なし';
+    var hasPush=('PushManager' in window);
+    if (isiOS && !isPWA){ _notifMsg('⚠️ いまSafariのタブで開いています。\n\niPhone/iPadでは「ホーム画面に追加したアプリ（PWA）」でしか通知は届きません。\n\n手順：共有 → ホーム画面に追加 → 追加されたアイコンから開く → もう一度テスト。\n\n[状態] PWA:いいえ / 許可:'+perm+' / Push:'+(hasPush?'あり':'なし')); return; }
+    if (typeof Notification==='undefined'){ _notifMsg('この端末/ブラウザは通知に未対応のようです。\n[状態] PWA:'+(isPWA?'はい':'いいえ')); return; }
+    if (perm==='denied'){ _notifMsg('通知が「拒否」になっています。\niPhoneの「設定」アプリ →（このアプリ名）→ 通知 をオンにしてから、もう一度お試しください。'); return; }
+    if (perm!=='granted'){
+      try { perm = await Notification.requestPermission(); } catch(e){ _notifMsg('通知許可の取得に失敗:'+(e&&e.message||e)); return; }
+      if (perm!=='granted'){ _notifMsg('通知が許可されませんでした（'+perm+'）。'); return; }
     }
-    if (typeof Notification === 'undefined' || !hasPush){
-      alert('この端末/ブラウザは通知（Web Push）に未対応のようです。\n\n[状態] PWA:' + (isPWA?'はい':'いいえ') + ' / 通知許可:' + perm + ' / Push:' + (hasPush?'あり':'なし'));
-      return;
-    }
-    if (perm === 'denied'){
-      alert('通知が「拒否」になっています。\niPhoneの「設定」アプリ →（このアプリ名）→ 通知 をオンにしてから、もう一度お試しください。');
-      return;
-    }
-    if (perm !== 'granted'){
-      try {
-        Notification.requestPermission().then(function(pm){
-          if (pm === 'granted'){ try { sendTestNotification(); } catch(e){ alert('送信エラー:' + (e&&e.message||e)); } }
-          else { alert('通知が許可されませんでした（' + pm + '）。'); }
-        });
-      } catch(e){ alert('通知許可の取得に失敗:' + (e && e.message || e)); }
-      return;
-    }
-    // PWA & 許可済み → テスト送信
-    try { sendTestNotification(); } catch(e){ alert('送信エラー:' + (e && e.message || e)); }
+    // ① ローカル通知（サーバー不要）
+    var localMsg='';
+    try {
+      if ('serviceWorker' in navigator){ var reg=await navigator.serviceWorker.ready; await reg.showNotification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています',tag:'localtest'}); localMsg='送信（今すぐ出ればOK）'; }
+      else if (typeof Notification==='function'){ new Notification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています'}); localMsg='送信'; }
+    } catch(e){ localMsg='失敗:'+(e&&e.message||e); }
+    // ② サーバー経由プッシュ（8秒後）
+    var pushMsg='';
+    try {
+      var p=await _ensurePushSub();
+      var stamp=Date.now(); var when=stamp+8000;
+      var client=(p.client||'c')+'-test-'+stamp;
+      var url=(typeof _notifUrl==='function')?_notifUrl('#challenge'):location.href;
+      var job={id:'test'+stamp,when:when,tag:'test'+stamp,url:url,title:'🔔 テスト通知',body:'これが見えればサーバー通知もOK'};
+      var res=await fetch((p.url||NOTION_PROXY)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]})});
+      pushMsg='サーバー応答 '+(res?res.status:'不明')+'（8秒後に届く予定）';
+    } catch(e){ pushMsg='送信エラー:'+(e&&e.message||e); }
+    _notifMsg('テストを実行しました。\n\n① ローカル通知：'+localMsg+'\n② サーバー通知：'+pushMsg+'\n\n[状態] PWA:'+(isPWA?'はい':'いいえ')+' / 許可:'+perm+'\n\n①が出るのに②が来ない→サーバー/購読の問題。①も出ない→通知許可の問題です。');
   };
   // 通知を作り直す：購読を確保→pushHashクリア→全通知を貼り直す
   window.notifResubscribeAll = async function(){
     try {
       var p = await _ensurePushSub();
-      if (!p || !p.sub){ alert('通知を有効にできませんでした。iPhoneはホーム画面に追加したアプリ（PWA）で開き、通知を許可してください。'); return; }
+      if (!p || !p.sub){ _notifMsg('通知を有効にできませんでした。iPhoneはホーム画面に追加したアプリ（PWA）で開き、通知を許可してください。'); return; }
       try { if (typeof _clearPushHashes==='function') _clearPushHashes(); } catch(e){}
       _lastAmbientNotifSync = 0;
       var run = function(fn){ try { if (typeof window[fn]==='function') window[fn](); } catch(e){} };
       run('syncChallengeNotifications'); run('syncBriefingNotifications'); run('syncWeatherNotifications');
       run('syncTaskAlarms'); run('syncGcalEventAlarms');
-      alert('通知を作り直しました。\nこのあと「🔔 テスト通知」で届くか確認してください。\n※ iPhoneはホーム画面のアプリ（PWA）でのみ通知が届きます。');
+      _notifMsg('通知を作り直しました。\nこのあと「🔔 テスト通知」で届くか確認してください。\n※ iPhoneはホーム画面のアプリ（PWA）でのみ通知が届きます。');
     } catch(e){
-      alert('通知の作り直しに失敗しました：' + (e && e.message || e) + '\n\niPhoneはホーム画面に追加したアプリ（PWA）で開いて、通知を許可してください。');
+      _notifMsg('通知の作り直しに失敗しました：' + (e && e.message || e) + '\n\niPhoneはホーム画面に追加したアプリ（PWA）で開いて、通知を許可してください。');
     }
   };
 
@@ -20638,7 +20656,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09g';
+    var ICON_VER = 'icon-2026-09i';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
