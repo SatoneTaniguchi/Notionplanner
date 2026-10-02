@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002t</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1003a</div>
       </div>
     </div>
     <div class="header-right">
@@ -3406,6 +3406,8 @@
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">通知（プッシュ）</div>
         <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・ルーチンの通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
         <button onclick="_notifTapTest()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔔 テスト通知を送る（8秒後）</button>
+        <div id="notifLiveStatus" style="font-size:12px;line-height:1.5;margin-bottom:8px;color:#5a5769">予約の状態：確認中…</div>
+        <button onclick="_notifStatusTap()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;touch-action:manipulation;">📋 通知の予約状況を見る</button>
         <button onclick="_notifResubTap()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔄 通知を貼り直す（購読を作り直す）</button>
       </div>
 
@@ -11098,6 +11100,22 @@
     return { start: `${ds}T${pad(sh)}:${pad(sm)}`, end: `${endDs}T${pad(Math.floor(eMin/60))}:${pad(eMin%60)}` };
   }
 
+  // 一掃（不達成として記録）した日の習慣・繰り返しは、自動で作り直さない（「見送り」の印）
+  function _habitSkipRead(){ try { return JSON.parse(localStorage.getItem('habitSkips') || '{}') || {}; } catch(e){ return {}; } }
+  function isHabitSkipped(tplId, ds){ return !!_habitSkipRead()[tplId + '|' + ds]; }
+  function addHabitSkip(tplId, ds){
+    try {
+      const m = _habitSkipRead(); m[tplId + '|' + ds] = 1;
+      const cut = ymd(new Date(Date.now() - 45*86400000));          // 45日より古い印は不要（作り直しの範囲は前後14日）
+      Object.keys(m).forEach(k => { const d = k.split('|')[1]; if (d && d < cut) delete m[k]; });
+      localStorage.setItem('habitSkips', JSON.stringify(m));
+    } catch(e){}
+  }
+  function removeHabitSkip(tplId, ds){
+    try { const m = _habitSkipRead(); delete m[tplId + '|' + ds]; localStorage.setItem('habitSkips', JSON.stringify(m)); } catch(e){}
+  }
+  window.isHabitSkipped = isHabitSkipped;
+
   function expandHabitTemplate(template) {
     if (!template || !isRoutineKind(template) || template._type !== 'repeat') return [];
     const rc = template._repeatConfig || {};
@@ -11132,7 +11150,7 @@
             (t['(A)実行日'] && t['(A)実行日'].start && t['(A)実行日'].start.substring(0,10) === ds)
           )
         );
-        if (!existsByHabitDate && !existsByDisplayDate && !existsByContent) {
+        if (!existsByHabitDate && !existsByDisplayDate && !existsByContent && !isHabitSkipped(template.id, ds)) {
           // 時刻つきか終日かをテンプレートに合わせる
           const allDay = rc.allDay || template._allDay;
           const time = rc.time || '07:00';
@@ -11260,7 +11278,7 @@
       while (cur <= endD) {
         if (_repeatOccursOnDay(tpl, cur)) {
           const ds = ymd(cur);
-          if (!hasInstanceForRepeat(tpl, ds)) {
+          if (!hasInstanceForRepeat(tpl, ds) && !isHabitSkipped(tpl.id, ds)) {
             const inst = _makeRepeatInstance(tpl, ds);
             tasks.push(inst);
             pushHabitInstanceToNotion(inst); // _notionId が付くまで多重pushはガード済み
@@ -12825,16 +12843,95 @@
     let prev = '';
     try { prev = localStorage.getItem(key) || ''; } catch (e) {}
     if (hash === prev) return { skipped: true };   // 内容が同じ → 書き込まない
-    try {
-      const res = await fetch((p.url || NOTION_PROXY) + '/schedule', {
+    // 予約の結果を記録する（通知が来ないとき、原因を画面で見られるように）
+    const nextJobs = (jobs || []).slice().sort((a, b) => a.when - b.when).slice(0, 5).map(j => ({ w: j.when, t: j.title, b: String(j.body || '').split('\n')[0].slice(0, 30) }));
+    const logIt = function(o){
+      try {
+        const m = JSON.parse(localStorage.getItem('pushLog') || '{}') || {};
+        m[clientSuffix] = Object.assign({ t: Date.now(), n: (jobs || []).length, next: nextJobs }, o);
+        localStorage.setItem('pushLog', JSON.stringify(m));
+        try { if (typeof window._notifLiveRender === 'function') window._notifLiveRender(); } catch (e) {}
+      } catch (e) {}
+    };
+    const doPost = async function(list){
+      const r = await fetch((p.url || NOTION_PROXY) + '/schedule', {
         method: 'POST', headers: _chalHeaders(),
-        body: JSON.stringify({ client: client, sub: p.sub, replace: true, jobs: jobs || [] })
+        body: JSON.stringify({ client: client, sub: p.sub, replace: true, jobs: list })
       });
-      if (res && res.ok) { try { localStorage.setItem(key, hash); } catch (e) {} }
-      return { ok: res && res.ok, status: res && res.status };
-    } catch (e) { return { error: e }; }
+      let bt = ''; try { bt = ((await r.clone().text()) || '').slice(0, 160); } catch (e) {}
+      return { res: r, body: bt };
+    };
+    try {
+      let out = await doPost(jobs || []);
+      let how = '';
+      if (!(out.res && out.res.ok)) {
+        // 断られた：ID を短い連番に直して再送 → それでもだめなら件数を絞って再送
+        const first = out;
+        const short = (jobs || []).map((j, i) => Object.assign({}, j, { id: 'j' + i }));
+        out = await doPost(short); how = '短いIDで再送';
+        if (!(out.res && out.res.ok) && short.length > 60) { out = await doPost(short.slice(0, 60)); how = '60件に絞って再送'; }
+        if (!(out.res && out.res.ok)) { out.firstStatus = first.res && first.res.status; out.firstBody = first.body; }
+      }
+      const ok = !!(out.res && out.res.ok);
+      logIt({ ok: ok, status: out.res && out.res.status, body: out.body, how: how, firstStatus: out.firstStatus, firstBody: out.firstBody });
+      if (ok) { try { localStorage.setItem(key, hash); } catch (e) {} }
+      else { try { _notifFailToast(clientSuffix, out.res && out.res.status, out.body); } catch (e) {} }
+      return { ok: ok, status: out.res && out.res.status };
+    } catch (e) { logIt({ ok: false, error: String((e && e.message) || e) }); return { error: e }; }
+  }
+
+  // 予約が失敗したとき、画面で気づけるように（同じ内容は10分に1回だけ）
+  let _notifFailAt = {};
+  function _notifFailToast(suffix, status, body) {
+    const now = Date.now(); if (_notifFailAt[suffix] && now - _notifFailAt[suffix] < 10*60*1000) return;
+    _notifFailAt[suffix] = now;
+    if (typeof showToast === 'function') showToast('⚠️ 通知の予約をサーバーが受け付けませんでした（HTTP ' + (status || '?') + '）。設定の「通知の予約状況を見る」で確認できます');
   }
   window._postJobsIfChanged = _postJobsIfChanged;
+
+  // 通知の予約状況を、画面で見られる文章にする
+  // 通知カードの「予約の状態」を最新にする
+  window._notifLiveRender = function(){
+    try {
+      const el = document.getElementById('notifLiveStatus'); if (!el) return;
+      let log = {}; try { log = JSON.parse(localStorage.getItem('pushLog') || '{}') || {}; } catch(e){}
+      const ks = Object.keys(log);
+      const pad2 = n => String(n).padStart(2, '0');
+      if (!ks.length){ el.textContent = '予約の状態：まだ記録がありません（「通知を貼り直す」で送り直せます）'; return; }
+      const bad = ks.filter(k => !log[k].ok);
+      const last = Math.max.apply(null, ks.map(k => log[k].t));
+      const d = new Date(last);
+      if (bad.length){ el.innerHTML = '<b style="color:#e5484d">⚠️ 予約に失敗している通知があります（' + bad.length + '種類）</b><br>「通知の予約状況を見る」で理由を確認してください'; }
+      else { el.innerHTML = '<b style="color:#2e9e5b">✅ 予約は正常に送られています</b>（最終 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + '）'; }
+    } catch(e){}
+  };
+  try { setInterval(function(){ if (typeof window._notifLiveRender === 'function') window._notifLiveRender(); }, 15000); setTimeout(function(){ window._notifLiveRender(); }, 3000); } catch(e){}
+
+  window.notifStatusReport = function(){
+    const L = { '-chal':'継続チャレンジ', '-brief':'朝のまとめ', '-task':'タスク・ルーチン', '-gcal':'Googleカレンダーの予定', '-weather':'天気' };
+    const pad2 = n => String(n).padStart(2, '0');
+    const fmt = t => { const d = new Date(t); return (d.getMonth()+1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+    const lines = [];
+    let p = null; try { p = _mzPush(); } catch(e){}
+    const perm = (typeof Notification !== 'undefined') ? Notification.permission : 'なし';
+    lines.push('■ この端末');
+    lines.push('通知の許可：' + perm + ' ／ 購読：' + ((p && p.sub) ? 'あり（' + ((p.sub.endpoint||'').split('/')[2] || '?') + '）' : 'なし'));
+    try { const w = JSON.parse(localStorage.getItem('wxConfig') || '{}'); lines.push('天気の通知：' + (w.notify ? 'オン' : 'オフ（🔔を押すとオン）') + (w.notify ? '／夜の通知：' + (w.eve === false ? 'オフ' : 'オン') : '')); } catch(e){}
+    lines.push('開始時刻の通知：' + (localStorage.getItem('taskOntimeNotify') === '0' ? 'オフ' : 'オン'));
+    lines.push('');
+    lines.push('■ 予約の送信結果（アプリ → サーバー）');
+    let log = {}; try { log = JSON.parse(localStorage.getItem('pushLog') || '{}') || {}; } catch(e){}
+    const keys = Object.keys(L).filter(k => log[k]);
+    if (!keys.length) lines.push('まだ記録がありません。下の「通知を貼り直す」を押すと、予約を送り直して記録します。');
+    keys.forEach(k => {
+      const o = log[k];
+      lines.push((o.ok ? '✅ ' : '⚠️ ') + L[k] + '：' + fmt(o.t) + ' に ' + o.n + '件を送信' + (o.status ? '（HTTP ' + o.status + '）' : ''));
+      if (o.ok && o.how) lines.push('   ※ 最初は断られたため「' + o.how + '」で成功' + (o.firstStatus ? '（最初の応答 HTTP ' + o.firstStatus + '：' + String(o.firstBody||'').slice(0,60) + '）' : ''));
+      if (!o.ok) lines.push('   ' + (o.error ? 'エラー：' + o.error : '応答：' + (o.body || '(なし)') + (o.firstStatus && o.firstStatus !== o.status ? '（最初の応答 HTTP ' + o.firstStatus + '：' + String(o.firstBody||'').slice(0,60) + '）' : '')));
+      if (o.ok && o.next && o.next.length) o.next.slice(0, k === '-task' ? 4 : 1).forEach((nx, ix) => lines.push((ix ? '            ' : '   次の予約：') + fmt(nx.w) + ' ' + String(nx.t).slice(0, 22)));
+    });
+    return lines.join('\n');
+  };
 
   // ===== デバッグ: テスト通知を送る（今の新形式・絶対URL付きで数秒後に配信） =====
   async function sendTestNotification() {
@@ -12946,6 +13043,9 @@
     try { if (typeof _notifMsg==='function') _notifMsg('通知機能の読み込みが未完了です。アプリを完全終了→再起動してからお試しください。'); else alert('機能の読み込み待ちです。アプリを再起動してください。'); } catch(e){}
   };
   // ボタン入口（即フィードバック）
+  window._notifStatusTap = function(){
+    try { _notifMsg(window.notifStatusReport(), '🔄 通知を貼り直す', function(){ _notifResubTap(); }); } catch(e){ try{ _notifMsg('予約状況を表示できません：' + (e && e.message || e)); }catch(_){} }
+  };
   window._notifResubTap = function(){
     try { _notifMsg('通知を作り直しています…\nそのまま数秒お待ちください。'); } catch(e){}
     try { if (typeof notifResubscribeAll==='function') notifResubscribeAll(); } catch(e){ try{ _notifMsg('エラー:'+(e&&e.message||e)); }catch(_){} }
@@ -13318,24 +13418,34 @@
           if (!t || !t.name || t._pseudo || t._projectOnly) return;
           const j = t['(A)実行日'];
           // 繰り返し・習慣テンプレ → 発生日ごとに通知（時刻あり=その時刻／終日=9:30）
-          if (t._type==='repeat' || t._type==='repeat_ended'){
-            if (!j || !j.start) return;
-            const allDayR = String(j.start).length <= 10;
-            let rhh=9, rmm=30;
-            if (!allDayR){ const hm=String(j.start).substring(11,16), pp=hm.split(':'); rhh=parseInt(pp[0],10)||0; rmm=parseInt(pp[1],10)||0; }
+          if (t._type==='repeat'){
+            // 時刻・終日・長さは、アプリ標準の「繰り返しの設定(_repeatConfig)」と見込み時間から読む（他の画面と同じ基準）
+            const rc = t._repeatConfig || {};
+            const allDayR = !!(rc.allDay || t._allDay);
+            let rhh = 9, rmm = 30;
+            if (!allDayR){
+              let tm = rc.time;
+              if (!tm && j && j.start && String(j.start).length > 10) tm = String(j.start).substring(11,16);   // 設定に無いときだけ本体の日時を使う
+              const pp = String(tm || '07:00').split(':'); rhh = parseInt(pp[0],10) || 0; rmm = parseInt(pp[1],10) || 0;
+            }
+            const durMinR = Math.round((parseFloat(t['(C)見込み/h']) || 0) * 60);
             for (let d=0; d<OT_DAYS; d++){
               const day = new Date(otBase); day.setDate(otBase.getDate()+d);
               try { if (typeof habitOccursOn==='function' && !habitOccursOn(t, day)) continue; } catch(e){ continue; }
               try { if (typeof isHabitDoneOn==='function' && isHabitDoneOn(t.id, ymd(day))) continue; } catch(e){}
               const w = new Date(day); w.setHours(rhh,rmm,0,0);
               if (w.getTime() <= now || w.getTime() > horizon) continue;
-              jobs.push({ id:'task'+(n++), when:w.getTime(), tag:'ontime_r_'+(t.id||n)+'_'+d,
+              let endHM = '';
+              if (!allDayR && durMinR > 0){ const em = rhh*60 + rmm + durMinR; endHM = String(Math.floor(em/60)%24).padStart(2,'0') + ':' + String(em%60).padStart(2,'0'); }
+              const tg = 'ontime_r_' + (t.id||'') + '_' + ymd(day).replace(/-/g,'');   // 札は日付入りで毎日別（IDは短い通し番号）
+              jobs.push({ id:'task'+(n++), when:w.getTime(), tag:tg,
                 url:_notifUrl('#challenge'),
                 title:_notifPrefix('routine')+'｜'+t.name,
-                body:_otBody(t, String(rhh).padStart(2,'0')+':'+String(rmm).padStart(2,'0'), (!allDayR && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDayR) });
+                body:_otBody(t, String(rhh).padStart(2,'0')+':'+String(rmm).padStart(2,'0'), endHM, allDayR) });
             }
             return;
           }
+          if (t._type==='repeat_ended') return;
           if (t._habitTemplateId) return;                                  // 習慣インスタンスはテンプレで処理
           // 単発タスク（時刻あり=その時刻／終日=9:30）
           if (!j || !j.start) return;
@@ -13350,7 +13460,7 @@
           if (when <= now || when > horizon) return;
           const isR = (typeof isRoutineKind==='function' && isRoutineKind(t));
           const cat = t['(B)種類'] || '';
-          jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n),
+          jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n)+'_'+when,
             url:_notifUrl('#task='+(t.id||'')),
             title:(isR?_notifPrefix('routine'):'💚タスク')+'｜'+t.name,
             body:_otBody(t, allDay ? '' : String(j.start).substring(11,16), (!allDay && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDay) });
@@ -16443,7 +16553,7 @@
   //   一掃 = 「不達成」として記録 → 端末から削除 → Notionはゴミ箱へ（既存のアーカイブキュー）
   // ============================================================
   var MISSED_KEY = 'missedTasks';
-  var _mOpts = { overdue:true, later:false, project:false, minDays:0 };   // 「あとでやる」は対象外（期限切れだけ）
+  var _mOpts = { overdue:false, routine:true, repeat:true, later:false, project:false, minDays:0 };   // 普通のタスク（あとでやるに出るもの）は対象外。習慣・ルーチン・繰り返しの未完了分だけが対象
   var _mTab = 'clear', _mScope = 'week', _mConfirm = false, _mLast = null;
   function _mEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
   function _mLoad(){ try{ var o = JSON.parse(localStorage.getItem(MISSED_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; } }
@@ -16457,29 +16567,40 @@
     }catch(e){}
   }
 
-  // 一掃の対象：期限切れの未完了 ／ あとでやる（日付なし）。習慣・ルーチン・繰り返し・空名は対象外
+  // 繰り返しの本体（テンプレ）の名前 → ID（本体との紐付けが切れたコピーも、名前で同じ繰り返しと見なす）
+  function _mRepeatNames(){
+    var m = {};
+    (tasks || []).forEach(function(t){ if (t && (t._type === 'repeat' || t._type === 'repeat_ended') && t.name) m[String(t.name).trim()] = t.id; });
+    return m;
+  }
+  // 一掃の対象：期限切れの未完了（習慣・ルーチン・繰り返しの「その日の分」を含む）。本体（テンプレ）と空名は対象外
   function _mCandidates(o){
     var today = new Date(); today.setHours(0,0,0,0);
-    var out = [];
+    var out = [], repNames = _mRepeatNames();
     (tasks || []).forEach(function(t){
       if (!t || (typeof _isBlankName === 'function' && _isBlankName(t.name))) return;
-      if (t._type === 'repeat' || t._type === 'repeat_ended') return;
-      if (t._habitTemplateId || t._repeatConfig || t._recurringId || t._pseudo) return;
-      if (typeof isRoutineKind === 'function' && isRoutineKind(t)) return;
+      if (t._type === 'repeat' || t._type === 'repeat_ended') return;     // 本体は絶対に対象にしない
+      if (t._pseudo) return;
+      // ルーチン＝種類が 習慣・掃除・美容（ルーチン画面に出るもの）／定期タスク＝それ以外で「繰り返し」設定から作られたもの（出社など）
+      var isRtn = (typeof isRoutineKind === 'function' && isRoutineKind(t));
+      var isRep = !isRtn && !!(t._habitTemplateId || t._repeatConfig || t._recurringId || repNames[String(t.name).trim()]);
+      var group = isRtn ? 'routine' : (isRep ? 'repeat' : null);
+      var isRoutine = !!group;
       var hasProj = false;
       try { hasProj = !!(t._projectOnly || t.project || (typeof taskHasProject === 'function' && taskHasProject(t))); } catch(e){}
       if (hasProj && !o.project) return;
       if (t['(A)done']) return;
       try { if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, new Date())) return; } catch(e){}
       var j = t['(A)実行日'], has = !!(j && j.start);
+      var want = group === 'routine' ? !!o.routine : (group === 'repeat' ? !!o.repeat : !!o.overdue);
       if (has){
         var d = new Date(j.start); d.setHours(0,0,0,0);
         if (d < today){
           var days = Math.round((today - d) / 86400000);
-          if (o.overdue && days >= (o.minDays || 0)) out.push({ t:t, kind:'overdue', due:ymd(d), days:days });
+          if (want && days >= (o.minDays || 0)) out.push({ t:t, kind:'overdue', due:ymd(d), days:days, routine:isRoutine, group:group });
         }
-      } else if (o.later){
-        out.push({ t:t, kind:'later', due:'', days:0 });
+      } else if (o.later && !isRoutine){
+        out.push({ t:t, kind:'later', due:'', days:0, routine:false, group:null });
       }
     });
     return out;
@@ -16489,9 +16610,14 @@
   function _mDo(){
     var c = _mCandidates(_mOpts); if (!c.length) return 0;
     var iso = new Date().toISOString(), cd = ymd(new Date());
-    var log = _mLoad(), ids = [], keys = [], removed = [], set = {};
+    var log = _mLoad(), ids = [], keys = [], removed = [], set = {}, skips = [], repNames = _mRepeatNames();
     c.forEach(function(x){
       var t = x.t, key = 'm_' + t.id;
+      if (x.routine){
+        var tplId = t._habitTemplateId || repNames[String(t.name).trim()];
+        var dsk = t._habitDate || x.due;
+        if (tplId && dsk){ try { addHabitSkip(tplId, dsk); } catch(e){} skips.push([tplId, dsk]); }
+      }
       log[key] = { id:key, name:t.name, shurui:t['(B)種類'] || '', kind:x.kind, due:x.due, days:x.days, clearedAt:iso, clearedDate:cd,
                    project:(t._projectNames && t._projectNames[0]) || t.project || '' };
       keys.push(key); removed.push(t); set[t.id] = 1;
@@ -16506,7 +16632,7 @@
       try { if (ids.length) flushNotionArchiveQueue(); } catch(e){}
       _mLast = null; try { _mRender(); } catch(e){}
     }, 10000);
-    _mLast = { removed:removed, ids:ids, keys:keys, timer:timer, n:c.length };
+    _mLast = { removed:removed, ids:ids, keys:keys, skips:skips, timer:timer, n:c.length };
     try { window.dispatchEvent(new Event('tasks:changed')); } catch(e){}
     try { if (typeof appRefresh === 'function') appRefresh(); } catch(e){}
     return c.length;
@@ -16518,6 +16644,7 @@
     L.removed.forEach(function(t){ tasks.push(t); });
     try { localStorage.setItem('tasks', JSON.stringify(tasks)); } catch(e){}
     var log = _mLoad(); L.keys.forEach(function(k){ delete log[k]; }); _mSave(log);
+    try { (L.skips || []).forEach(function(s){ removeHabitSkip(s[0], s[1]); }); } catch(e){}
     _mLast = null;
     try { window.dispatchEvent(new Event('tasks:changed')); } catch(e){}
     try { if (typeof appRefresh === 'function') appRefresh(); } catch(e){}
@@ -16590,21 +16717,23 @@
       + '<div class="mc-tabs"><button class="mc-tab' + (_mTab === 'clear' ? ' on' : '') + '" onclick="_mcTab(\'clear\')">一掃する</button><button class="mc-tab' + (_mTab === 'log' ? ' on' : '') + '" onclick="_mcTab(\'log\')">不達成の記録</button></div><div class="mc-body">';
     if (_mTab === 'clear'){
       var all = _mCandidates(_mOpts);
-      var nOver = _mCandidates({ overdue:true, later:false, project:_mOpts.project, minDays:_mOpts.minDays }).length;
-      html += '<div class="mc-sub">期限が過ぎたまま終わっていないタスクを、<b>不達成として記録</b>してから削除します（Notionはゴミ箱へ移動）。「あとでやる」・習慣・ルーチン・繰り返しは対象外です。</div>'
-        + '<label class="mc-row"><input type="checkbox" ' + (_mOpts.overdue ? 'checked' : '') + ' onchange="_mcOpt(\'overdue\',this.checked)"> 期限切れ（日付が過ぎた未完了）<span class="n">' + nOver + '件</span></label>'
-        + '<div class="mc-row" style="padding-left:28px;font-size:13px;color:#6b6880">範囲：<select onchange="_mcOpt(\'minDays\',+this.value)" style="border:1px solid #d8d8de;border-radius:8px;padding:6px;font-size:13px;font-family:inherit">'
-        + [[0, 'すべて'], [3, '3日以上前'], [7, '7日以上前'], [14, '14日以上前'], [30, '30日以上前']].map(function(p){ return '<option value="' + p[0] + '"' + (_mOpts.minDays === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select></div>'
-        + '<label class="mc-row"><input type="checkbox" ' + (_mOpts.project ? 'checked' : '') + ' onchange="_mcOpt(\'project\',this.checked)"> プロジェクトのタスクも含める</label>';
+      var nRtn = _mCandidates({ overdue:false, routine:true, repeat:false, later:false, project:_mOpts.project, minDays:_mOpts.minDays }).length;
+      var nRep = _mCandidates({ overdue:false, routine:false, repeat:true, later:false, project:_mOpts.project, minDays:_mOpts.minDays }).length;
+      html += '<div class="mc-sub">毎日・毎週など<b>決まって出てくるタスク</b>で、<b>期限が過ぎたまま終わっていない「その日の分」</b>を、<b>不達成として記録</b>してから削除します（Notionはゴミ箱へ移動）。ルーチン・定期タスクの<b>本体は消えません</b>（消した日は作り直しません）。</div>'
+        + '<label class="mc-row" style="align-items:flex-start"><input type="checkbox" style="margin-top:3px" ' + (_mOpts.routine ? 'checked' : '') + ' onchange="_mcOpt(\'routine\',this.checked)"><span style="flex:1">ルーチン<span style="display:block;font-size:11.5px;color:#8e8b9e;font-weight:500">習慣・掃除・美容（ルーチン画面にあるもの）</span></span><span class="n">' + nRtn + '件</span></label>'
+        + '<label class="mc-row" style="align-items:flex-start"><input type="checkbox" style="margin-top:3px" ' + (_mOpts.repeat ? 'checked' : '') + ' onchange="_mcOpt(\'repeat\',this.checked)"><span style="flex:1">定期タスク<span style="display:block;font-size:11.5px;color:#8e8b9e;font-weight:500">仕事など、決まった周期で出てくるもの（例：出社）</span></span><span class="n">' + nRep + '件</span></label>'
+        + '<div class="mc-sub" style="background:#eefaf2;border:1px solid #bfe8cd;border-radius:10px;padding:8px 10px;color:#1f7a45;margin-top:10px">「あとでやる」に出ている普通のタスクは、<b>消えません</b>（対象外です）。</div>'
+        + '<div class="mc-row" style="font-size:13px;color:#6b6880">範囲：<select onchange="_mcOpt(\'minDays\',+this.value)" style="border:1px solid #d8d8de;border-radius:8px;padding:6px;font-size:13px;font-family:inherit">'
+        + [[0, 'すべて'], [3, '3日以上前'], [7, '7日以上前'], [14, '14日以上前'], [30, '30日以上前']].map(function(p){ return '<option value="' + p[0] + '"' + (_mOpts.minDays === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select></div>';
       if (all.length){
         html += '<div class="mc-h3">対象 ' + all.length + ' 件</div>'
-          + all.slice(0, 6).map(function(x){ return '<div class="mc-item"><span>' + _mEsc(x.t.name) + '</span><span class="d">' + (x.kind === 'overdue' ? x.days + '日遅れ' : '日付なし') + '</span></div>'; }).join('')
+          + all.slice(0, 6).map(function(x){ return '<div class="mc-item"><span>' + _mEsc(x.t.name) + '</span><span class="sc" style="background:' + (x.group === 'routine' ? '#e8f7ee;color:#1f8a50' : '#e7e2ff;color:#5846d6') + '">' + (x.group === 'routine' ? 'ルーチン' : '定期タスク') + '</span><span class="d">' + (x.kind === 'overdue' ? x.days + '日遅れ' : '日付なし') + '</span></div>'; }).join('')
           + (all.length > 6 ? '<div class="mc-sub" style="margin:6px 0 0">ほか ' + (all.length - 6) + ' 件</div>' : '');
         html += _mConfirm
           ? '<button class="mc-btn" onclick="_mcGo()">本当に ' + all.length + ' 件を一掃する（記録して削除）</button><button class="mc-btn" style="background:#f2f1f7;color:#6b6880;margin-top:8px" onclick="_mcCancel()">やめる</button>'
           : '<button class="mc-btn" onclick="_mcAsk()">🧹 不達成として記録して一掃</button>';
       } else {
-        html += '<div class="mc-sub" style="margin-top:14px">対象のタスクはありません。</div><button class="mc-btn dis" disabled>一掃するタスクがありません</button>';
+        html += '<div class="mc-sub" style="margin-top:14px">対象のルーチン・定期タスクの未完了分はありません。</div><button class="mc-btn dis" disabled>一掃するものがありません</button>';
       }
     } else {
       var st = _mStats(_mScope), r = st.range;
@@ -20964,7 +21093,14 @@
   let timerTick = null;
 
   function findTask(id) { return tasks.find(t => t.id === id); }
-  function persistTasks() { localStorage.setItem('tasks', JSON.stringify(tasks)); }
+  // タスクを保存したら、通知の予約も送り直す（まとめて1.5秒後に1回）。
+  // どの画面・どの操作で作った／変えたタスクでも、4分おきの自動同期を待たずに通知が予約される
+  let _alarmSyncTimer = null;
+  function _scheduleAlarmSync() {
+    clearTimeout(_alarmSyncTimer);
+    _alarmSyncTimer = setTimeout(function(){ try { if (typeof syncTaskAlarms === 'function') syncTaskAlarms(); } catch(e){} }, 1500);
+  }
+  function persistTasks() { localStorage.setItem('tasks', JSON.stringify(tasks)); _scheduleAlarmSync(); }
 
   function getTimer(task) {
     if (!task._timer) task._timer = { state:'idle', firstStart:null, runningSince:null, netMs:0, lastStop:null };
@@ -21203,7 +21339,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-10l';
+    var ICON_VER = 'icon-2026-10s';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
@@ -21776,7 +21912,7 @@
         var title = primary.title;
         var body = primary.line + (secondary ? ('\n\n' + secondary.line) : '');
 
-        jobs.push({ id:'wx'+(n++), when:fire.getTime(), tag:'wx'+dOff, url:url, title:title, body:body });
+        jobs.push({ id:'wx'+(n++), when:fire.getTime(), tag:'wx'+ymdStr(fireDay).replace(/-/g,''), url:url, title:title, body:body });
       }
       // ===== 夜の通知：明日、洗濯物が干せるか／干せないか（しばらく干せない場合はその知らせも） =====
       if (cfg.eve !== false){
@@ -21828,7 +21964,7 @@
               ebody = '明日 ' + wxDayLine(tf) + '\n' + emk.word + (r.nextOk ? ('\n次に干せそうなのは ' + mdw(r.nextOk)) : '');
             }
           }
-          jobs.push({ id:'wxe'+(n++), when:eFire.getTime(), tag:'wxe'+eOff, url:url, title:etitle, body:ebody });
+          jobs.push({ id:'wxe'+(n++), when:eFire.getTime(), tag:'wxe'+ymdStr(tDate).replace(/-/g,''), url:url, title:etitle, body:ebody });
         }
       }
       try { if (typeof _postJobsIfChanged==='function') await _postJobsIfChanged('-weather', jobs); } catch(e){}
@@ -25500,7 +25636,7 @@
   // 文字列として丸ごと同期する設定
   var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify'];
   // {項目: 値} の形で、項目ごとに同期するもの
-  var MAP_KEYS = ['routinesDone','routineEnded','habitHistory','habitFreqOverrides','swTriaged','missedTasks'];
+  var MAP_KEYS = ['routinesDone','routineEnded','habitHistory','habitFreqOverrides','swTriaged','missedTasks','habitSkips'];
   var applying = false, busy = false, timer = null, lastRun = 0;
 
   function jget(k, def){ try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
