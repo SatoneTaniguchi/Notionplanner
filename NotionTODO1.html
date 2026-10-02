@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002s</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002t</div>
       </div>
     </div>
     <div class="header-right">
@@ -16443,7 +16443,7 @@
   //   一掃 = 「不達成」として記録 → 端末から削除 → Notionはゴミ箱へ（既存のアーカイブキュー）
   // ============================================================
   var MISSED_KEY = 'missedTasks';
-  var _mOpts = { overdue:true, later:true, project:false, minDays:0 };
+  var _mOpts = { overdue:true, later:false, project:false, minDays:0 };   // 「あとでやる」は対象外（期限切れだけ）
   var _mTab = 'clear', _mScope = 'week', _mConfirm = false, _mLast = null;
   function _mEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
   function _mLoad(){ try{ var o = JSON.parse(localStorage.getItem(MISSED_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; } }
@@ -16547,14 +16547,15 @@
   function _mStyle(){
     if (document.getElementById('mcStyle')) return;
     var s = document.createElement('style'); s.id = 'mcStyle';
-    s.textContent = '#missedModal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:420;display:flex;align-items:flex-end;justify-content:center}'
-      + '#missedModal .mc-panel{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:430px;max-height:88dvh;display:flex;flex-direction:column;overflow:hidden}'
+    s.textContent = '#missedModal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:calc(var(--z-nav,9700) + 60);display:flex;align-items:flex-end;justify-content:center}'
+      + '#missedModal .mc-panel{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:430px;max-height:90dvh;display:flex;flex-direction:column;overflow:hidden}'
       + '#missedModal .mc-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0;font-size:17px;font-weight:800}'
       + '#missedModal .mc-x{background:#f2f1f7;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;color:#6b6880}'
       + '#missedModal .mc-tabs{display:flex;gap:6px;padding:10px 16px 0}'
       + '#missedModal .mc-tab{flex:1;border:none;border-radius:10px;padding:9px;font-size:13px;font-weight:700;background:#f2f1f7;color:#6b6880;font-family:inherit}'
       + '#missedModal .mc-tab.on{background:#6c5ce7;color:#fff}'
-      + '#missedModal .mc-body{padding:12px 16px calc(18px + env(safe-area-inset-bottom));overflow:auto}'
+      + '#missedModal .mc-head,#missedModal .mc-tabs{flex:none}'
+      + '#missedModal .mc-body{flex:1 1 auto;min-height:0;padding:12px 16px calc(24px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}'
       + '#missedModal .mc-sub{font-size:12px;color:#8e8b9e;line-height:1.6;margin-bottom:10px}'
       + '#missedModal .mc-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0eef6;font-size:14px}'
       + '#missedModal .mc-row .n{margin-left:auto;font-weight:800;color:#6c5ce7}'
@@ -16590,12 +16591,10 @@
     if (_mTab === 'clear'){
       var all = _mCandidates(_mOpts);
       var nOver = _mCandidates({ overdue:true, later:false, project:_mOpts.project, minDays:_mOpts.minDays }).length;
-      var nLater = _mCandidates({ overdue:false, later:true, project:_mOpts.project, minDays:0 }).length;
-      html += '<div class="mc-sub">期限切れ・「あとでやる」に溜まったタスクを、<b>不達成として記録</b>してから削除します（Notionはゴミ箱へ移動）。習慣・ルーチン・繰り返しは対象外です。</div>'
+      html += '<div class="mc-sub">期限が過ぎたまま終わっていないタスクを、<b>不達成として記録</b>してから削除します（Notionはゴミ箱へ移動）。「あとでやる」・習慣・ルーチン・繰り返しは対象外です。</div>'
         + '<label class="mc-row"><input type="checkbox" ' + (_mOpts.overdue ? 'checked' : '') + ' onchange="_mcOpt(\'overdue\',this.checked)"> 期限切れ（日付が過ぎた未完了）<span class="n">' + nOver + '件</span></label>'
         + '<div class="mc-row" style="padding-left:28px;font-size:13px;color:#6b6880">範囲：<select onchange="_mcOpt(\'minDays\',+this.value)" style="border:1px solid #d8d8de;border-radius:8px;padding:6px;font-size:13px;font-family:inherit">'
         + [[0, 'すべて'], [3, '3日以上前'], [7, '7日以上前'], [14, '14日以上前'], [30, '30日以上前']].map(function(p){ return '<option value="' + p[0] + '"' + (_mOpts.minDays === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select></div>'
-        + '<label class="mc-row"><input type="checkbox" ' + (_mOpts.later ? 'checked' : '') + ' onchange="_mcOpt(\'later\',this.checked)"> あとでやる（日付なし）<span class="n">' + nLater + '件</span></label>'
         + '<label class="mc-row"><input type="checkbox" ' + (_mOpts.project ? 'checked' : '') + ' onchange="_mcOpt(\'project\',this.checked)"> プロジェクトのタスクも含める</label>';
       if (all.length){
         html += '<div class="mc-h3">対象 ' + all.length + ' 件</div>'
@@ -21204,7 +21203,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-10k';
+    var ICON_VER = 'icon-2026-10l';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
