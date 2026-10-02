@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002i</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002j</div>
       </div>
     </div>
     <div class="header-right">
@@ -20819,7 +20819,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09y';
+    var ICON_VER = 'icon-2026-09z';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
@@ -24068,6 +24068,18 @@
       var info=[];
       var ss=(k===todayKey)?getSessions(rec):pairSessions(getSessions(rec));
       ss.forEach(function(s){ var lt=locTypeOf(s.loc,s.locType); info.push('<span class="att-badge loc">'+(lt==='home'?'🏠':'🏢')+(s.loc?esc(s.loc):'')+' '+(s.in||'--')+'〜'+(s.out||'…')+'</span>'); });
+      // 「場所だけ記録」（手動／自動）した日の場所と記録時刻。打刻のセッションに同じ場所があればそちらに任せる
+      (function(){
+        var ln=rec.locNote;
+        if(ln && ln.loc){
+          var dup=ss.some(function(s){ return s.loc===ln.loc; });
+          if(!dup){ var lh=(ln.locType==='home'||ln.loc==='在宅'||ln.loc==='自宅');
+            info.push('<span class="att-badge loc">'+(lh?'🏠':'📍')+esc(lh?'在宅':ln.loc)+(ln.at?' '+esc(ln.at):'')+(ln.auto?' <span style="font-size:9px;font-weight:700;color:#2e9e5b">自動</span>':'')+'</span>'); }
+        } else if(!ss.length && rec.loc){
+          var lh2=(rec.locType==='home'||rec.loc==='在宅'||rec.loc==='自宅');
+          info.push('<span class="att-badge loc">'+(lh2?'🏠':'🏢')+esc(lh2?'在宅':rec.loc)+'</span>');
+        }
+      })();
       if(rec.manualWork!=null && rec.manualWork!=='' && !ss.length) info.push('<span class="att-badge loc">実働 '+fmtDur(num(rec.manualWork))+'</span>');
       if(rec.leave&&rec.leave!=='none'){ var lm={full:'全休',am:'午前',pm:'午後'}; info.push('<span class="att-badge leave">'+lm[rec.leave]+'</span>'); }
       if(rec.holiday) info.push('休日');
