@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002h</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002i</div>
       </div>
     </div>
     <div class="header-right">
@@ -20819,7 +20819,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09x';
+    var ICON_VER = 'icon-2026-09y';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
@@ -23262,7 +23262,9 @@
 .att-set-row input[type=time]{width:104px}
 .att-set-row input[type=number]{width:72px;text-align:center}
 .att-two{display:flex;align-items:center;gap:6px}
-.att-switch{position:relative;width:44px;height:26px;flex:none}
+.att-switch{position:relative;width:44px;height:26px;flex:none;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.att-switch::before{content:"";position:absolute;inset:-8px;}
+.att-switch .tk{cursor:pointer}
 .att-switch input{display:none}
 .att-switch .tk{position:absolute;inset:0;background:#d8d5e6;border-radius:20px;transition:.2s}
 .att-switch .tk::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s}
@@ -24346,6 +24348,18 @@
     } catch(e){ go(); }
   }
   window.attGeoAutoCheck=geoAutoCheck;
+  // スイッチ（.att-switch）をタップで切り替える。中のチェックボックスは非表示なので、ここで切り替える。
+  // すでに別の仕組みで切り替わっていたら（値が変わっていたら）何もしない＝二重に切り替えない。
+  try{
+    document.addEventListener('click', function(e){
+      var sw = e.target && e.target.closest ? e.target.closest('.att-switch') : null; if(!sw) return;
+      var inp = sw.querySelector('input[type=checkbox]'); if(!inp) return;
+      var before = inp.checked;
+      setTimeout(function(){
+        if(inp.checked === before){ inp.checked = !before; try{ inp.dispatchEvent(new Event('change', { bubbles:true })); }catch(err){} }
+      }, 0);
+    }, false);
+  }catch(e){}
   window.attRender=render;   // 端末間同期の受信後に画面を更新する
   geoRender();
   setTimeout(function(){ geoAutoCheck(true); }, 2500);
