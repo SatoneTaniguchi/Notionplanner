@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929l</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929n</div>
       </div>
     </div>
     <div class="header-right">
@@ -12541,7 +12541,7 @@
     var reg = null;
     try { reg = await navigator.serviceWorker.getRegistration(); } catch(e){}
     if (!reg){ try { var regs = await navigator.serviceWorker.getRegistrations(); if (regs && regs.length) reg = regs[0]; } catch(e){} }
-    if (!reg){ try { reg = await navigator.serviceWorker.register('sw.js'); } catch(e){} }
+    if (!reg){ try { reg = await navigator.serviceWorker.register('sw.js'); } catch(e){ window.__swLastErr = ((e&&e.name)||'Error') + ': ' + ((e&&e.message)||e); } }
     if (!reg) return null;
     if (reg.active) return reg;
     // activeになるまで待つ
@@ -12557,16 +12557,44 @@
     try { reg = await navigator.serviceWorker.getRegistration() || reg; } catch(e){}
     return reg;
   }
+  // サーバー応答の詳細（状態・本文・購読先・認証トークン有無）
+  async function _pushRespText(res, p){
+    var out=[];
+    try { out.push('HTTP ' + (res ? res.status : '不明')); } catch(e){}
+    try { var b=(await res.text()||'').slice(0,160); if(b) out.push('本文: '+b); } catch(e){}
+    try { var ep=(p&&p.sub&&p.sub.endpoint)||''; if(ep){ out.push('購読先: '+new URL(ep).host+' …'+ep.slice(-10)); } else out.push('購読先: なし'); } catch(e){}
+    out.push('認証トークン: ' + ((p&&p.token)?'あり':'なし'));
+    return out.join('\n   ');
+  }
+  window._pushRespText = _pushRespText;
   window._ensureSWReg = _ensureSWReg;
+  // SWが有効化できない理由を画面に出す診断
+  async function _swDiagText(){
+    var lines=[];
+    try { lines.push('ページ: ' + location.href.split('#')[0]); } catch(e){}
+    try {
+      var r = await fetch('sw.js', { cache:'no-store' });
+      var ct = (r.headers && r.headers.get('content-type')) || '?';
+      lines.push('sw.js: HTTP ' + r.status + ' (' + ct.split(';')[0] + ')');
+    } catch(e){ lines.push('sw.js取得エラー: ' + ((e&&e.message)||e)); }
+    if (window.__swLastErr) lines.push('登録エラー: ' + window.__swLastErr);
+    try {
+      var regs = await navigator.serviceWorker.getRegistrations();
+      lines.push('登録数: ' + regs.length + (regs[0] ? (' / 状態: ' + (regs[0].active?'active':regs[0].waiting?'waiting':regs[0].installing?'installing':'なし')) : ''));
+    } catch(e){}
+    return lines.join('\n');
+  }
+  window._swDiagText = _swDiagText;
   async function _ensurePushSub() {
     let p = _mzPush() || { enabled:false, url:NOTION_PROXY, token:'', sub:null, client:'' };
     if (p.sub) return p;
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined')
       throw new Error('この端末/ブラウザは通知に未対応です');
-    const perm = await Notification.requestPermission();
+    let perm = Notification.permission;
+    if (perm !== 'granted') perm = await Notification.requestPermission();   // 許可済みなら再要求しない（iOSは操作直後でないと未許可扱いになるため）
     if (perm !== 'granted') throw new Error('通知が許可されていません');
     const reg = await _ensureSWReg(12000);
-    if (!reg || !reg.active) throw new Error('サービスワーカーが有効化できませんでした');
+    if (!reg || !reg.active) throw new Error('サービスワーカーが有効化できませんでした\n' + (await _swDiagText()));
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(CHAL_VAPID) });
     p.sub = sub.toJSON(); p.enabled = true;
@@ -12824,7 +12852,7 @@
       if ('serviceWorker' in navigator){
         var reg=await _ensureSWReg(12000);
         if (reg && reg.active){ await reg.showNotification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています',tag:'localtest'}); localMsg='送信（今すぐ出ればOK）'; }
-        else { localMsg='SWが有効化できませんでした（要 再起動 or 追加し直し）'; }
+        else { localMsg='SWが有効化できませんでした\n' + (await _swDiagText()); }
       } else if (typeof Notification==='function'){ new Notification('🔔 ローカル通知テスト',{body:'これが見えれば通知そのものは動いています'}); localMsg='送信'; }
     } catch(e){ localMsg='失敗:'+(e&&e.message||e); }
     // ② サーバー経由プッシュ（8秒後）
@@ -12838,9 +12866,9 @@
       var ctrl = ('AbortController' in window) ? new AbortController() : null;
       if (ctrl) setTimeout(function(){ try{ctrl.abort();}catch(e){} }, 8000);
       var res=await fetch((p.url||NOTION_PROXY)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}), signal: ctrl?ctrl.signal:undefined});
-      pushMsg='サーバー応答 '+(res?res.status:'不明')+'（8秒後に届く予定）';
+      pushMsg='\n   '+(await _pushRespText(res,p))+'\n   （8秒後に届く予定）';
     } catch(e){ pushMsg='送信エラー:'+(e&&e.message||e); }
-    _notifMsg('テスト結果\n\n① ローカル通知：'+localMsg+'\n② サーバー通知：'+pushMsg+'\n\n[状態] PWA:'+(isPWA?'はい':'いいえ')+' / 許可:'+perm+'\n\n①は出るのに②が来ない場合は、下の「通知を貼り直す」を押してください（購読を作り直します）。', '🔄 通知を貼り直す', function(){ try{ if(typeof notifResubscribeAll==='function') notifResubscribeAll(); }catch(e){} });
+    _notifMsg('テスト結果\n\n① ローカル通知：'+localMsg+'\n② サーバー通知：'+pushMsg+'\n\n[状態] PWA:'+(isPWA?'はい':'いいえ')+' / 許可:'+perm+'\n\n※ iPhoneは連続で送ると抑制されます。続けて試さず、1〜2分あけて1回だけ試してください。\n①は出るのに②が来ない場合は、この画面のスクショを送ってください。', '🔄 通知を貼り直す', function(){ try{ if(typeof notifResubscribeAll==='function') notifResubscribeAll(); }catch(e){} });
   };
   // ボタンから呼ぶ入口（必ず即時に反応を出す）
   window._notifTapTest = function(){
@@ -12866,7 +12894,7 @@
         if (pm!=='granted'){ _notifMsg('通知が許可されませんでした（'+pm+'）。設定→通知 で許可してください。'); return; }
       }
       var reg = await _ensureSWReg(12000);
-      if (!reg || !reg.active){ _notifMsg('サービスワーカーを有効化できませんでした。\n\n対処：\n1. アプリを完全終了→再起動\n2. それでもダメなら、一度ホーム画面のアイコンを削除→Safariで開き直して「ホーム画面に追加」し直す\n\n（データ＝タスク/コインはlocalStorageにあるので消えません）'); return; }
+      if (!reg || !reg.active){ _notifMsg('サービスワーカーを有効化できませんでした。\n\n【診断】\n' + (await _swDiagText()) + '\n\n対処：\n1. アプリを完全終了→再起動\n2. それでもダメなら、一度ホーム画面のアイコンを削除→Safariで開き直して「ホーム画面に追加」し直す\n\n（データ＝タスク/コインはlocalStorageにあるので消えません）'); return; }
       // 古い購読を破棄
       try { var oldSub = await reg.pushManager.getSubscription(); if (oldSub) await oldSub.unsubscribe(); } catch(e){}
       // 新規購読
@@ -12891,7 +12919,7 @@
         var job={id:'test'+stamp,when:when,tag:'test'+stamp,url:url,title:'🔔 通知テスト（貼り直し後）',body:'これが届けば通知は復活しています'};
         var ctrl=('AbortController' in window)?new AbortController():null; if(ctrl) setTimeout(function(){try{ctrl.abort();}catch(e){}},8000);
         var res=await fetch((p.url||NOTION_PROXY)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}),signal:ctrl?ctrl.signal:undefined});
-        testMsg='サーバー応答 '+(res?res.status:'不明');
+        testMsg='\n   '+(await _pushRespText(res,p));
       } catch(e){ testMsg='テスト送信エラー:'+(e&&e.message||e); }
       _notifMsg('✅ 通知を作り直しました（新しい購読を作成）。\n\nタスク・ルーチン・予定の通知をすべて登録し直しました。\n\n確認テスト：'+testMsg+'\n→ 5秒後に「通知テスト（貼り直し後）」が届けば復活しています。届いたら、以後のタスク通知も来ます。');
     } catch(e){
@@ -20743,7 +20771,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09n';
+    var ICON_VER = 'icon-2026-09p';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
