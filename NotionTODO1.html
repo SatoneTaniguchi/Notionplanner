@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002g</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002h</div>
       </div>
     </div>
     <div class="header-right">
@@ -20819,7 +20819,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09w';
+    var ICON_VER = 'icon-2026-09x';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
@@ -24202,6 +24202,7 @@
     var box=$('attGeoBody'); if(!box) return;
     var g=geoLoad(); var h='';
     h+='<div class="att-set-row"><label>着いたら自動で場所記録</label><span class="att-switch"><input type="checkbox" id="geoAuto"'+(g.auto?' checked':'')+'><span class="tk"></span></span></div>';
+    h+='<div id="attGeoLast" class="att-sub" style="margin:-2px 0 6px">'+geoStatHtml()+'</div>';
     h+='<div class="att-set-row"><label>反応する範囲</label><select id="geoR" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;background:#fff">'
       +[50,75,100,150,300,500].map(function(v){ return '<option value="'+v+'"'+(+g.r===v?' selected':'')+'>'+v+' m</option>'; }).join('')+'</select></div>';
     OFFICES.forEach(function(nm){
@@ -24285,7 +24286,9 @@
       var d=geoDecide(c,g);
       var lines=names.map(function(nm){ var o=g.offices[nm]; return nm+'：約 '+Math.round(geoDist(c.latitude,c.longitude,o.lat,o.lon))+' m（反応範囲 '+Math.round(geoEffRadius(g,nm))+' m）'; });
       (g.excl||[]).forEach(function(x){ lines.push('🚉 '+x.name+'：約 '+Math.round(geoDist(c.latitude,c.longitude,x.lat,x.lon))+' m'); });
-      geoAlert('現在地の誤差 ±'+Math.round(c.accuracy||0)+' m\n\n'+lines.join('\n')+'\n\n判定：'+(d.ok?(d.best+' に着いた → 記録します✅'):('見送り（'+(d.why||'')+'）')));
+      var txt='現在地の誤差 ±'+Math.round(c.accuracy||0)+' m\n\n'+lines.join('\n')+'\n\n判定：'+(d.ok?(d.best+' に着いた（範囲内）✅'):('見送り（'+(d.why||'')+'）'))+'\n自動記録：'+(g.auto?'オン':'オフ ← スイッチをオンにすると、アプリを開いたときに自動で記録します');
+      if(d.ok && !geoHasLocToday() && window._notifMsg){ window._notifMsg(txt, '📍 いま記録する', function(){ recordLocationOnly(d.best,'office',false); }); }
+      else geoAlert(txt);
     }).catch(function(e){ geoAlert(geoErrMsg(e)); });
   };
 
@@ -24296,11 +24299,22 @@
     var ss=rec.sessions||[]; for(var i=0;i<ss.length;i++) if(ss[i].loc) return true;
     return false;
   }
-  var _geoBusy=false, _geoLastTry=0;
+  var _geoBusy=false, _geoLastTry=0, _geoPromptTried=false;
+  // 最後の自動判定の結果を残して画面に出す（記録されない理由が分かるように）
+  function geoStat(msg){
+    try{ localStorage.setItem('attGeoLast', JSON.stringify({ t:Date.now(), msg:msg })); }catch(e){}
+    var el=$('attGeoLast'); if(el) el.innerHTML=geoStatHtml();
+  }
+  function geoStatHtml(){
+    var o=null; try{ o=JSON.parse(localStorage.getItem('attGeoLast')||'null'); }catch(e){}
+    if(!o) return '最後の自動判定：まだありません';
+    var d=new Date(o.t); return '最後の自動判定 '+pad2(d.getHours())+':'+pad2(d.getMinutes())+'：'+o.msg;
+  }
   function geoAutoCheck(force){
-    var g=geoLoad(); if(!g.auto) return;
-    var names=Object.keys(g.offices||{}); if(!names.length) return;
-    if(geoHasLocToday()) return;
+    var g=geoLoad();
+    if(!g.auto){ geoStat('オフです（上のスイッチをオンにしてください）'); return; }
+    var names=Object.keys(g.offices||{}); if(!names.length){ geoStat('出社先が未登録です'); return; }
+    if(geoHasLocToday()){ geoStat('今日はすでに場所が記録されています'); return; }
     var now=Date.now(); if(_geoBusy || (!force && now-_geoLastTry<60000)) return;
     _geoLastTry=now; _geoBusy=true;
     var done=function(){ _geoBusy=false; };
@@ -24311,12 +24325,23 @@
           var nk=ymd(new Date()); if(nk!==todayKey) todayKey=nk;   // 日付またぎ対策
           recordLocationOnly(d.best,'office',true);                // 場所記録＋出社タスク完了（自動）
           toast('📍 '+d.best+'に着いたので場所を記録しました '+nowHM());
+          geoStat('✅ '+d.best+'に着いたので記録しました');
+        } else if(!d.ok){
+          geoStat('見送り（'+(d.why||'')+(d.bestD!=null?'・'+d.best+'まで約'+Math.round(d.bestD)+'m':'')+'）');
         }
-      }).catch(function(){}).then(done);
+      }).catch(function(e){ geoStat('位置情報を取得できません（'+String(geoErrMsg(e)).split('\n')[0]+'）'); }).then(done);
     };
     try {
       if(navigator.permissions && navigator.permissions.query){
-        navigator.permissions.query({name:'geolocation'}).then(function(st){ if(st.state==='granted') go(); else done(); }).catch(go);
+        navigator.permissions.query({name:'geolocation'}).then(function(st){
+          if(st.state==='granted') go();
+          else if(st.state==='prompt' && !_geoPromptTried){
+            // iPhoneのホーム画面アプリは起動のたびに許可を聞き直すことがある。スイッチをオンにしているので、起動ごとに1回だけ聞く
+            _geoPromptTried=true; geoStat('位置情報の許可を確認しています…「許可」を選んでください'); go();
+          }
+          else if(st.state==='denied'){ geoStat('位置情報が許可されていません（iPhoneの設定で許可してください）'); done(); }
+          else done();
+        }).catch(go);
       } else go();
     } catch(e){ go(); }
   }
