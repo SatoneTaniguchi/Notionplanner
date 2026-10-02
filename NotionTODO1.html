@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v0929n</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1002g</div>
       </div>
     </div>
     <div class="header-right">
@@ -3407,6 +3407,25 @@
         <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・ルーチンの通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
         <button onclick="_notifTapTest()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔔 テスト通知を送る（8秒後）</button>
         <button onclick="_notifResubTap()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔄 通知を貼り直す（購読を作り直す）</button>
+      </div>
+
+      <!-- 端末間の自動同期 -->
+      <div id="devSyncCard" style="border:1px solid #e0dcf3;border-radius:14px;padding:12px;margin-bottom:12px;background:#faf9ff;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">端末間の自動同期（iPad・iPhoneなど）</div>
+        <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;"><b>設定は不要です。</b>Notion連携済みの端末は、勤怠の記録・出社先の設定・ルーチンの完了履歴などを自動でそろえます（アプリを開いたとき・変更から数秒後・開いている間は90秒ごと）。タスクはNotion、ごほうびコインは獲得履歴DBで共有されます。</div>
+        <div id="devSyncStatus" style="font-size:12px;color:#5a5769;line-height:1.5;word-break:break-all;margin-bottom:8px;">確認中…</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="devSyncNow()" style="flex:1;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;touch-action:manipulation;">今すぐ同期</button>
+          <button id="devSyncToggleBtn" onclick="devSyncToggle()" style="flex:1;background:#fff;color:#8e8e93;border:1.5px solid #d8d8de;border-radius:12px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;touch-action:manipulation;">同期をオフにする</button>
+        </div>
+        <details style="margin-top:10px;">
+          <summary style="font-size:12px;color:#8e8e93;cursor:pointer;">詳細設定（独自の同期サーバーを使う場合のみ）</summary>
+          <div style="margin-top:8px;">
+            <input id="devSyncUrl" type="url" placeholder="同期サーバーのURL（空欄なら自動）" autocapitalize="off" autocorrect="off" style="width:100%;box-sizing:border-box;border:1px solid #d8d8de;border-radius:10px;padding:10px;font-size:14px;margin-bottom:8px;font-family:inherit;">
+            <input id="devSyncKey" type="password" placeholder="合言葉" autocapitalize="off" autocorrect="off" style="width:100%;box-sizing:border-box;border:1px solid #d8d8de;border-radius:10px;padding:10px;font-size:14px;margin-bottom:8px;font-family:inherit;">
+            <button onclick="devSyncSaveCfg()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;touch-action:manipulation;">保存して同期</button>
+          </div>
+        </details>
       </div>
 
       <!-- 端末間コピー（全データのバックアップ/復元・繰り返しテンプレ含む） -->
@@ -4980,6 +4999,7 @@
         var updatedAt=Date.now();
         var body={ updatedAt:updatedAt, templates:list };
         try{ if(typeof _challengeStateForSync==='function') body.challenge=_challengeStateForSync(); }catch(e){}
+        try{ if(window._devSyncFetchAd){ var _ad=await window._devSyncFetchAd(); if(_ad) body.appdata=_ad; } }catch(e){}   // 端末間同期のデータを消さない
         var r=await fetch(_tplSyncUrl(), { method:'POST', headers:_tplAuthHeaders(), body:JSON.stringify(body) });
         if(!r.ok){ dbg('tplCloudPush non-ok', r.status); return; }
         meta.syncedAt=updatedAt; meta.syncedHash=hash; _saveTplMeta(meta);
@@ -4989,6 +5009,8 @@
     clearTimeout(_tplPushTimer); _tplPushTimer=setTimeout(doPush, 2500);   // デバウンス
   }
   window.tplCloudPush = tplCloudPush;
+  // 端末間同期（勤怠など）が、ルーチン同期と同じ保存先を使うための接続情報
+  window._tplSyncInfo = function(){ try{ return { url:_tplSyncUrl(), headers:_tplAuthHeaders(), ready: !!(notionSettings.token || notionSettings.managed) }; }catch(e){ return { ready:false }; } };
 
   // テンプレが変わったら自動で押し上げ（既存の tasks:changed を利用。ハッシュ一致なら送らない）
   try{ window.addEventListener('tasks:changed', function(){ tplCloudPush(false); }); }catch(e){}
@@ -13229,6 +13251,21 @@
     // ── オンタイム通知：開始時刻ちょうどに通知（単発＝💚タスク／習慣・ルーチン・繰り返し＝🩵継続）──
     if (_taskOntimeOn()){
       try {
+        // 通知本文：「20:10〜20:40（30分）・雑務」のように中身が分かる形にする
+        const _otBody = (t, startHM, endHM, allDay) => {
+          const parts = [];
+          if (allDay){ parts.push('今日のタスクです（終日）'); }
+          else {
+            let range = startHM;
+            if (endHM && endHM !== startHM) range += '〜' + endHM;
+            const mh = parseFloat(t['(C)見込み/h']) || 0, mm = Math.round(mh * 60);
+            if (mm > 0) range += '（' + (mm >= 60 ? (mm % 60 === 0 ? (mm/60) + '時間' : Math.floor(mm/60) + '時間' + (mm%60) + '分') : mm + '分') + '）';
+            parts.push(range);
+          }
+          const cat = t['(B)種類'] || '';
+          if (cat) parts.push(cat);
+          return parts.join('・');
+        };
         const otBase = new Date(); otBase.setHours(0,0,0,0);
         const OT_DAYS = 7;
         tasks.forEach(t => {
@@ -13248,7 +13285,8 @@
               if (w.getTime() <= now || w.getTime() > horizon) continue;
               jobs.push({ id:'task'+(n++), when:w.getTime(), tag:'ontime_r_'+(t.id||n)+'_'+d,
                 url:_notifUrl('#challenge'),
-                title:_notifPrefix('routine')+'｜'+t.name, body:'いまの時間です（ルーチン）' });
+                title:_notifPrefix('routine')+'｜'+t.name,
+                body:_otBody(t, String(rhh).padStart(2,'0')+':'+String(rmm).padStart(2,'0'), (!allDayR && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDayR) });
             }
             return;
           }
@@ -13269,7 +13307,7 @@
           jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n),
             url:_notifUrl('#task='+(t.id||'')),
             title:(isR?_notifPrefix('routine'):'💚タスク')+'｜'+t.name,
-            body:'いまの時間です' + (isR?'（ルーチン）':(cat?'（'+cat+'）':'')) });
+            body:_otBody(t, allDay ? '' : String(j.start).substring(11,16), (!allDay && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDay) });
         });
       } catch(e){}
     }
@@ -15556,9 +15594,17 @@
 
   // 勤怠でオフィス出社を記録したとき：今日の「出社」タスクにタイトルへ場所を足して完了。
   //   無ければ「出社: <場所>」タスクを作って完了にする（Googleカレンダーには書かない）。
-  window.appRecordClockInTask = function(location){
+  window.appRecordClockInTask = function(location, atHM, auto){
     try {
       if (!location) return false;
+      if (!atHM){ const _n=new Date(); atHM = String(_n.getHours()).padStart(2,'0')+':'+String(_n.getMinutes()).padStart(2,'0'); }
+      // 「📍 8:52 出社の場所を記録（自動：中原）」の1行をメモに入れる（再記録時は置き換え）
+      const _stamp = '📍 ' + atHM + ' 出社の場所を記録（' + (auto ? '自動' : '手動') + '：' + location + '）';
+      const _putStamp = function(t){
+        const old = String(t['(e)memo'] || '').split('\n').filter(function(l){ return !/^📍 .*出社の場所を記録/.test(l); });
+        t['(e)memo'] = [_stamp].concat(old).join('\n').trim();
+        t._clockInAt = atHM;
+      };
       const todayStr = new Date().toDateString();
       let found = null;
       for (let i=0;i<tasks.length;i++){
@@ -15573,6 +15619,7 @@
       if (found){
         const wasDone = !!found['(A)done'];
         found.name = newName;
+        _putStamp(found);
         found['(A)done'] = true;
         found._localLastEdited = new Date().toISOString();
         persistTasks();
@@ -15584,6 +15631,7 @@
           name:newName, '(B)種類':'仕事', '(A)done':true,
           '(A)実行日':{ start:ymdStr, end:ymdStr }, _type:'time', _allDay:true,
           _notionId:null, _source:'attendance', _localLastEdited:new Date().toISOString() };
+        _putStamp(nt);
         tasks.push(nt);
         persistTasks();
         try { awardCompletion(nt.id, nt.name, ymdStr, taskCoins(nt)); } catch(e){}
@@ -20771,7 +20819,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-09p';
+    var ICON_VER = 'icon-2026-09w';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
@@ -23390,6 +23438,13 @@
       </div>
     </div>
 
+    <!-- 出社の自動場所記録 -->
+    <div class="att-card">
+      <h3>📍 出社の自動場所記録</h3>
+      <div class="att-sub">出社先の場所を登録しておくと、アプリを開いたとき（戻ったとき）にその近くにいれば、場所を自動で記録して「出社」タスクも完了します。駅など近くの場所は「除外エリア」に登録すると、そこでは反応しません。※アプリを閉じている間は動きません。</div>
+      <div id="attGeoBody" style="margin-top:8px"></div>
+    </div>
+
     <!-- 履歴 -->
     <div class="att-card">
       <h3>履歴 <span class="tag" id="attHistTag"></span></h3>
@@ -23771,7 +23826,7 @@
     if(rec.locNote && rec.locNote.loc){
       var nrow=document.createElement('div'); nrow.className='att-sess-row';
       nrow.style.cssText='opacity:.9';
-      nrow.innerHTML='<span>📍 今日の場所</span><span style="margin-left:auto;font-weight:800;color:#2d2b3a">'+(rec.locNote.locType==='home'?'在宅':rec.locNote.loc)+'</span>';
+      nrow.innerHTML='<span>📍 今日の場所</span><span style="margin-left:auto;font-weight:800;color:#2d2b3a">'+(rec.locNote.locType==='home'?'在宅':rec.locNote.loc)+(rec.locNote.at?' <span style="font-weight:700;color:#6c5ce7">'+rec.locNote.at+'</span>':'')+(rec.locNote.auto?' <span style="font-size:10px;font-weight:700;color:#2e9e5b;background:#e8f7ee;border-radius:6px;padding:1px 5px">自動</span>':'')+'</span>';
       sc.appendChild(nrow);
     }
     ss.forEach(function(s,idx){
@@ -24104,18 +24159,175 @@
     rec.loc=loc; rec.locType=locType;
     officePickOpen=false; attLocOnly=false; saveRec(R); render();
     toast((locType==='home'?'在宅':loc)+'で出勤 '+ss[ss.length-1].in);
-    if(locType==='office'){ try { if(window.appRecordClockInTask) window.appRecordClockInTask(loc); } catch(e){} } // 出社タスクを完了＋場所付与
+    if(locType==='office'){ try { if(window.appRecordClockInTask) window.appRecordClockInTask(loc, ss[ss.length-1].in, false); } catch(e){} } // 出社タスクを完了＋場所付与（出勤時刻つき）
   }
   // 打刻せず「場所だけ」記録する
-  function recordLocationOnly(loc, locType){
+  function recordLocationOnly(loc, locType, auto){
     var rec=ensureToday();
-    rec.locNote={ loc:loc, locType:locType, at:nowHM() };
+    var _at=nowHM();
+    rec.locNote={ loc:loc, locType:locType, at:_at, auto:!!auto, ts:Date.now() };
     rec.loc=loc; rec.locType=locType; // 表示ミラー
     officePickOpen=false; attLocOnly=false; saveRec(R); render();
-    toast('場所を記録: '+(locType==='home'?'在宅':loc));
-    if(locType==='office'){ try { if(window.appRecordClockInTask) window.appRecordClockInTask(loc); } catch(e){} } // 出社タスクを完了＋場所付与
+    toast('場所を記録: '+(locType==='home'?'在宅':loc)+' '+_at);
+    if(locType==='office'){ try { if(window.appRecordClockInTask) window.appRecordClockInTask(loc, _at, !!auto); } catch(e){} } // 出社タスクを完了＋場所付与（記録時刻つき）
   }
   function startHome(){ startSession('在宅','home'); }
+
+  // ============ 出社の自動場所記録（位置情報・アプリを開いている間のみ） ============
+  var GEO_KEY='attOfficeGeo';
+  function geoLoad(){ try{ var o=JSON.parse(localStorage.getItem(GEO_KEY)||'null'); if(o&&o.offices){ if(!Array.isArray(o.excl)) o.excl=[]; return o; } }catch(e){} return { auto:false, r:150, offices:{}, excl:[] }; }
+  function geoSave(o){ try{ localStorage.setItem(GEO_KEY, JSON.stringify(o)); }catch(e){} }
+  function geoDist(lat1,lon1,lat2,lon2){
+    var ER=6371000, t=Math.PI/180, dLat=(lat2-lat1)*t, dLon=(lon2-lon1)*t;
+    var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*t)*Math.cos(lat2*t)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return 2*ER*Math.asin(Math.sqrt(x));
+  }
+  function geoPos(hi){
+    return new Promise(function(res,rej){
+      if(!navigator.geolocation){ rej({code:0,message:'この端末は位置情報に未対応です'}); return; }
+      navigator.geolocation.getCurrentPosition(function(p){ res(p.coords); }, function(e){ rej(e); },
+        { enableHighAccuracy:!!hi, timeout:15000, maximumAge: hi?0:120000 });
+    });
+  }
+  function geoErrMsg(e){
+    var c=e&&e.code;
+    if(c===1) return '位置情報が許可されていません。\niPhoneの「設定」→「プライバシーとセキュリティ」→「位置情報サービス」で、Safari（またはこのアプリ）を「アプリの使用中のみ許可」にしてください。';
+    if(c===2) return '現在地を取得できませんでした。電波の良い場所でもう一度お試しください。';
+    if(c===3) return '現在地の取得がタイムアウトしました。もう一度お試しください。';
+    return (e&&e.message)||'現在地を取得できませんでした。';
+  }
+  function geoAlert(msg){ try{ if(window._notifMsg) window._notifMsg(msg); else toast(msg); }catch(e){ toast(msg); } }
+
+  function geoRender(){
+    var box=$('attGeoBody'); if(!box) return;
+    var g=geoLoad(); var h='';
+    h+='<div class="att-set-row"><label>着いたら自動で場所記録</label><span class="att-switch"><input type="checkbox" id="geoAuto"'+(g.auto?' checked':'')+'><span class="tk"></span></span></div>';
+    h+='<div class="att-set-row"><label>反応する範囲</label><select id="geoR" style="border:1px solid #e3e0ee;border-radius:9px;padding:7px 8px;font-size:14px;background:#fff">'
+      +[50,75,100,150,300,500].map(function(v){ return '<option value="'+v+'"'+(+g.r===v?' selected':'')+'>'+v+' m</option>'; }).join('')+'</select></div>';
+    OFFICES.forEach(function(nm){
+      var o=g.offices[nm];
+      h+='<div class="att-set-row" style="align-items:center"><label style="flex:1">'+nm
+        +'<span style="display:block;font-size:11px;color:'+(o?'#2e9e5b':'#8e8e93')+';font-weight:600">'+(o?'登録済み（誤差±'+(o.acc||'?')+'m）':'未登録')+'</span></label>'
+        +'<button class="att-sbtn pri" style="padding:8px 10px" onclick="attGeoRegister(\''+nm+'\')">📍ここを登録</button>'
+        +(o?'<button class="att-sbtn" style="padding:8px 10px;margin-left:6px;color:#e5484d;background:#fff0f0" onclick="attGeoClear(\''+nm+'\')">削除</button>':'')
+        +'</div>';
+    });
+    // 除外エリア（駅など）：出社先の近くにある、反応させたくない場所
+    h+='<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e3e0ee"><div style="font-size:13px;font-weight:700">🚉 除外エリア（駅など）</div>'
+      +'<div class="att-sub" style="margin:2px 0 6px">出社先の近くにある駅などを登録すると、そこでは反応しません。その場所に立って登録してください。</div>';
+    (g.excl||[]).forEach(function(x,i){
+      var gaps=Object.keys(g.offices).map(function(nm){ var o=g.offices[nm]; return nm+'まで約'+Math.round(geoDist(x.lat,x.lon,o.lat,o.lon))+'m'; }).join(' / ');
+      h+='<div class="att-set-row" style="align-items:center"><label style="flex:1">'+x.name+'<span style="display:block;font-size:11px;color:#8e8e93;font-weight:600">'+(gaps||'出社先が未登録')+'</span></label>'
+        +'<button class="att-sbtn" style="padding:8px 10px;color:#e5484d;background:#fff0f0" onclick="attGeoClearExcl('+i+')">削除</button></div>';
+    });
+    h+='<div class="att-btnline" style="margin-top:6px"><button class="att-sbtn" style="flex:1" onclick="attGeoRegisterExcl()">📍 ここを除外エリアに登録（駅など）</button></div></div>';
+    h+='<div class="att-btnline" style="margin-top:10px"><button class="att-sbtn" style="flex:1" onclick="attGeoTest()">いまの場所を判定してみる</button></div>';
+    h+='<div class="att-sub" style="margin-top:6px">登録は<b>出社先に着いてから</b>「ここを登録」を押してください（その場所の座標が保存されます）。位置情報はこの端末の中だけで使い、外へは送りません。</div>';
+    box.innerHTML=h;
+    var a=$('geoAuto'); if(a) a.onchange=function(){ attGeoToggle(a.checked); };
+    var r=$('geoR'); if(r) r.onchange=function(){ var g2=geoLoad(); g2.r=+r.value; geoSave(g2); toast('反応範囲 '+r.value+' m'); };
+  }
+  window.attGeoRegister=function(nm){
+    toast('現在地を取得中…');
+    geoPos(true).then(function(c){
+      var g=geoLoad(); g.offices[nm]={ lat:c.latitude, lon:c.longitude, acc:Math.round(c.accuracy||0) };
+      geoSave(g); geoRender(); toast('📍 '+nm+' を登録しました');
+    }).catch(function(e){ geoAlert(geoErrMsg(e)); });
+  };
+  window.attGeoClear=function(nm){ var g=geoLoad(); delete g.offices[nm]; geoSave(g); geoRender(); toast(nm+' の登録を削除'); };
+  window.attGeoToggle=function(on){
+    var g=geoLoad(); g.auto=!!on; geoSave(g);
+    if(on){
+      if(!Object.keys(g.offices).length) geoAlert('先に出社先を登録してください（出社先に着いてから「ここを登録」）。');
+      // 許可ダイアログを出すため、操作の直後に一度だけ現在地を取る
+      geoPos(false).then(function(){ geoAutoCheck(true); }).catch(function(e){ geoAlert(geoErrMsg(e)); });
+    }
+    toast(on?'自動場所記録: オン':'自動場所記録: オフ');
+  };
+  window.attGeoRegisterExcl=function(){
+    toast('現在地を取得中…');
+    geoPos(true).then(function(c){
+      var g=geoLoad(); var n=(g.excl||[]).length+1; var nm='除外'+n+(n===1?'（駅など）':'');
+      g.excl.push({ name:nm, lat:c.latitude, lon:c.longitude, acc:Math.round(c.accuracy||0) });
+      geoSave(g); geoRender(); toast('🚉 '+nm+' を登録しました');
+    }).catch(function(e){ geoAlert(geoErrMsg(e)); });
+  };
+  window.attGeoClearExcl=function(i){ var g=geoLoad(); g.excl.splice(i,1); geoSave(g); geoRender(); toast('除外エリアを削除'); };
+
+  // 出社先ごとの実効半径：除外エリア（駅）までの距離の6割を上限にする（駅側へ広がらないように）
+  function geoEffRadius(g, nm){
+    var o=g.offices[nm], r=+g.r||150;
+    (g.excl||[]).forEach(function(x){ var d=geoDist(o.lat,o.lon,x.lat,x.lon); r=Math.min(r, Math.max(30, d*0.6)); });
+    return r;
+  }
+  // 判定：ok=記録してよい / why=見送る理由
+  function geoDecide(c, g){
+    var names=Object.keys(g.offices||{}); if(!names.length) return { ok:false, why:'出社先が未登録' };
+    var acc=c.accuracy||0, best=null, bestD=Infinity;
+    names.forEach(function(nm){ var o=g.offices[nm]; var d=geoDist(c.latitude,c.longitude,o.lat,o.lon); if(d<bestD){ bestD=d; best=nm; } });
+    var eff=geoEffRadius(g,best);
+    var nearX=Infinity, nearXn='';
+    (g.excl||[]).forEach(function(x){ var d=geoDist(c.latitude,c.longitude,x.lat,x.lon); if(d<nearX){ nearX=d; nearXn=x.name; } });
+    var res={ best:best, bestD:bestD, eff:eff, nearX:nearX, nearXn:nearXn, acc:acc };
+    if(bestD > eff + Math.min(acc,40)){ res.ok=false; res.why='範囲外'; return res; }
+    if((g.excl||[]).length){
+      if(nearX <= bestD){ res.ok=false; res.why=nearXn+'の方が近い'; return res; }
+      if(acc > 100){ res.ok=false; res.why='位置の誤差が大きい（±'+Math.round(acc)+'m）'; return res; }
+      if(nearX - bestD < Math.min(acc,60)){ res.ok=false; res.why=nearXn+'と区別がつかない（誤差±'+Math.round(acc)+'m）'; return res; }
+    }
+    res.ok=true; return res;
+  }
+  window.attGeoTest=function(){
+    var g=geoLoad(); var names=Object.keys(g.offices);
+    if(!names.length){ geoAlert('出社先がまだ登録されていません。'); return; }
+    toast('判定中…');
+    geoPos(true).then(function(c){
+      var d=geoDecide(c,g);
+      var lines=names.map(function(nm){ var o=g.offices[nm]; return nm+'：約 '+Math.round(geoDist(c.latitude,c.longitude,o.lat,o.lon))+' m（反応範囲 '+Math.round(geoEffRadius(g,nm))+' m）'; });
+      (g.excl||[]).forEach(function(x){ lines.push('🚉 '+x.name+'：約 '+Math.round(geoDist(c.latitude,c.longitude,x.lat,x.lon))+' m'); });
+      geoAlert('現在地の誤差 ±'+Math.round(c.accuracy||0)+' m\n\n'+lines.join('\n')+'\n\n判定：'+(d.ok?(d.best+' に着いた → 記録します✅'):('見送り（'+(d.why||'')+'）')));
+    }).catch(function(e){ geoAlert(geoErrMsg(e)); });
+  };
+
+  function geoHasLocToday(){
+    var rec=R[ymd(new Date())]; if(!rec) return false;
+    if(rec.leave && rec.leave!=='none') return true;           // 有給などの日は対象外
+    if(rec.loc || rec.locNote) return true;                    // すでに場所あり（在宅含む）
+    var ss=rec.sessions||[]; for(var i=0;i<ss.length;i++) if(ss[i].loc) return true;
+    return false;
+  }
+  var _geoBusy=false, _geoLastTry=0;
+  function geoAutoCheck(force){
+    var g=geoLoad(); if(!g.auto) return;
+    var names=Object.keys(g.offices||{}); if(!names.length) return;
+    if(geoHasLocToday()) return;
+    var now=Date.now(); if(_geoBusy || (!force && now-_geoLastTry<60000)) return;
+    _geoLastTry=now; _geoBusy=true;
+    var done=function(){ _geoBusy=false; };
+    var go=function(){
+      geoPos((g.excl||[]).length>0).then(function(c){
+        var d=geoDecide(c,g);
+        if(d.ok && !geoHasLocToday()){
+          var nk=ymd(new Date()); if(nk!==todayKey) todayKey=nk;   // 日付またぎ対策
+          recordLocationOnly(d.best,'office',true);                // 場所記録＋出社タスク完了（自動）
+          toast('📍 '+d.best+'に着いたので場所を記録しました '+nowHM());
+        }
+      }).catch(function(){}).then(done);
+    };
+    try {
+      if(navigator.permissions && navigator.permissions.query){
+        navigator.permissions.query({name:'geolocation'}).then(function(st){ if(st.state==='granted') go(); else done(); }).catch(go);
+      } else go();
+    } catch(e){ go(); }
+  }
+  window.attGeoAutoCheck=geoAutoCheck;
+  window.attRender=render;   // 端末間同期の受信後に画面を更新する
+  geoRender();
+  setTimeout(function(){ geoAutoCheck(true); }, 2500);
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') geoAutoCheck(false); }); }catch(e){}
+  try{ window.addEventListener('pageshow', function(){ geoAutoCheck(false); }); }catch(e){}
+  setInterval(function(){ if(document.visibilityState==='visible') geoAutoCheck(false); }, 180000);
+
   function pickOffice(name){
     var v=name;
     if(name==='自由記述'){ v=(prompt('オフィス名を入力')||'').trim(); if(!v) return; }
@@ -24767,6 +24979,296 @@
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+</script>
+
+<script>
+(function(){
+  'use strict';
+  // ===== 端末間同期（iPhone / iPad など） =====
+  // 勤怠は「日付ごと」、履歴系は「項目ごと」に、新しい変更が勝つ形でそろえる。削除も反映。
+  var CFG_KEY = 'devSyncCfg', META_KEY = 'devSyncMeta', BACKUP_KEY = 'devSyncBackup';
+  // 文字列として丸ごと同期する設定
+  var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify'];
+  // {項目: 値} の形で、項目ごとに同期するもの
+  var MAP_KEYS = ['routinesDone','routineEnded','habitHistory','habitFreqOverrides','swTriaged'];
+  var applying = false, busy = false, timer = null, lastRun = 0;
+
+  function jget(k, def){ try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
+  function rawSet(k, v){ var p = applying; applying = true; try{ localStorage.setItem(k, v); }catch(e){} applying = p; }
+  function rawDel(k){ var p = applying; applying = true; try{ localStorage.removeItem(k); }catch(e){} applying = p; }
+  function cfg(){ var c = jget(CFG_KEY, null); if (!c || typeof c !== 'object') c = { on:true, url:'', key:'' };   // 既定＝自動でオン（設定不要）
+    return { on: !!c.on, url: String(c.url || '').trim().replace(/\/+$/, ''), key: String(c.key || '') }; }
+  function meta(){
+    var m = jget(META_KEY, null);
+    if (!m || typeof m !== 'object') m = { init:false, since:0, u:{}, h:{}, last:0, msg:'' };
+    m.u = m.u || {}; m.h = m.h || {};
+    return m;
+  }
+  function saveMeta(m){ rawSet(META_KEY, JSON.stringify(m)); }
+  function hash(s){ var h = 5381; for (var i = 0; i < s.length; i++){ h = ((h << 5) + h + s.charCodeAt(i)) | 0; } return String(h) + ':' + s.length; }
+
+  // 現在の端末内データ → { group: { name: JSON文字列 } }
+  function collect(){
+    var out = { att:{}, ls:{} }, ok = { att:true };
+    MAP_KEYS.forEach(function(k){ out['m_' + k] = {}; ok['m_' + k] = true; });
+    try{
+      var raw = localStorage.getItem('attendanceRecords');
+      var o = raw ? JSON.parse(raw) : {};
+      if (o && typeof o === 'object') Object.keys(o).forEach(function(d){ out.att[d] = JSON.stringify(o[d]); }); else ok.att = false;
+    }catch(e){ ok.att = false; }
+    LS_KEYS.forEach(function(k){ var v = localStorage.getItem(k); if (v != null) out.ls[k] = JSON.stringify(v); });
+    MAP_KEYS.forEach(function(k){
+      try{
+        var raw = localStorage.getItem(k);
+        var m = raw ? JSON.parse(raw) : {};
+        if (m && typeof m === 'object' && !Array.isArray(m)) Object.keys(m).forEach(function(e){ out['m_' + k][e] = JSON.stringify(m[e]); }); else ok['m_' + k] = false;
+      }catch(e){ ok['m_' + k] = false; }
+    });
+    out.__ok = ok;
+    return out;
+  }
+
+  // 初回にクラウド内容で上書きする前に、この端末の対象データを退避
+  function backupLocal(){
+    try{
+      var d = { t: Date.now(), data: {} };
+      ['attendanceRecords'].concat(LS_KEYS, MAP_KEYS).forEach(function(k){ var v = localStorage.getItem(k); if (v != null) d.data[k] = v; });
+      rawSet(BACKUP_KEY, JSON.stringify(d));
+    }catch(e){}
+  }
+
+  function applyItems(list){
+    var att = null, lsw = {}, maps = {};
+    list.forEach(function(x){
+      var val = null;
+      try{ val = (x.v == null) ? null : JSON.parse(x.v); }catch(e){ return; }
+      if (x.g === 'att'){ if (att === null) att = jget('attendanceRecords', {}) || {}; if (val === null) delete att[x.n]; else att[x.n] = val; }
+      else if (x.g === 'ls'){ lsw[x.n] = val; }
+      else if (x.g.indexOf('m_') === 0){ var k = x.g.slice(2); if (!maps[k]) maps[k] = jget(k, {}) || {}; if (val === null) delete maps[k][x.n]; else maps[k][x.n] = val; }
+    });
+    if (att !== null) rawSet('attendanceRecords', JSON.stringify(att));
+    Object.keys(lsw).forEach(function(k){ if (lsw[k] === null) rawDel(k); else rawSet(k, String(lsw[k])); });
+    Object.keys(maps).forEach(function(k){ rawSet(k, JSON.stringify(maps[k])); });
+    return { att: att !== null };
+  }
+
+  // ===== 通信方式 =====
+  //  worker : 独自の同期サーバー（URL＋合言葉を設定した場合）
+  //  proxy  : 既存のサーバー（ルーチン同期と同じ保存先）に同乗。設定不要・全端末で自動
+  var lastAd = null;
+  function transport(){
+    var c = cfg();
+    if (!c.on) return null;
+    if (c.url && c.key) return { kind:'worker', c:c };
+    var info = null; try{ info = window._tplSyncInfo && window._tplSyncInfo(); }catch(e){}
+    if (info && info.ready) return { kind:'proxy', info:info };
+    return null;
+  }
+  async function proxyGet(info){
+    var r = await fetch(info.url, { method:'GET', headers:info.headers });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error('サーバーエラー HTTP ' + r.status);
+    try{ return await r.json(); }catch(e){ return null; }
+  }
+  // 既存サーバーの保存データ(blob)の appdata 欄に、項目ごとの {u,s,v} を持たせる
+  async function exchangeProxy(info, push, cur, m, heal){
+    var blob = await proxyGet(info);
+    var ad = (blob && blob.appdata && blob.appdata.groups) ? blob.appdata : { v:1, groups:{} };
+    if (blob && blob.appdata && blob.appdata.groups && Object.keys(blob.appdata.groups).length) m.ever = true;
+    var now = Date.now(), changed = false, just = {};
+    function put(g, n, it){
+      ad.groups[g] = ad.groups[g] || {};
+      var c0 = ad.groups[g][n];
+      if (!c0 || it.u > c0.u){ ad.groups[g][n] = { u:it.u, s:now, v:(it.v == null ? null : String(it.v)) }; changed = true; just[g + '|' + n] = it.u; }
+    }
+    Object.keys(push).forEach(function(g){ Object.keys(push[g]).forEach(function(n){ put(g, n, push[g][n]); }); });
+    // 自己修復：この端末が「送信済み」と思っているのにサーバー側に無い/古い項目は送り直す
+    if (heal && cur){
+      Object.keys(cur).forEach(function(g){
+        if (g === '__ok') return;
+        Object.keys(cur[g]).forEach(function(n){
+          var id = g + '|' + n, sv = ad.groups[g] && ad.groups[g][n], lu = m.u[id] || 0;
+          if (lu && (!sv || sv.u < lu)) put(g, n, { u:lu, v:cur[g][n] });
+        });
+      });
+    }
+    if (changed){
+      var out = blob ? Object.assign({}, blob) : { updatedAt:0, templates:[] };   // 既存の中身（テンプレ等）はそのまま保つ
+      if (!Array.isArray(out.templates)) out.templates = [];
+      out.appdata = ad;
+      var body = JSON.stringify(out);
+      if (body.length > 900000) throw new Error('同期するデータが大きすぎます');
+      var pr = await fetch(info.url, { method:'POST', headers:info.headers, body:body });
+      if (!pr.ok) throw new Error('保存に失敗しました HTTP ' + pr.status);
+      if (!m.ever && !m.firstPushAt) m.firstPushAt = now;
+    }
+    // 既存サーバーが追加データを保持できない場合の検知（保存直後は反映が遅れることがあるので3分待つ）
+    if (!m.ever && m.firstPushAt && now - m.firstPushAt > 180000){
+      m.bad = true; throw new Error('このサーバーは追加データを保存できないようです（設定の「独自サーバー」をお使いください）');
+    }
+    lastAd = ad;
+    var groups = {};
+    Object.keys(ad.groups).forEach(function(g){
+      Object.keys(ad.groups[g]).forEach(function(n){
+        var it = ad.groups[g][n];
+        if (just[g + '|' + n] !== it.u) (groups[g] = groups[g] || {})[n] = { u:it.u, v:it.v };
+      });
+    });
+    return { now:now, groups:groups };
+  }
+  function exchange(tr, push, since, cur, m, heal){
+    if (tr.kind === 'worker') return post(tr.c, { since:since, push:push });
+    return exchangeProxy(tr.info, push, cur, m, heal);
+  }
+  // 他の保存処理（ルーチン同期）が blob を丸ごと書き換える前に、最新の appdata を渡す
+  window._devSyncFetchAd = async function(){
+    try{
+      var tr = transport(); if (!tr || tr.kind !== 'proxy') return null;
+      var b = await proxyGet(tr.info);
+      if (b && b.appdata) return b.appdata;
+    }catch(e){}
+    return lastAd;
+  };
+
+  function post(c, body){
+    var b = { key: c.key }; Object.keys(body).forEach(function(k){ b[k] = body[k]; });
+    return fetch(c.url + '/sync', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(b) })
+      .then(function(r){
+        if (r.status === 401) throw new Error('合言葉が違います');
+        if (!r.ok) throw new Error('サーバーエラー HTTP ' + r.status);
+        return r.json();
+      });
+  }
+  function flatten(groups){
+    var list = [];
+    Object.keys(groups || {}).forEach(function(g){ Object.keys(groups[g]).forEach(function(n){ var it = groups[g][n]; list.push({ g:g, n:n, v:it.v, u:it.u }); }); });
+    return list;
+  }
+  function refreshUI(list){
+    try{ if (list.some(function(x){ return x.g === 'att'; }) && window.attRender) window.attRender(); }catch(e){}
+    try{ if (window.appRefresh) window.appRefresh(); }catch(e){}
+  }
+
+  async function syncOnce(manual){
+    var tr = transport();
+    if (tr && tr.kind === 'proxy' && meta().bad) return { ok:false, msg:'このサーバーは追加データを保存できないようです（設定の「独自サーバー」をお使いください）' };
+    if (!tr) return { ok:false, msg: cfg().on ? 'Notion連携を設定すると自動で同期します' : '同期はオフです' };
+    if (busy) return { ok:false, msg:'同期中です' };
+    busy = true;
+    var m = meta();
+    try{
+      var res, pulled = 0, pushed = 0, applied = [];
+      // 初回：まずクラウドの内容を取り込む（この端末の古いデータでクラウドを上書きしない）
+      if (!m.init){
+        res = await exchange(tr, {}, 0, null, m, false);
+        var first = flatten(res.groups);
+        if (first.length){
+          backupLocal();
+          applyItems(first);
+          first.forEach(function(x){ var id = x.g + '|' + x.n; m.u[id] = x.u; if (x.v == null) delete m.h[id]; else m.h[id] = hash(x.v); });
+          pulled += first.length; applied = applied.concat(first);
+        }
+        m.init = true; m.since = res.now || 0; saveMeta(m);
+      }
+      // この端末で変わったものを送る
+      var now = Date.now(), cur = collect(), push = {};
+      Object.keys(cur).forEach(function(g){
+        if (g === '__ok') return;
+        Object.keys(cur[g]).forEach(function(n){
+          var id = g + '|' + n, v = cur[g][n], h = hash(v);
+          if (m.h[id] !== h){ m.h[id] = h; m.u[id] = now; (push[g] = push[g] || {})[n] = { u:now, v:v }; pushed++; }
+        });
+      });
+      // 削除の反映（大量削除は誤作動の疑いがあるので送らない）
+      var gone = {}, known = {};
+      Object.keys(m.h).forEach(function(id){
+        var p = id.indexOf('|'), g = id.slice(0, p), n = id.slice(p + 1);
+        if (g !== 'att' && g.indexOf('m_') !== 0) return;
+        known[g] = (known[g] || 0) + 1;
+        if (cur.__ok[g] && cur[g] && cur[g][n] === undefined) (gone[g] = gone[g] || []).push(n);
+      });
+      Object.keys(gone).forEach(function(g){
+        if (gone[g].length > 10 && gone[g].length > 0.3 * (known[g] || 1)) return;
+        gone[g].forEach(function(n){ var id = g + '|' + n; m.u[id] = now; delete m.h[id]; (push[g] = push[g] || {})[n] = { u:now, v:null }; pushed++; });
+      });
+      res = await exchange(tr, push, m.since, cur, m, true);
+      var list = flatten(res.groups).filter(function(x){ return (x.u || 0) > (m.u[x.g + '|' + x.n] || 0); });
+      if (list.length){
+        applyItems(list);
+        list.forEach(function(x){ var id = x.g + '|' + x.n; m.u[id] = x.u; if (x.v == null) delete m.h[id]; else m.h[id] = hash(x.v); });
+        pulled += list.length; applied = applied.concat(list);
+      }
+      m.since = res.now || m.since; m.last = Date.now(); m.msg = 'OK'; saveMeta(m);
+      if (applied.length) refreshUI(applied);
+      lastRun = Date.now();
+      return { ok:true, pushed:pushed, pulled:pulled };
+    }catch(e){
+      m.msg = String((e && e.message) || e); try{ saveMeta(m); }catch(_){}
+      return { ok:false, msg:m.msg };
+    }finally{ busy = false; renderStatus(); }
+  }
+
+  function schedule(){ clearTimeout(timer); timer = setTimeout(function(){ syncOnce(false); }, 6000); }
+
+  // 変更の検知：対象キーへの書き込みがあれば、少し待って同期
+  var WATCH = { attendanceRecords:1 };
+  LS_KEYS.concat(MAP_KEYS).forEach(function(k){ WATCH[k] = 1; });
+  try{
+    var orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(k, v){
+      orig.apply(this, arguments);
+      try{ if (this === localStorage && !applying && WATCH[k]) schedule(); }catch(e){}
+    };
+  }catch(e){}
+
+  // ===== 設定画面 =====
+  function $(id){ return document.getElementById(id); }
+  function fmt(t){ if (!t) return '—'; var d = new Date(t), p = function(n){ return String(n).padStart(2, '0'); }; return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+  function renderStatus(){
+    var el = $('devSyncStatus'); if (!el) return;
+    var c = cfg(), m = meta();
+    if (!c.on) el.textContent = '同期はオフです';
+    else if (!transport()) el.textContent = 'Notion連携を設定すると、自動で同期が始まります';
+    else el.textContent = (m.msg === 'OK' || !m.msg ? '同期オン' : '⚠️ ' + m.msg) + ' ／ 最終同期 ' + fmt(m.last);
+  }
+  function renderForm(){
+    var c = cfg(), u = $('devSyncUrl'), k = $('devSyncKey');
+    if (u && !u.value) u.value = c.url; if (k && !k.value) k.value = c.key;
+    var b = $('devSyncToggleBtn'); if (b) b.textContent = c.on ? '同期をオフにする' : '同期をオンにする';
+    renderStatus();
+  }
+  // 独自サーバー（任意）。空欄で保存すると「自動」に戻る
+  window.devSyncSaveCfg = function(){
+    var url = ($('devSyncUrl').value || '').trim(), key = $('devSyncKey').value || '';
+    if ((url && !key) || (!url && key)){ var e = $('devSyncStatus'); if (e) e.textContent = '⚠️ URLと合言葉は両方入力するか、両方空にしてください'; return; }
+    rawSet(CFG_KEY, JSON.stringify({ on:true, url:url, key:key }));
+    var m = meta(); m.bad = false; m.init = false; m.since = 0; saveMeta(m);   // 方式を変えたら最初から取り込み直す
+    window.devSyncNow();
+  };
+  window.devSyncToggle = function(){
+    var c = cfg(); rawSet(CFG_KEY, JSON.stringify({ on:!c.on, url:c.url, key:c.key }));
+    if (!c.on){ var m = meta(); m.bad = false; saveMeta(m); window.devSyncNow(); } else renderStatus();
+    var b = $('devSyncToggleBtn'); if (b) b.textContent = !c.on ? '同期をオフにする' : '同期をオンにする';
+  };
+  window.devSyncNow = async function(){
+    var el = $('devSyncStatus'); if (el) el.textContent = '同期中…';
+    var r = await syncOnce(true);
+    if (el && r && !r.ok) el.textContent = '⚠️ ' + r.msg;
+    else if (el && r) el.textContent = '同期しました（送信 ' + r.pushed + ' / 受信 ' + r.pulled + '）／ 最終同期 ' + fmt(meta().last);
+  };
+  window.devSyncOnce = syncOnce;   // テスト用
+
+  // ===== きっかけ =====
+  try{ document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible'){ if (Date.now() - lastRun > 20000) syncOnce(false); }
+    else { syncOnce(false); }
+  }); }catch(e){}
+  try{ window.addEventListener('pageshow', function(){ if (Date.now() - lastRun > 20000) syncOnce(false); }); }catch(e){}
+  try{ setInterval(function(){ if (document.visibilityState === 'visible') syncOnce(false); }, 90000); }catch(e){}
+  try{ setTimeout(function(){ renderForm(); syncOnce(false); }, 4000); }catch(e){}
+  try{ renderForm(); }catch(e){}
+})();
+
 </script>
 
 </body>
