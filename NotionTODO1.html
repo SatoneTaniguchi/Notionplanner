@@ -6062,7 +6062,7 @@
       alldayArea.appendChild(labelChip);
       gcalAlldayEvs.forEach(ev => {
         if (!ev.title || !ev.title.trim()) return;
-        const color = ev.color || '#4285f4';
+        const color = (typeof gcalNameColor==='function' && gcalNameColor(ev.calendarName)) || ev.color || '#4285f4';
         const item = document.createElement('div');
         item.className = 'allday-item';
         const adLocked = (typeof gcalIsTaskDerived === 'function') && gcalIsTaskDerived(ev);
@@ -6518,7 +6518,7 @@
       const nsy = nextSlotY(ev.endMin);
       const finalH = Math.max(40, Math.min(rawH, nsy - evTopBase - 12));
       const isPast = isPastDay || (isToday && ev.endMin < nowMin);
-      const color = ev.color || '#4285f4';
+      const color = (typeof gcalNameColor==='function' && gcalNameColor(ev.calendarName)) || ev.color || '#4285f4';
       const totalW = (timeline && timeline.clientWidth ? timeline.clientWidth : window.innerWidth) - 116;
       const colW = Math.floor(totalW / ev._totalCols);
       const cardLeft = 100 + ev._col * colW;
@@ -16064,6 +16064,11 @@
   };
   var GRP_ORDER = { event:0, task:1, routine:2 };
   function _grpStyle(grp){ return GRP_STYLE[grp] || GRP_STYLE.task; }
+  // 予定はカレンダーの色（ピンク/青/紫）で表示。それ以外はグループ色
+  function _itemStyle(it){
+    if (it && it.ev && it.color && /^#[0-9a-fA-F]{6}$/.test(it.color)) return { color: it.color, bg: it.color + '22' };
+    return _grpStyle(it && it.grp);
+  }
 
   // 表示フィルタ（種類ごとON/OFF）
   var SCHED_FILTER_KEY = 'schedFilters';
@@ -16115,10 +16120,10 @@
     } catch(e){}
     try {
       (gcalEvents[ds]||[]).forEach(function(e){
-        add({ name:e.title||'予定', grp:'event', time:(e.startTime||'').slice(0,5), done:false, ev:true });
+        add({ name:e.title||'予定', grp:'event', time:(e.startTime||'').slice(0,5), done:false, ev:true, color:((typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '') });
       });
       (gcalEvents[ds+'_allday']||[]).forEach(function(e){
-        add({ name:e.title||'予定', grp:'event', time:'', done:false, ev:true, allday:true });
+        add({ name:e.title||'予定', grp:'event', time:'', done:false, ev:true, allday:true, color:((typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '') });
       });
     } catch(e){}
     var items = order.map(function(k){ return map[k]; });
@@ -16159,7 +16164,7 @@
       try { if (typeof window.jpHolidayName === 'function') holi = window.jpHolidayName(d); } catch(e){}
       if (holi){ bars += '<span class="cvm-bar holi">' + _esc(holi) + '</span>'; shown++; holiShown=1; }
       for (var i=0; i<items.length && shown<maxBars; i++){
-        var st = _grpStyle(items[i].grp);
+        var st = _itemStyle(items[i]);
         bars += '<span class="cvm-bar' + (items[i].done?' done':'') + '" style="color:' + st.color + ';background:' + st.bg + '">' + _esc(items[i].name) + '</span>';
         shown++;
       }
@@ -16213,7 +16218,7 @@
       var _hn = null; try { if (typeof window.jpHolidayName === 'function') _hn = window.jpHolidayName(day); } catch(e){}
       if (_hn) chips += '<span class="cvw-chip" style="color:#12a150;background:#e7f7ee">🎌 ' + _esc(_hn) + '</span>';
       items.forEach(function(it){
-        var st = _grpStyle(it.grp);
+        var st = _itemStyle(it);
         var tm = it.allday ? '<b>終日</b> ' : (it.time ? '<b>' + it.time + '</b> ' : '');
         chips += '<span class="cvw-chip' + (it.done?' done':'') + '" style="color:' + st.color + ';background:' + st.bg + '">'
           + tm + _esc(it.name) + '</span>';
@@ -19871,7 +19876,7 @@
       gcalCalendars = (data.items || []).map(cal => ({
         id: cal.id,
         name: cal.summary || cal.id,
-        color: cal.backgroundColor || '#4285f4',
+        color: gcalNameColor(cal.summary || cal.id) || cal.backgroundColor || '#4285f4',
         // accessRole が owner / writer のカレンダーのみ書き込み可能
         accessRole: cal.accessRole || 'reader',
         primary: !!cal.primary,
@@ -19887,6 +19892,16 @@
       if (typeof gcalUpdateWriteUI === 'function') gcalUpdateWriteUI();
     } catch(e) { console.error('gcalFetchCalendars', e); }
   }
+
+  // カレンダー名で色分け：プライベート=ピンク／仕事=青／ダブルブッキング防止=紫
+  function gcalNameColor(name) {
+    const n = String(name || '');
+    if (/ダブル|ブッキング|double/i.test(n)) return '#8b5cf6';   // 紫
+    if (/プライベート|private/i.test(n))       return '#ec4899';   // ピンク
+    if (/仕事|work/i.test(n))                  return '#2f6fe4';   // 青
+    return null;
+  }
+  window.gcalNameColor = gcalNameColor;
 
   // イベント取得（指定日 ± 3日キャッシュ）
   const gcalFetching = {}; // フェッチ中フラグ
@@ -20244,7 +20259,7 @@
       const isSel = key === gcalMonthSelected;
       const numColor = isToday ? '#fff' : (dow===0?'#ff3b30':dow===6?'#0a84ff':'#1c1c1e');
       let dots = '';
-      evs.slice(0,3).forEach(e => dots += `<span style="width:5px;height:5px;border-radius:50%;background:${e.color||'#4a90e2'};display:inline-block;"></span>`);
+      evs.slice(0,3).forEach(e => dots += `<span style="width:5px;height:5px;border-radius:50%;background:${(typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '#4a90e2'};display:inline-block;"></span>`);
       if (evs.length > 3) dots += `<span style="font-size:8px;color:#8e8e93;line-height:6px;">+${evs.length-3}</span>`;
       html += `<div onclick="gcalSelectMonthDay('${key}')" style="min-height:46px;border-radius:9px;padding:3px 0 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;${isSel?'background:#eef4fe;box-shadow:0 0 0 1.5px #4a90e2 inset;':''}">`
         + `<span style="width:22px;height:22px;line-height:22px;text-align:center;font-size:12.5px;border-radius:50%;color:${numColor};${isToday?'background:#4a90e2;font-weight:700;':''}">${d}</span>`
@@ -20276,7 +20291,7 @@
     } else {
       evs.forEach(e => {
         html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f4f3f8;">`
-          + `<span style="width:8px;height:8px;border-radius:50%;background:${e.color||'#4a90e2'};flex:none;"></span>`
+          + `<span style="width:8px;height:8px;border-radius:50%;background:${(typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '#4a90e2'};flex:none;"></span>`
           + `<span style="width:44px;font-size:12px;color:#8e8e93;flex:none;">${e.allDay?'終日':e.timeLabel}</span>`
           + `<span style="font-size:14px;color:#1c1c1e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escapeHtml(e.title)}</span>`
           + `</div>`;
@@ -20350,7 +20365,7 @@
       const ev = item.ev;
       const locked = gcalIsTaskDerived(ev);
       const isPast = !item.allDay && nowMin > 0 && toMin(ev.endTime) < nowMin;
-      const color = ev.color || '#4285f4';
+      const color = (typeof gcalNameColor==='function' && gcalNameColor(ev.calendarName)) || ev.color || '#4285f4';
       const pastStyle = isPast ? 'opacity:0.38;filter:saturate(0.5);' : '';
       const lockBadge = locked ? '<span style="margin-right:4px;">🔒</span>' : '';
       const timeText = item.allDay ? '終日' : `${ev.startTime}〜${ev.endTime}`;
@@ -20400,7 +20415,7 @@
     container.innerHTML = gcalCalendars.map(cal => {
       const enabled = gcalCalendarPrefs[cal.id] !== false;
       return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f2f2f7;" data-cal-id="${cal.id}">
-        <div style="width:12px;height:12px;border-radius:50%;background:${cal.color};flex-shrink:0;"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:${(typeof gcalNameColor==='function' && gcalNameColor(cal.name)) || cal.color};flex-shrink:0;"></div>
         <div style="flex:1;font-size:14px;color:#1c1c1e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cal.name}</div>
         <label style="position:relative;width:44px;height:26px;flex-shrink:0;">
           <input type="checkbox" ${enabled?'checked':''} data-cal-toggle="${cal.id}"
@@ -20645,7 +20660,7 @@
       const checked = cal.primary || (i === 0 && !writable.some(c => c.primary));
       return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;color:#1c1c1e;cursor:pointer;">
         <input type="checkbox" data-gcal-edit-cal="${cal.id}" ${checked ? 'checked' : ''} style="width:18px;height:18px;accent-color:#34c759;">
-        <span style="width:11px;height:11px;border-radius:50%;background:${cal.color};flex-shrink:0;"></span>
+        <span style="width:11px;height:11px;border-radius:50%;background:${(typeof gcalNameColor==='function' && gcalNameColor(cal.name)) || cal.color};flex-shrink:0;"></span>
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cal.name}</span>
       </label>`;
     }).join('');
@@ -21070,7 +21085,7 @@
     }
     area.innerHTML = list.map(c => `
       <button type="button" class="gt-cal${c.id === gtabState.calId ? ' on' : ''}" data-gtab-cal="${c.id}" onclick="gtabSelectCal('${String(c.id).replace(/'/g, "\\'")}')">
-        <i style="background:${c.color || '#4285f4'};"></i>${(c.name || c.id)}
+        <i style="background:${(typeof gcalNameColor==='function' && gcalNameColor(c.name)) || c.color || '#4285f4'};"></i>${(c.name || c.id)}
       </button>`).join('');
   }
   function gtabSelectCal(id) { gtabState.calId = id; gtabRenderCals(); }
