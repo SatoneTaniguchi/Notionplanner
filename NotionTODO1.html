@@ -6062,7 +6062,7 @@
       alldayArea.appendChild(labelChip);
       gcalAlldayEvs.forEach(ev => {
         if (!ev.title || !ev.title.trim()) return;
-        const color = (typeof gcalNameColor==='function' && gcalNameColor(ev.calendarName)) || ev.color || '#4285f4';
+        const color = (typeof gcalEventColor==='function') ? gcalEventColor(ev) : (ev.color || '#4285f4');
         const item = document.createElement('div');
         item.className = 'allday-item';
         const adLocked = (typeof gcalIsTaskDerived === 'function') && gcalIsTaskDerived(ev);
@@ -6518,7 +6518,7 @@
       const nsy = nextSlotY(ev.endMin);
       const finalH = Math.max(40, Math.min(rawH, nsy - evTopBase - 12));
       const isPast = isPastDay || (isToday && ev.endMin < nowMin);
-      const color = (typeof gcalNameColor==='function' && gcalNameColor(ev.calendarName)) || ev.color || '#4285f4';
+      const color = (typeof gcalEventColor==='function') ? gcalEventColor(ev) : (ev.color || '#4285f4');
       const totalW = (timeline && timeline.clientWidth ? timeline.clientWidth : window.innerWidth) - 116;
       const colW = Math.floor(totalW / ev._totalCols);
       const cardLeft = 100 + ev._col * colW;
@@ -13547,7 +13547,7 @@
             const fake = { _alarmPattern: t._alarmPattern, _alarmType: t._alarmType, _alarmCategory: 'task', _allDay: !!rc.allDay, name: t.name, '(A)実行日': { start: occ.toISOString() } };
             computeTaskAlarms(fake).forEach(a => {
               if (a.when <= now || a.when > horizon) return;
-              jobs.push({ id: 'task' + (n++), when: a.when, tag: 'rtask_' + (t.id || n) + '_' + a.when, url: _notifUrl('#schedule'), title: a.title, body: a.body });
+              jobs.push({ id: 'task' + (n++), when: a.when, tag: 'rtask_' + (t.id || n) + '_' + a.when, url: _notifUrl('#task=' + (t.id||'') + '&date=' + ds), title: a.title, body: a.body });
             });
           }
           return;
@@ -13558,7 +13558,7 @@
         if (typeof taskDisplayDone === 'function' && taskDisplayDone(t, new Date(j.start))) return; // 完了済みは除外
         computeTaskAlarms(t).forEach(a => {
           if (a.when <= now || a.when > horizon) return;
-          jobs.push({ id: 'task' + (n++), when: a.when, tag: 'task_' + (t.id || n) + '_' + a.when, url: _notifUrl('#task=' + (t.id||'')), title: a.title, body: a.body });
+          jobs.push({ id: 'task' + (n++), when: a.when, tag: 'task_' + (t.id || n) + '_' + a.when, url: _notifUrl('#task=' + (t.id||'') + '&date=' + String(j.start).slice(0,10)), title: a.title, body: a.body });
         });
       });
     } catch(e){}
@@ -13607,7 +13607,7 @@
               if (!allDayR && durMinR > 0){ const em = rhh*60 + rmm + durMinR; endHM = String(Math.floor(em/60)%24).padStart(2,'0') + ':' + String(em%60).padStart(2,'0'); }
               const tg = 'ontime_r_' + (t.id||'') + '_' + ymd(day).replace(/-/g,'');   // 札は日付入りで毎日別（IDは短い通し番号）
               jobs.push({ id:'task'+(n++), when:w.getTime(), tag:tg,
-                url:_notifUrl('#challenge'),
+                url:_notifUrl('#task=' + (t.id||'') + '&date=' + ymd(day)),
                 title:_notifPrefix('routine')+'｜'+t.name,
                 body:_otBody(t, String(rhh).padStart(2,'0')+':'+String(rmm).padStart(2,'0'), endHM, allDayR) });
             }
@@ -13629,7 +13629,7 @@
           const isR = (typeof isRoutineKind==='function' && isRoutineKind(t));
           const cat = t['(B)種類'] || '';
           jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n)+'_'+when,
-            url:_notifUrl('#task='+(t.id||'')),
+            url:_notifUrl('#task='+(t.id||'')+'&date='+String(j.start).slice(0,10)),
             title:(isR?_notifPrefix('routine'):'💚タスク')+'｜'+t.name,
             body:_otBody(t, allDay ? '' : String(j.start).substring(11,16), (!allDay && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDay) });
         });
@@ -13759,7 +13759,7 @@
       let scheduled = 0;
       computeTaskAlarms(fake).forEach(al => {
         if (al.when <= nowMs || al.when > horizon) return;
-        jobs.push({ id: 'gcal' + (n++), when: al.when, tag: 'gcal_' + id + '_' + al.when, url: _notifUrl('#tomorrow'), title: al.title, body: al.body });
+        jobs.push({ id: 'gcal' + (n++), when: al.when, tag: 'gcal_' + id + '_' + al.when, url: _notifUrl('#date=' + ymd(info.start) + '&event=' + encodeURIComponent(id)), title: al.title, body: al.body });
         scheduled++;
       });
       // フォールバック：大事/普通で通常の事前通知（2h/1h前）が全部過去だが、開始はまだ未来
@@ -13775,7 +13775,7 @@
           const sched = _alarmSchedLabel(info.start, false);
           const minsLeft = Math.max(1, Math.round((startMs - when) / 60000));
           jobs.push({ id: 'gcal' + (n++), when: when, tag: 'gcal_' + id + '_fb',
-            url: _notifUrl('#tomorrow'),
+            url: _notifUrl('#date=' + ymd(info.start) + '&event=' + encodeURIComponent(id)),
             title: (a.pattern === 'important' ? '🔴' : '') + _notifPrefix('event') + '｜' + info.title,
             body: 'まもなく「' + info.title + '」（あと約' + minsLeft + '分）\n🗓 ' + sched });
         }
@@ -13841,11 +13841,53 @@
       } else if (route === 'tomorrow' || route === 'schedule') {
         if (typeof switchScreen === 'function') switchScreen('todo');
         setTimeout(() => { try { localStorage.setItem(TMR_OPEN_KEY, '1'); renderTomorrowSummary(); const el = document.getElementById('tomorrowSummary'); if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(e){} }, 100);
-      } else if (route.indexOf('task=') === 0) {
-        const id = route.slice(5);
-        if (typeof switchScreen === 'function') switchScreen('todo');
-        setTimeout(() => { try { if (typeof editTask === 'function' && id) editTask(id); } catch(e){} }, 100);
+      } else if (route === 'routine') {
+        if (typeof switchScreen === 'function') switchScreen('routine');
+      } else if (route === 'weather') {
+        // スケジュール画面（月表示の上部に天気カード）
+        try { localStorage.setItem('schedViewMode', 'month'); } catch(e){}
+        _routeGoDate(new Date());
+      } else if (route.indexOf('task=') === 0 || route.indexOf('date=') === 0) {
+        // 例: task=ID / task=ID&date=2026-10-05 / date=2026-10-05&event=GCALID
+        const q = {};
+        route.split('&').forEach(function(kv){ const i = kv.indexOf('='); if (i > 0) q[kv.slice(0,i)] = decodeURIComponent(kv.slice(i+1)); });
+        let d = null;
+        if (q.date && /^\d{4}-\d{2}-\d{2}$/.test(q.date)) d = new Date(q.date + 'T00:00:00');
+        if (!d && q.task && typeof tasks !== 'undefined') {
+          // 日付指定がなければ、タスクの実行日へ
+          try { const t = tasks.find(function(x){ return x && x.id === q.task; }); const st = t && t['(A)実行日'] && t['(A)実行日'].start; if (st) d = new Date(String(st).slice(0,10) + 'T00:00:00'); } catch(e){}
+        }
+        try { localStorage.setItem('schedViewMode', 'day'); } catch(e){}
+        _routeGoDate(d || new Date(), function(){
+          try {
+            if (q.task && typeof editTask === 'function') { editTask(q.task); return; }
+            if (q.event) {
+              const key = (d || new Date()).toDateString();
+              const list = (gcalEvents[key] || []).concat(gcalEvents[key + '_allday'] || []);
+              const ev = list.find(function(e){ return e && e.id === q.event; });
+              if (ev && typeof gcalOpenEditExisting === 'function') gcalOpenEditExisting(ev);
+            }
+          } catch(e){}
+        });
       }
+    } catch(e){}
+  }
+  // 指定日のスケジュール画面を開く（予定が未取得なら取得してから、after を実行）
+  function _routeGoDate(d, after) {
+    try {
+      if (typeof switchScreen === 'function') switchScreen('todo');
+      currentDate = new Date(d);
+      try { renderHeader(); } catch(e){}
+      try { if (window.applySchedView) window.applySchedView(); } catch(e){}
+      try { renderLater(); } catch(e){}
+      const run = function(){ try { renderTimeline(); } catch(e){} if (after) setTimeout(after, 120); };
+      if (typeof gcalAccessToken !== 'undefined' && gcalAccessToken && !gcalEvents[currentDate.toDateString()]) {
+        const target = new Date(currentDate);
+        (async function(){
+          try { if (gcalCalendars.length === 0) await gcalFetchCalendars(); if (gcalCalendars.length > 0) await gcalFetchEvents(new Date(target)); } catch(e){}
+          run();
+        })();
+      } else { setTimeout(run, 80); }
     } catch(e){}
   }
   function routeFromHash() {
@@ -16066,7 +16108,13 @@
   function _grpStyle(grp){ return GRP_STYLE[grp] || GRP_STYLE.task; }
   // 予定はカレンダーの色（ピンク/青/紫）で表示。それ以外はグループ色
   function _itemStyle(it){
-    if (it && it.ev && it.color && /^#[0-9a-fA-F]{6}$/.test(it.color)) return { color: it.color, bg: it.color + '22' };
+    if (it && it.ev && it.color && /^#[0-9a-fA-F]{6}$/.test(it.color)) {
+      // 色が薄すぎて文字が見えない場合は、濃いグレーに置き換える
+      var r=parseInt(it.color.substr(1,2),16), g=parseInt(it.color.substr(3,2),16), b=parseInt(it.color.substr(5,2),16);
+      var lum = (0.299*r + 0.587*g + 0.114*b);
+      var col = lum > 190 ? '#8e8b9e' : it.color;
+      return { color: col, bg: col + '22' };
+    }
     return _grpStyle(it && it.grp);
   }
 
@@ -16120,9 +16168,11 @@
     } catch(e){}
     try {
       (gcalEvents[ds]||[]).forEach(function(e){
+        if (/習慣/.test(String(e.calendarName||''))) return;   // 「3.習慣」は月・週に出さない
         add({ name:e.title||'予定', grp:'event', time:(e.startTime||'').slice(0,5), done:false, ev:true, color:((typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '') });
       });
       (gcalEvents[ds+'_allday']||[]).forEach(function(e){
+        if (/習慣/.test(String(e.calendarName||''))) return;
         add({ name:e.title||'予定', grp:'event', time:'', done:false, ev:true, allday:true, color:((typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '') });
       });
     } catch(e){}
@@ -19899,9 +19949,21 @@
     if (/ダブル|ブッキング|double/i.test(n)) return '#8b5cf6';   // 紫
     if (/プライベート|private/i.test(n))       return '#ec4899';   // ピンク
     if (/仕事|work/i.test(n))                  return '#2f6fe4';   // 青
+    if (/習慣|habit/i.test(n))                 return '#2e9e5b';   // 緑（元の色がほぼ白で文字が見えなかった）
     return null;
   }
   window.gcalNameColor = gcalNameColor;
+  // 色が薄すぎて見えない場合は、濃いめのグレーにする
+  function gcalSafeColor(c) {
+    if (!c || !/^#[0-9a-fA-F]{6}$/.test(c)) return c || '#4285f4';
+    const r = parseInt(c.substr(1,2),16), g = parseInt(c.substr(3,2),16), b = parseInt(c.substr(5,2),16);
+    return (0.299*r + 0.587*g + 0.114*b) > 190 ? '#8e8b9e' : c;
+  }
+  window.gcalSafeColor = gcalSafeColor;
+  function gcalEventColor(ev) {
+    return gcalNameColor(ev && ev.calendarName) || gcalSafeColor(ev && ev.color) || '#4285f4';
+  }
+  window.gcalEventColor = gcalEventColor;
 
   // イベント取得（指定日 ± 3日キャッシュ）
   const gcalFetching = {}; // フェッチ中フラグ
@@ -20259,7 +20321,7 @@
       const isSel = key === gcalMonthSelected;
       const numColor = isToday ? '#fff' : (dow===0?'#ff3b30':dow===6?'#0a84ff':'#1c1c1e');
       let dots = '';
-      evs.slice(0,3).forEach(e => dots += `<span style="width:5px;height:5px;border-radius:50%;background:${(typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '#4a90e2'};display:inline-block;"></span>`);
+      evs.slice(0,3).forEach(e => dots += `<span style="width:5px;height:5px;border-radius:50%;background:${(typeof gcalEventColor==='function') ? gcalEventColor(e) : (e.color || '#4a90e2')};display:inline-block;"></span>`);
       if (evs.length > 3) dots += `<span style="font-size:8px;color:#8e8e93;line-height:6px;">+${evs.length-3}</span>`;
       html += `<div onclick="gcalSelectMonthDay('${key}')" style="min-height:46px;border-radius:9px;padding:3px 0 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;${isSel?'background:#eef4fe;box-shadow:0 0 0 1.5px #4a90e2 inset;':''}">`
         + `<span style="width:22px;height:22px;line-height:22px;text-align:center;font-size:12.5px;border-radius:50%;color:${numColor};${isToday?'background:#4a90e2;font-weight:700;':''}">${d}</span>`
@@ -20291,7 +20353,7 @@
     } else {
       evs.forEach(e => {
         html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f4f3f8;">`
-          + `<span style="width:8px;height:8px;border-radius:50%;background:${(typeof gcalNameColor==='function' && gcalNameColor(e.calendarName)) || e.color || '#4a90e2'};flex:none;"></span>`
+          + `<span style="width:8px;height:8px;border-radius:50%;background:${(typeof gcalEventColor==='function') ? gcalEventColor(e) : (e.color || '#4a90e2')};flex:none;"></span>`
           + `<span style="width:44px;font-size:12px;color:#8e8e93;flex:none;">${e.allDay?'終日':e.timeLabel}</span>`
           + `<span style="font-size:14px;color:#1c1c1e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_escapeHtml(e.title)}</span>`
           + `</div>`;
@@ -20365,7 +20427,7 @@
       const ev = item.ev;
       const locked = gcalIsTaskDerived(ev);
       const isPast = !item.allDay && nowMin > 0 && toMin(ev.endTime) < nowMin;
-      const color = (typeof gcalNameColor==='function' && gcalNameColor(ev.calendarName)) || ev.color || '#4285f4';
+      const color = (typeof gcalEventColor==='function') ? gcalEventColor(ev) : (ev.color || '#4285f4');
       const pastStyle = isPast ? 'opacity:0.38;filter:saturate(0.5);' : '';
       const lockBadge = locked ? '<span style="margin-right:4px;">🔒</span>' : '';
       const timeText = item.allDay ? '終日' : `${ev.startTime}〜${ev.endTime}`;
@@ -22207,7 +22269,7 @@
       var hh = parseInt(parts[0],10)||0, mm = parseInt(parts[1],10)||0;
       var now = Date.now();
       var base = new Date(); base.setHours(0,0,0,0);
-      var url = (typeof _notifUrl==='function') ? _notifUrl('') : (location.origin + location.pathname);
+      var url = (typeof _notifUrl==='function') ? _notifUrl('#weather') : (location.origin + location.pathname);
       var jobs = [], n = 0;
 
       for (var dOff=0; dOff<7; dOff++){
