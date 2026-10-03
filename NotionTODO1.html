@@ -409,7 +409,7 @@
     color: #1c1c1e;
   }
 
-  /* 繰り返しタスクビュー（ルーチンとは別物として色味を変える） */
+  /* 定期タスクビュー（日課とは別物として色味を変える） */
   .rep-note { font-size: 11.5px; color: #8e8b9e; line-height: 1.6; padding: 2px 4px 10px; }
   .rep-empty { font-size: 13px; color: #b3b0c2; text-align: center; padding: 34px 10px; line-height: 1.9; }
   .rep-sec { font-size: 12px; font-weight: 800; color: #5a5768; padding: 12px 4px 6px; display: flex; align-items: center; gap: 7px; }
@@ -503,7 +503,7 @@
   }
   .g-tabs button.active { background: #fff; color: #6c5ce7; box-shadow: 0 1px 3px rgba(80,70,140,0.12); }
   .g-note { font-size: 11px; color: #a8a5b8; line-height: 1.6; padding: 6px 2px 0; }
-  /* ルーチンのストリーク */
+  /* 日課のストリーク */
   .g-streak { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid #f4f3f9; }
   .g-streak:last-child { border-bottom: none; }
   .g-streak .nm { flex: 1; min-width: 0; font-size: 13px; color: #2d2b3a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2059,7 +2059,7 @@
     100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.3); }
   }
 
-  /* ルーチン集計バー */
+  /* 日課集計バー */
   .routine-summary {
     margin: 12px 16px 4px;
     background: white;
@@ -2333,7 +2333,7 @@
   .ai-primary-btn:disabled { opacity: 0.5; }
 
   /* ===================================================== */
-  /* ルーチンタブ                                          */
+  /* 日課タブ                                          */
   /* ===================================================== */
 
   /* ボトムナビ */
@@ -2370,7 +2370,7 @@
 
 
 
-  /* ルーチン画面ラッパー */
+  /* 日課画面ラッパー */
   .routine-screen {
     flex: 1;
     overflow-y: auto;
@@ -2457,7 +2457,7 @@
     padding: 5px 8px; margin-right: 6px; cursor: pointer;
   }
 
-  /* ルーチンカードを2〜3カラムのグリッドで表示（入れば3、無理なら2） */
+  /* 日課カードを2〜3カラムのグリッドで表示（入れば3、無理なら2） */
   #routineList {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
@@ -2480,7 +2480,7 @@
   #routineList .routine-reactivate-btn { font-size: 12px; }
 
   /* 期間切り替えセグメント */
-  /* ルーチン フィルター切り替え */
+  /* 日課 フィルター切り替え */
   .routine-filter-row {
     display: flex;
     align-items: center;
@@ -2555,7 +2555,7 @@
   .routine-group-head .rgh-line { flex: 1; height: 1px; background: #dad8e6; }
   .routine-group-head .rgh-count { font-size: 14px; color: #9a97ad; }
 
-  /* ルーチンカード */
+  /* 日課カード */
   .routine-card {
     background: #fff;
     border-radius: 22px;
@@ -3420,7 +3420,7 @@
       <!-- 通知（テスト送信・貼り直し） -->
       <div style="border:1px solid #e0dcf3;border-radius:14px;padding:12px;margin-bottom:12px;background:#faf9ff;">
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">通知（プッシュ）</div>
-        <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・ルーチンの通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
+        <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・日課の通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
         <button onclick="_notifTapTest()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔔 テスト通知を送る（8秒後）</button>
         <button onclick="_notifTest2min()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;touch-action:manipulation;">🔔 2分後のテスト（タスクの通知と同じ経路）</button>
         <div id="notifLiveStatus" style="font-size:12px;line-height:1.5;margin-bottom:8px;color:#5a5769">予約の状態：確認中…</div>
@@ -3448,7 +3448,7 @@
       <!-- 端末間の自動同期 -->
       <div id="devSyncCard" style="border:1px solid #e0dcf3;border-radius:14px;padding:12px;margin-bottom:12px;background:#faf9ff;">
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">端末間の自動同期（iPad・iPhoneなど）</div>
-        <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;"><b>設定は不要です。</b>Notion連携済みの端末は、勤怠の記録・出社先の設定・ルーチンの完了履歴などを自動でそろえます（アプリを開いたとき・変更から数秒後・開いている間は90秒ごと）。タスクはNotion、ごほうびコインは獲得履歴DBで共有されます。</div>
+        <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;"><b>設定は不要です。</b>Notion連携済みの端末は、勤怠の記録・出社先の設定・日課の完了履歴などを自動でそろえます（アプリを開いたとき・変更から数秒後・開いている間は90秒ごと）。タスクはNotion、ごほうびコインは獲得履歴DBで共有されます。</div>
         <div id="devSyncStatus" style="font-size:12px;color:#5a5769;line-height:1.5;word-break:break-all;margin-bottom:8px;">確認中…</div>
         <div style="display:flex;gap:8px;">
           <button onclick="devSyncNow()" style="flex:1;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;touch-action:manipulation;">今すぐ同期</button>
@@ -3481,9 +3481,9 @@
         <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg> タイトル＋期間でまとめて削除
       </button>
 
-      <!-- テンプレ(繰り返し/ルーチン定義)の端末間同期。別端末でルーチン/繰り返しが出ない時に使う -->
+      <!-- テンプレ(繰り返し/日課定義)の端末間同期。別端末で日課/繰り返しが出ない時に使う -->
       <div style="border:1px solid #d8d8de;border-radius:14px;padding:12px;margin-bottom:12px;background:#fafafa;">
-        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:6px;">繰り返し/ルーチンのテンプレ同期</div>
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:6px;">繰り返し/日課のテンプレ同期</div>
         <button onclick="tplForcePull()" style="width:100%;background:#1c1c1e;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">⬇️ テンプレをWorkerから取得（この端末に反映）</button>
         <button onclick="tplCloudPush(true)" style="width:100%;background:#fff;color:#1c1c1e;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">⬆️ テンプレをWorkerへ送信（この端末を元に）</button>
         <div id="tplPullLog" style="background:#eef;border-radius:10px;padding:10px;font-size:12px;color:#334;min-height:32px;white-space:pre-wrap;line-height:1.6;margin-top:8px;">まだ実行していません</div>
@@ -3520,7 +3520,7 @@
       <button onclick="materializeRepeatsToNotion()" style="
         width:100%;background:#0a7d55;color:#fff;border:none;border-radius:14px;
         padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">
-        <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg> 繰り返しタスクをNotionへ実体化（前後2週間）
+        <svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg> 定期タスクをNotionへ実体化（前後2週間）
       </button>
       <div id="materializeLog" style="background:#eef7f2;border-radius:12px;padding:12px;font-size:12px;color:#2c6b52;min-height:40px;white-space:pre-wrap;line-height:1.6;margin-bottom:12px;">まだ実行していません</div>
 
@@ -3588,14 +3588,14 @@
   </div>
 </div>
 
-<!-- ===== ルーチン画面 ===== -->
+<!-- ===== 日課画面 ===== -->
 <div class="routine-screen" id="routineScreen">
   <!-- 表示切替: 継続 / トラッカー / 一覧・管理 / 繰り返し -->
   <div class="routine-view-toggle" id="routineViewToggle">
     <button class="active" data-view="challenge" onclick="setRoutineView('challenge', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 1.5 1 2.5 2 2.5 1.2 0 1.5-1.2 1-3-.4-1.5-.4-3 0-4z"/></svg> 継続</button>
     <button data-view="tracker" onclick="setRoutineView('tracker', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V4M16 20v-6M2 20h20"/></svg> トラッカー</button>
     <button data-view="manage" onclick="setRoutineView('manage', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg> 一覧・管理</button>
-    <button data-view="repeat" onclick="setRoutineView('repeat', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 繰り返し</button>
+    <button data-view="repeat" onclick="setRoutineView('repeat', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 定期タスク</button>
   </div>
   <!-- コントロールバー（種類・表示・期間・状態を1行に集約） -->
   <div class="r-ctrlbar" id="routineCtrlBar">
@@ -3763,11 +3763,13 @@
     <div style="display:flex;gap:10px;margin:14px 0 6px;">
       <button id="rwTabList" class="rw-tab rw-tab-active" onclick="rewardSwitchTab('list')">ごほうび一覧</button>
       <button id="rwTabHistory" class="rw-tab" onclick="rewardSwitchTab('history')">受け取り履歴</button>
+      <button id="rwTabStamp" class="rw-tab" onclick="rewardSwitchTab('stamp')">🎴 スタンプ</button>
     </div>
   </div>
   <div style="flex:1;overflow-y:auto;padding:14px 16px 40px;">
     <div id="rwListView"></div>
     <div id="rwHistoryView" style="display:none;"></div>
+    <div id="rwStampView" style="display:none;"></div>
   </div>
 </div>
 
@@ -3820,7 +3822,7 @@
         <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>
       </svg>
     </span>
-    <span class="nav-label">ルーチン</span>
+    <span class="nav-label">日課</span>
   </button>
   <button class="bottom-nav-item" id="navAi" onclick="navAiGo()">
     <span class="nav-ico">
@@ -4364,9 +4366,9 @@
           <div id="repeatIntervalDisplay" style="display:none;margin-top:10px;padding:10px 12px;background:#f2f2f7;border-radius:10px;font-size:15px;font-weight:600;color:#1c1c1e;">
             毎 <span id="repeatIntervalText">3日</span>
           </div>
-          <!-- 曜日指定（習慣ルーチン用） -->
+          <!-- 曜日指定（習慣日課用） -->
           <div id="repeatWeekdayArea" style="margin-top:14px;">
-            <div style="font-size:13px;color:#8e8e93;margin-bottom:2px;">実施する曜日（ルーチン）</div>
+            <div style="font-size:13px;color:#8e8e93;margin-bottom:2px;">実施する曜日（日課）</div>
             <div class="weekday-picker" id="repeatWeekdayPicker">
               <button type="button" data-dow="1">月</button>
               <button type="button" data-dow="2">火</button>
@@ -4645,7 +4647,7 @@
   </div>
 </div>
 
-<!-- 繰り返しタスクの削除範囲 -->
+<!-- 定期タスクの削除範囲 -->
 <div class="time-pop-overlay" id="repDelPop" style="display:none;" onclick="if(event.target===this)closeRepeatDeletePop()">
   <div class="time-pop-card">
     <div style="padding:18px 20px 2px;font-size:16px;font-weight:700;color:#1c1c1e;">繰り返しを削除</div>
@@ -4881,7 +4883,7 @@
   function _tplMeta(){ try{ return JSON.parse(localStorage.getItem('tplSyncMeta')||'{}')||{}; }catch(e){ return {}; } }
   function _saveTplMeta(m){ try{ localStorage.setItem('tplSyncMeta', JSON.stringify(m||{})); }catch(e){} }
 
-  // テンプレの内容キー（idが違っても“同一ルーチン”かを判定）。
+  // テンプレの内容キー（idが違っても“同一日課”かを判定）。
   //  同名 × 同種(習慣/掃除/美容) × 同型(repeat/repeat_ended) × 同スケジュール を同一とみなす。
   function _tplContentKey(t){
     try{
@@ -4991,7 +4993,7 @@
   }
   window.tplCloudPull = tplCloudPull;
 
-  // 手動: Workerからテンプレを強制取得してローカルに反映（別端末でルーチン/繰り返しを出すため）
+  // 手動: Workerからテンプレを強制取得してローカルに反映（別端末で日課/繰り返しを出すため）
   async function tplForcePull(){
     const logEl = document.getElementById('tplPullLog');
     const log = m => { if (logEl) logEl.textContent = (logEl.textContent === 'まだ実行していません' ? '' : logEl.textContent) + m + '\n'; };
@@ -5014,7 +5016,7 @@
       log('ローカルのテンプレ: ' + before + '件 → ' + after + '件（+' + (after - before) + '）');
       try { if (typeof expandAllHabitsAndSync === 'function') expandAllHabitsAndSync(); } catch(e){}
       try { notifyTasksChanged(); } catch(e){}
-      log('完了。ルーチン/繰り返し画面に出るか確認してください。');
+      log('完了。日課/繰り返し画面に出るか確認してください。');
     } catch(e) { log('エラー: ' + ((e && e.message) || e)); }
   }
   window.tplForcePull = tplForcePull;
@@ -5046,7 +5048,7 @@
     clearTimeout(_tplPushTimer); _tplPushTimer=setTimeout(doPush, 2500);   // デバウンス
   }
   window.tplCloudPush = tplCloudPush;
-  // 端末間同期（勤怠など）が、ルーチン同期と同じ保存先を使うための接続情報
+  // 端末間同期（勤怠など）が、日課同期と同じ保存先を使うための接続情報
   window._tplSyncInfo = function(){ try{ return { url:_tplSyncUrl(), headers:_tplAuthHeaders(), ready: !!(notionSettings.token || notionSettings.managed) }; }catch(e){ return { ready:false }; } };
 
   // テンプレが変わったら自動で押し上げ（既存の tasks:changed を利用。ハッシュ一致なら送らない）
@@ -5076,7 +5078,7 @@
   // 追加: アプリに戻ったとき（iOS PWA/Safari は visibilitychange を取りこぼすことがある）
   try{ window.addEventListener('focus', function(){ tplCloudPull(); _ambientNotifSync(); }); }catch(e){}
   try{ window.addEventListener('pageshow', function(){ tplCloudPull(); }); }catch(e){}
-  // 追加: 定期自動同期（両端末を開いたままでもルーチン/繰り返しが自動で揃う）
+  // 追加: 定期自動同期（両端末を開いたままでも日課/繰り返しが自動で揃う）
   //   ・表示中 かつ オンライン のときだけ実行（無駄な通信を避ける）
   //   ・tplCloudPull 内でハッシュ比較しているため、変化が無ければ実質何もしない（安全）
   //   ・通知同期は _ambientNotifSync 側で4分に1回に間引き＋内容変化時のみ書き込み
@@ -5762,7 +5764,7 @@
       if (notionSettings.autoSync && _canNotion) {
         setTimeout(() => notionFullSync(), 2000);
       } else if (_canNotion) {
-        // autoSyncが無効でも、繰り返し（ルーチン）インスタンスを確実にNotionへ登録するため
+        // autoSyncが無効でも、繰り返し（日課）インスタンスを確実にNotionへ登録するため
         // 設定が整ったこのタイミングで1回だけ同期する。
         // notionFullSync は「pull → 展開 → 未登録のみpush」の順で動くので重複を作らない。
         setTimeout(() => { try { notionFullSync(); } catch(e){ dbg('startup reconcile failed', e); } }, 2500);
@@ -6048,7 +6050,7 @@
         if (getDateString(t) !== dayStr) return false;
         return isAllDayTask(t); // 終日タスクのみ
       }
-      return _repeatAllDayOccurs(t); // 終日の繰り返しルーチンも対象
+      return _repeatAllDayOccurs(t); // 終日の繰り返し日課も対象
     });
     const gcalAlldayEvs = (gcalEvents[dayStr + '_allday'] || [])
       .filter(ev => gcalCalendarPrefs[ev._calendarId] !== false);
@@ -6115,7 +6117,7 @@
       if (t._type === 'repeat') {
         // 習慣テンプレートは個別インスタンスが表示されるので除外
         if (isRoutineKind(t)) return false;
-        // 終日の繰り返し（ルーチン）は終日エリアで表示するのでタイムライン本体からは除外
+        // 終日の繰り返し（日課）は終日エリアで表示するのでタイムライン本体からは除外
         if (t._allDay || (t._repeatConfig && t._repeatConfig.allDay)) return false;
         const cur = new Date(dayStr);
         // 実体化済み（この日にインスタンスがある）なら仮想は出さない（重複防止）
@@ -6905,7 +6907,7 @@
     const finalHeight = Math.max(totalPxActual + 40, (window._maxCardBottom || 0) + 20);
     timeline.style.height = finalHeight + 'px';
 
-    // 完了タスクとルーチン集計はtimeline外（通常フロー）に追加
+    // 完了タスクと日課集計はtimeline外（通常フロー）に追加
     const scrollEl = document.getElementById('timelineScroll');
 
     // 既存の完了セクションを削除
@@ -6957,7 +6959,7 @@
       scrollEl.appendChild(doneWrap);
     }
 
-    // ルーチン集計
+    // 日課集計
     const summaryWrap = document.createElement('div');
     summaryWrap.id = 'routineSummaryWrap';
     summaryWrap.style.cssText = 'background:white;padding:0 0 20px;';
@@ -7055,8 +7057,8 @@
     }
   }
 
-  // やり逃したルーチンのうち「あとでやる」に出すべきものか。
-  // 毎日のルーチンは1日抜けても追いかける意味が薄く、出すとリストが埋まるので除く。
+  // やり逃した日課のうち「あとでやる」に出すべきものか。
+  // 毎日の日課は1日抜けても追いかける意味が薄く、出すとリストが埋まるので除く。
   // 週1以上に間隔が空くもの（月1など）だけ、直近1週間以内の分に限って拾う。
   const LATE_ROUTINE_MIN_INTERVAL = 7;   // これ以上の間隔なら対象
   const LATE_ROUTINE_WINDOW_DAYS  = 7;   // 何日前までさかのぼるか
@@ -7105,7 +7107,7 @@
     return tasks.filter(t => {
       if (t['(A)done']) return false;
       if (t._projectOnly) return false; // プロジェクト表示専用（日付・実行期間なし）はあとでやるに出さない
-      // 習慣は基本的に振り分けないが、間隔の空くルーチン（月1など）のやり逃しは拾う
+      // 習慣は基本的に振り分けないが、間隔の空く日課（月1など）のやり逃しは拾う
       if (isRoutineKind(t)) return isCatchUpRoutine(t, today0);
       // プロジェクトに属するタスクは「あとで」に出さない（日付の有無に関わらず、プロジェクト画面で管理する）
       if (taskHasProject(t)) return false;
@@ -7125,7 +7127,7 @@
           } catch(e) { return false; }
         }
         // 普通の（1回きりの）タスクは、過去日でも「あとで」に出す（日数制限はかけない）。
-        // 直近○日の制限をかけるのは繰り返し/ルーチンだけ、という仕様。
+        // 直近○日の制限をかけるのは繰り返し/日課だけ、という仕様。
         try {
           const td = new Date(t['(A)実行日'].start); td.setHours(0,0,0,0);
           return td < today0;
@@ -7144,7 +7146,7 @@
       return false;
     }).filter((t, _i, arr) => {
       // やり逃した繰り返しは、同じ繰り返しにつき直近の1件だけ残す。
-      //  対象: ルーチン種類 / 繰り返しテンプレを持つ実体 / 同名の過去 time タスクが複数（種類問わず）
+      //  対象: 日課種類 / 繰り返しテンプレを持つ実体 / 同名の過去 time タスクが複数（種類問わず）
       const nameOf = x => String(x.name || '').trim();
       const sameNameTimeCount = (nm) => arr.reduce((c, x) => c + (x._type === 'time' && nameOf(x) === nm ? 1 : 0), 0);
       const isSeries = x => isRoutineKind(x) || !!_repeatTplForTimeTask(x) || (x._type === 'time' && sameNameTimeCount(nameOf(x)) > 1);
@@ -8114,7 +8116,7 @@
     [/家|自宅|帰宅|部屋/,                              'home'],
     [/鍵|カギ/,                                        'key'],
     [/充電|電気|コンセント/,                            'bolt'],
-    [/毎日|ルーチン|ルーティン|習慣/,                   'repeat'],
+    [/毎日|日課|ルーティン|習慣/,                   'repeat'],
     [/アラーム|起こす|目覚/,                            'alarm'],
     [/夜更かし|ナイトルーティン|夜の/,                  'moon'],
     [/予定|日程|スケジュール|カレンダー/,               'calendar'],
@@ -8691,7 +8693,7 @@
           if (lockedDateStr) {
             const uiDate = ymd(new Date(getUIDateStr()));
             if (uiDate !== lockedDateStr) {
-              alert('繰り返しタスクの「日付」は変更できません。\n日付を変えたい場合は、繰り返しの設定（曜日・頻度）を編集してください。\n（時刻の変更はそのまま反映されます）');
+              alert('定期タスクの「日付」は変更できません。\n日付を変えたい場合は、繰り返しの設定（曜日・頻度）を編集してください。\n（時刻の変更はそのまま反映されます）');
             }
           }
           if (isAlldayOn()) {
@@ -8716,7 +8718,7 @@
             task._habitDate = task['(A)実行日'].start.substring(0,10);
           }
         } else if (currentTab === 'repeat') {
-          // 繰り返しタスクの編集: _repeatConfig を UI の値で更新する
+          // 定期タスクの編集: _repeatConfig を UI の値で更新する
           task._type = 'repeat';
           const rAllday = document.getElementById('repeatAlldayToggle').classList.contains('toggle-on');
           const rTime = rAllday ? '00:00' : (document.getElementById('repeatTimeSelect').value || '07:00');
@@ -9546,7 +9548,7 @@
     });
   }
 
-  // ルーチン集計セクションをタイムライン下部に描画
+  // 日課集計セクションをタイムライン下部に描画
   function renderRoutineSummary(timeline, todayTasks) {
     const habitTasks = todayTasks.filter(t => isRoutineKind(t) && !t._isRoutine);
     if (habitTasks.length === 0) return;
@@ -9560,7 +9562,7 @@
     sec.className = 'routine-summary';
     sec.innerHTML = '<div class="routine-summary-header">'
       + '<span style="font-size:18px;color:#f0b400;"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.4 6.4 20.4l1.1-6.2L3 9.8l6.2-.9L12 3.2z"/></svg></span>'
-      + '<span style="font-size:14px;font-weight:600;color:#1c1c1e;">習慣ルーチン</span>'
+      + '<span style="font-size:14px;font-weight:600;color:#1c1c1e;">習慣日課</span>'
       + '<span style="font-size:12px;color:#8e8e93;margin-left:auto;">' + done + ' / ' + total + '</span>'
       + '</div>'
       + '<div class="routine-progress-bar">'
@@ -9578,7 +9580,7 @@
   }
 
   // ============================================================
-  // ルーチンタブ ロジック
+  // 日課タブ ロジック
   // ============================================================
   const DOW_LABELS = ['日','月','火','水','木','金','土'];
 
@@ -10085,7 +10087,7 @@
     }catch(e){ empty('失敗: '+((e&&e.message)?e.message:String(e))); }
   }
 
-  // ── ルーチンの継続日数（ストリーク）──
+  // ── 日課の継続日数（ストリーク）──
   // habitHistory[テンプレートID][YYYY-MM-DD] = true から、現在の連続日数と最長を出す。
   // 「対象日でない日」は連続を切らさない（週2回の習慣でも続いていると数える）
   function habitStreaks() {
@@ -10129,7 +10131,7 @@
     if (!el) return;
     const list = habitStreaks().filter(x => x.name !== '(名称不明)');
     if (!list.length) {
-      el.innerHTML = '<div style="font-size:12px;color:#b0adc0;text-align:center;padding:16px 0;">ルーチンを達成すると、続いた日数がここに出ます</div>';
+      el.innerHTML = '<div style="font-size:12px;color:#b0adc0;text-align:center;padding:16px 0;">日課を達成すると、続いた日数がここに出ます</div>';
       if (sum) sum.textContent = '';
       return;
     }
@@ -10253,7 +10255,7 @@
         : '右の「×」は、見込みに対して実際に何倍かかったかです。';
     }
 
-    // ③ ルーチンの継続（ストリーク）
+    // ③ 日課の継続（ストリーク）
     renderStreakSection();
 
     // ③ 見込み vs 実績（Notionから集計）
@@ -10343,6 +10345,457 @@
       .catch(e => alert('交換に失敗しました: ' + e.message));
   }
 
+  // ============================================================
+  // 🎴 スタンプカード（ボンボンドロップ風シール）
+  //   ・毎日1個：継続（集中する1つ）を記録 ／ ボーナス1個：今日の日課をぜんぶ達成
+  //   ・シールは完全ランダム（種類×色×表情×アクセ×レア度）。同じものが出にくく飽きない
+  //   ・10個でカード完成 → ごほうび券1枚＋ボーナスコイン。券は好きなごほうびと交換
+  //   ・キャラは“オリジナル”。自分の好きな画像（ちいかわ等）は「画像を追加」で混ぜられる
+  // ============================================================
+  const STAMP_KEY = 'stampCard', STAMP_CUSTOM_KEY = 'stampCustom';
+  const STAMP_PER_CARD = 10, STAMP_CARD_COINS = 100;
+  function stampLoad() {
+    let o = null;
+    try { o = JSON.parse(localStorage.getItem(STAMP_KEY) || 'null'); } catch (e) {}
+    if (!o || typeof o !== 'object') o = {};
+    o.slots = Array.isArray(o.slots) ? o.slots : [];
+    o.pending = Array.isArray(o.pending) ? o.pending : [];
+    o.tickets = Array.isArray(o.tickets) ? o.tickets : [];
+    o.redeemed = Array.isArray(o.redeemed) ? o.redeemed : [];
+    o.completed = Array.isArray(o.completed) ? o.completed : [];
+    o.collection = (o.collection && typeof o.collection === 'object') ? o.collection : {};
+    o.awarded = (o.awarded && typeof o.awarded === 'object') ? o.awarded : {};
+    o.cards = o.cards || 0;
+    return o;
+  }
+  function stampSave(o) { try { localStorage.setItem(STAMP_KEY, JSON.stringify(o)); } catch (e) {} }
+  function stampCustomLoad() { try { const a = JSON.parse(localStorage.getItem(STAMP_CUSTOM_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function stampEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+
+  // ---- シールの部品（ボンボンドロップ風：厚い白フチ＋ぷっくりツヤ／ちいかわ風のゆるキャラ）----
+  const ST_LINE = '#7a6262', ST_PINK = '#ffc7d8';
+  const ST_STAR = (function () { const p = []; for (let i = 0; i < 10; i++) { const r = i % 2 ? 22 : 43, a = -Math.PI / 2 + i * Math.PI / 5; p.push((50 + r * Math.cos(a)).toFixed(1) + ',' + (54 + r * Math.sin(a)).toFixed(1)); } return p.join(' '); })();
+  // back=体の後ろ（耳・足・しっぽ）／innerBack=耳の内側／body=体／cover=体の内側の線を隠す塗り／inner=おなか・口まわり／front=手
+  const ST_ARMS = '<ellipse cx="19" cy="66" rx="5.5" ry="8" transform="rotate(25 19 66)"/><ellipse cx="81" cy="66" rx="5.5" ry="8" transform="rotate(-25 81 66)"/>';
+  const ST_FEET = '<ellipse cx="38" cy="88" rx="9" ry="5"/><ellipse cx="62" cy="88" rx="9" ry="5"/>';
+  const ST_SP = [
+    { n:'うさ',     fy:62, back:'<ellipse cx="35" cy="22" rx="7.5" ry="17" transform="rotate(-8 35 22)"/><ellipse cx="65" cy="22" rx="7.5" ry="17" transform="rotate(8 65 22)"/>' + ST_FEET, innerBack:'<ellipse cx="35" cy="24" rx="3.4" ry="11" transform="rotate(-8 35 24)" fill="#ffc7d8"/><ellipse cx="65" cy="24" rx="3.4" ry="11" transform="rotate(8 65 24)" fill="#ffc7d8"/>', body:'<ellipse cx="50" cy="62" rx="31" ry="26"/>', front:ST_ARMS },
+    { n:'ねこ',     fy:63, back:'<path d="M21 48 L24 17 L45 34 Z"/><path d="M79 48 L76 17 L55 34 Z"/><ellipse cx="90" cy="64" rx="5" ry="13" transform="rotate(20 90 64)"/>' + ST_FEET, innerBack:'<path d="M27 42 L28 26 L39 35 Z" fill="#ffc7d8"/><path d="M73 42 L72 26 L61 35 Z" fill="#ffc7d8"/>', body:'<ellipse cx="50" cy="63" rx="32" ry="26"/>', front:ST_ARMS },
+    { n:'くま',     fy:56, my:11, back:'<circle cx="24" cy="34" r="10"/><circle cx="76" cy="34" r="10"/>' + ST_FEET, innerBack:'<circle cx="24" cy="34" r="4.6" fill="#ffc7d8"/><circle cx="76" cy="34" r="4.6" fill="#ffc7d8"/>', body:'<ellipse cx="50" cy="62" rx="33" ry="28"/>', inner:'<ellipse cx="50" cy="67" rx="12" ry="8.5" fill="#fff7ee"/><ellipse cx="50" cy="63.5" rx="3" ry="2.2" fill="#6b4f4f"/>', front:ST_ARMS },
+    { n:'ねずみ',   fy:63, back:'<circle cx="22" cy="38" r="13"/><circle cx="78" cy="38" r="13"/><ellipse cx="11" cy="80" rx="10" ry="3" transform="rotate(-25 11 80)"/>' + ST_FEET, innerBack:'<circle cx="22" cy="38" r="7" fill="#ffc7d8"/><circle cx="78" cy="38" r="7" fill="#ffc7d8"/>', body:'<ellipse cx="50" cy="63" rx="29" ry="26"/>', front:ST_ARMS },
+    { n:'ひよこ',   fy:56, noMouth:true, back:'<path d="M43 28 Q45 10 50 24 Q54 8 58 28 Z"/>' + ST_FEET, body:'<circle cx="50" cy="60" r="31"/>', inner:'<path d="M44 63 Q50 58 56 63 Q50 71 44 63Z" fill="#ffab40"/>', front:'<ellipse cx="20" cy="64" rx="5.5" ry="9" transform="rotate(20 20 64)"/><ellipse cx="80" cy="64" rx="5.5" ry="9" transform="rotate(-20 80 64)"/>' },
+    { n:'ひつじ',   fy:63, back:ST_FEET, body:'<circle cx="28" cy="54" r="15"/><circle cx="50" cy="42" r="17"/><circle cx="72" cy="54" r="15"/><circle cx="33" cy="72" r="15"/><circle cx="67" cy="72" r="15"/><circle cx="50" cy="64" r="20"/>', cover:'<circle cx="28" cy="54" r="15"/><circle cx="50" cy="42" r="17"/><circle cx="72" cy="54" r="15"/><circle cx="33" cy="72" r="15"/><circle cx="67" cy="72" r="15"/><circle cx="50" cy="64" r="20"/>', inner:'<ellipse cx="50" cy="63" rx="20" ry="17" fill="#fff3e3" stroke="#7a6262" stroke-width="2.2"/><ellipse cx="29" cy="58" rx="6" ry="3.6" transform="rotate(22 29 58)" fill="#fff3e3" stroke="#7a6262" stroke-width="2"/><ellipse cx="71" cy="58" rx="6" ry="3.6" transform="rotate(-22 71 58)" fill="#fff3e3" stroke="#7a6262" stroke-width="2"/>' },
+    { n:'ぺんぎん', fy:45, noMouth:true, back:'<ellipse cx="39" cy="92" rx="8" ry="4" fill="#ffab40"/><ellipse cx="61" cy="92" rx="8" ry="4" fill="#ffab40"/>', body:'<ellipse cx="50" cy="58" rx="29" ry="34"/>', inner:'<ellipse cx="50" cy="68" rx="19" ry="22" fill="#fffaf5"/><path d="M45 52 Q50 48 55 52 Q50 59 45 52Z" fill="#ffab40"/>', front:'<ellipse cx="19" cy="62" rx="5" ry="12" transform="rotate(14 19 62)"/><ellipse cx="81" cy="62" rx="5" ry="12" transform="rotate(-14 81 62)"/>' },
+    { n:'かえる',   fy:62, eyesPos:[[32,38],[68,38]], my:9, back:'<circle cx="32" cy="38" r="12"/><circle cx="68" cy="38" r="12"/>' + ST_FEET, innerBack:'<circle cx="32" cy="38" r="8" fill="#fff"/><circle cx="68" cy="38" r="8" fill="#fff"/>', body:'<ellipse cx="50" cy="64" rx="34" ry="25"/>', front:ST_ARMS },
+    { n:'いぬ',     fy:57, my:11, back:'<ellipse cx="21" cy="46" rx="9" ry="16" transform="rotate(18 21 46)" fill="SHADE"/><ellipse cx="79" cy="46" rx="9" ry="16" transform="rotate(-18 79 46)" fill="SHADE"/>' + ST_FEET, body:'<ellipse cx="50" cy="62" rx="31" ry="27"/>', inner:'<ellipse cx="50" cy="67" rx="12" ry="9" fill="#fff9f0"/><ellipse cx="50" cy="63.5" rx="3.6" ry="2.6" fill="#5a4444"/>', front:ST_ARMS },
+    { n:'おばけ',   fy:55, body:'<path d="M20 86 V54 C20 30 33 16 50 16 C67 16 80 30 80 54 V86 Q73 80 66 86 Q58 92 50 86 Q42 92 34 86 Q27 80 20 86Z"/>', front:'<ellipse cx="17" cy="62" rx="5" ry="8" transform="rotate(25 17 62)"/><ellipse cx="83" cy="62" rx="5" ry="8" transform="rotate(-25 83 62)"/>' },
+    { n:'もち',     fy:66, ex:14, back:ST_FEET, body:'<ellipse cx="50" cy="68" rx="40" ry="23"/><ellipse cx="50" cy="48" rx="22" ry="14"/>', cover:'<ellipse cx="50" cy="68" rx="40" ry="23"/><ellipse cx="50" cy="48" rx="22" ry="14"/>', inner:'<path d="M50 36 Q56 25 67 29 Q61 38 50 36Z" fill="#7ad68b" stroke="#7a6262" stroke-width="2"/>' },
+    { n:'ほし',     fy:54, round:true, body:'<polygon points="' + ST_STAR + '"/>' },
+    { n:'くも',     fy:62, body:'<circle cx="30" cy="62" r="19"/><circle cx="52" cy="46" r="24"/><circle cx="74" cy="60" r="20"/><rect x="30" y="62" width="44" height="20" rx="10"/>', cover:'<circle cx="30" cy="62" r="19"/><circle cx="52" cy="46" r="24"/><circle cx="74" cy="60" r="20"/><rect x="30" y="62" width="44" height="20" rx="10"/>' },
+    { n:'おにぎり', fy:56, body:'<path d="M50 14 C60 14 88 64 88 78 C88 90 12 90 12 78 C12 64 40 14 50 14Z"/>', inner:'<rect x="34" y="74" width="32" height="14" rx="3" fill="#3b4256"/>', front:'<ellipse cx="22" cy="72" rx="5" ry="7" transform="rotate(25 22 72)"/><ellipse cx="78" cy="72" rx="5" ry="7" transform="rotate(-25 78 72)"/>' },
+    { n:'スライム', fy:66, body:'<path d="M50 12 C60 32 83 42 83 64 C83 80 69 91 50 91 C31 91 17 80 17 64 C17 42 40 32 50 12 Z"/>' },
+    { n:'たまご',   fy:66, body:'<ellipse cx="50" cy="66" rx="30" ry="25"/>', front:'<path d="M19 54 L29 45 L36 55 L44 43 L52 55 L60 44 L67 55 L75 45 L81 54 Q81 28 50 26 Q19 28 19 54Z" fill="#fffdf6"/>' },
+    { n:'ことり',   fy:56, back:'<path d="M76 64 L97 53 L92 75Z"/>' + ST_FEET, body:'<circle cx="50" cy="60" r="30"/>', inner:'<path d="M45 22 Q47 10 50 20 Q53 8 56 22Z" fill="SHADE" stroke="#7a6262" stroke-width="2"/>', front:'<ellipse cx="70" cy="68" rx="9" ry="6" transform="rotate(-22 70 68)" fill="SHADE"/>' },
+  ];
+  const ST_PAL = [
+    { n:'ももいろ',   b:'#ffb7d2', s:'#f58bb5' }, { n:'みずいろ', b:'#aee0ff', s:'#6fb8f0' },
+    { n:'れもん',     b:'#ffe88f', s:'#f2c84a' }, { n:'メロン',   b:'#bff2c6', s:'#7bd48a' },
+    { n:'ラベンダー', b:'#d8c9ff', s:'#a891f0' }, { n:'ミルク',   b:'#fff6ee', s:'#f2d9c4' },
+    { n:'ももたろう', b:'#ffc9a3', s:'#f59a4a' }, { n:'ミント',   b:'#a9f2e3', s:'#5fd3bd' },
+    { n:'ココア',     b:'#e3bfa5', s:'#b98563' }, { n:'ぶどう',   b:'#cfaaf0', s:'#9a6fd0' },
+    { n:'さくら',     b:'#ffd9e3', s:'#ffa8bf' }, { n:'そらいろ', b:'#c4e6ff', s:'#8fc7f5' },
+  ];
+  const ST_ACC_BY_RAR = [[0, 0, 0, 1, 2, 3], [1, 2, 3, 4, 5], [6, 7], [7]];
+  const ST_RAR = [
+    { k:'N',  label:'ノーマル',       w:58, color:'#8e8e93' },
+    { k:'R',  label:'レア',           w:26, color:'#3a8fd6' },
+    { k:'SR', label:'スーパーレア',   w:13, color:'#d9931f' },
+    { k:'UR', label:'ウルトラレア',   w:3,  color:'#e0457b' },
+  ];
+  let _stUid = 0;
+  function stFace(k, sp) {
+    const fx = 50, fy = sp.fy, ex = sp.ex || 12, my = sp.my || 8, e = '#4a3a3a';
+    const eyes = sp.eyesPos || [[fx - ex, fy], [fx + ex, fy]];
+    let s = '';
+    eyes.forEach(function (p, i) {
+      const x = p[0], y = p[1];
+      if (k === 1) s += `<path d="M${x-4} ${y+1.5} Q${x} ${y-4.5} ${x+4} ${y+1.5}" fill="none" stroke="${e}" stroke-width="2.2" stroke-linecap="round"/>`;
+      else if (k === 3) s += `<path d="M${x-4} ${y-1} Q${x} ${y+4} ${x+4} ${y-1}" fill="none" stroke="${e}" stroke-width="2.2" stroke-linecap="round"/>`;
+      else if (k === 4 && i === 1) s += `<path d="M${x-4} ${y+1.5} Q${x} ${y-4.5} ${x+4} ${y+1.5}" fill="none" stroke="${e}" stroke-width="2.2" stroke-linecap="round"/>`;
+      else if (k === 5) s += `<ellipse cx="${x}" cy="${y}" rx="3.6" ry="4.4" fill="${e}"/><circle cx="${x+1.2}" cy="${y-1.6}" r="1.4" fill="#fff"/><circle cx="${x-1.1}" cy="${y+1.4}" r=".8" fill="#fff"/>`;
+      else s += `<circle cx="${x}" cy="${y}" r="2.9" fill="${e}"/><circle cx="${x+.9}" cy="${y-1}" r=".95" fill="#fff"/>`;
+    });
+    const bx = sp.eyesPos ? 24 : ex + 9, by = sp.eyesPos ? sp.fy + 3 : fy + 5;
+    s += `<ellipse cx="${fx-bx}" cy="${by}" rx="4.6" ry="2.9" fill="#ff9bb5" opacity=".55"/><ellipse cx="${fx+bx}" cy="${by}" rx="4.6" ry="2.9" fill="#ff9bb5" opacity=".55"/>`;
+    if (!sp.noMouth) {
+      if (k === 2) s += `<path d="M${fx-4} ${fy+my-1} Q${fx} ${fy+my+7} ${fx+4} ${fy+my-1} Z" fill="#e8667f" stroke="${e}" stroke-width="1.6" stroke-linejoin="round"/>`;
+      else if (k === 5) s += `<ellipse cx="${fx}" cy="${fy+my+1}" rx="2" ry="2.6" fill="#d9566e"/>`;
+      else s += `<path d="M${fx-3.2} ${fy+my} Q${fx} ${fy+my+3.6} ${fx+3.2} ${fy+my}" fill="none" stroke="${e}" stroke-width="1.9" stroke-linecap="round"/>`;
+    }
+    return s;
+  }
+  function stAcc(k) {
+    const w = 'stroke="#fff" stroke-width="2.4" stroke-linejoin="round"';
+    switch (k) {
+      case 1: return `<g transform="translate(72 24)"><path d="M0 0 L-13 -9 L-13 9 Z M0 0 L13 -9 L13 9 Z" fill="#ff6fa5" ${w}/><circle r="4.2" fill="#ff4d8d" ${w}/></g>`;
+      case 2: return `<g transform="translate(74 24)">${[0,72,144,216,288].map(a => `<circle cx="${(6.5*Math.cos(a*Math.PI/180)).toFixed(1)}" cy="${(6.5*Math.sin(a*Math.PI/180)).toFixed(1)}" r="5" fill="#fff0f5" stroke="#ffb3cf" stroke-width="1.4"/>`).join('')}<circle r="3.6" fill="#ffd34d"/></g>`;
+      case 3: return `<g transform="translate(86 26) scale(.95)"><path d="M0 8 C-12 -2 -8 -12 0 -5 C8 -12 12 -2 0 8 Z" fill="#ff6f91" ${w}/></g>`;
+      case 4: return `<g transform="translate(16 26) scale(.34)"><polygon points="${ST_STAR}" transform="translate(-50 -54)" fill="#ffd34d" stroke="#fff" stroke-width="7" stroke-linejoin="round"/></g>`;
+      case 5: return `<g transform="translate(50 16)"><ellipse cx="-7" cy="-3" rx="8" ry="4.4" transform="rotate(-28)" fill="#6fd68a" ${w}/><ellipse cx="7" cy="-3" rx="8" ry="4.4" transform="rotate(28)" fill="#58c77a" ${w}/></g>`;
+      case 6: return `<ellipse cx="50" cy="7" rx="17" ry="5.2" fill="none" stroke="#fff" stroke-width="7"/><ellipse cx="50" cy="7" rx="17" ry="5.2" fill="none" stroke="#ffd34d" stroke-width="3.6"/>`;
+      case 7: return `<g transform="translate(50 14)"><path d="M-16 6 L-18 -10 L-8 -2 L0 -13 L8 -2 L18 -10 L16 6 Z" fill="#ffd34d" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><circle cx="0" cy="-1" r="2.4" fill="#ff6f91"/></g>`;
+      default: return '';
+    }
+  }
+  function stSpark(x, y, r, fill) { return `<path d="M${x} ${y-r} Q${x+r*.25} ${y-r*.25} ${x+r} ${y} Q${x+r*.25} ${y+r*.25} ${x} ${y+r} Q${x-r*.25} ${y+r*.25} ${x-r} ${y} Q${x-r*.25} ${y-r*.25} ${x} ${y-r} Z" fill="${fill}" stroke="#fff" stroke-width=".8"/>`; }
+
+  function stickerParse(id) {
+    const p = String(id).split('.').map(Number);
+    return { sp: p[0] % ST_SP.length, pal: p[1] % ST_PAL.length, face: p[2] % 6, acc: p[3] || 0, rar: Math.max(0, Math.min(3, p[4] || 0)) };
+  }
+  function stickerInfo(id) {
+    if (String(id).indexOf('c:') === 0) {
+      const c = stampCustomLoad().find(x => 'c:' + x.id === id);
+      return { name: c ? c.name : 'マイシール', rar: 0, custom: true };
+    }
+    const d = stickerParse(id);
+    return { name: ST_PAL[d.pal].n + 'の' + ST_SP[d.sp].n, rar: d.rar, custom: false };
+  }
+  function stickerHTML(id, size) {
+    size = size || 64;
+    if (String(id).indexOf('c:') === 0) {
+      const c = stampCustomLoad().find(x => 'c:' + x.id === id);
+      if (!c) return '';
+      return `<img class="st-img" src="${c.data}" style="width:${size}px;height:${size}px" alt="">`;
+    }
+    const d = stickerParse(id), sp = ST_SP[d.sp], pal = ST_PAL[d.pal], uid = 'st' + (++_stUid);
+    const fill = d.rar === 3 ? `url(#${uid}u)` : pal.b;
+    const sh = t => String(t || '').replace(/SHADE/g, pal.s);
+    const stroke = `stroke="${ST_LINE}" stroke-width="2.4" stroke-linejoin="round"`;
+    const all = sh(sp.back) + sh(sp.body) + sh(sp.front);
+    let g = `<defs>
+      <mask id="${uid}m" maskUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="140"><g fill="#fff" stroke="#fff" stroke-width="15" stroke-linejoin="round">${all}</g></mask>
+      <radialGradient id="${uid}r" cx=".3" cy=".22" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".4" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="${uid}b" x1="0" y1="0" x2="0" y2="1"><stop offset=".55" stop-color="${pal.s}" stop-opacity="0"/><stop offset="1" stop-color="${pal.s}" stop-opacity=".3"/></linearGradient>
+      <linearGradient id="${uid}h" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9ad5" stop-opacity=".3"/><stop offset=".33" stop-color="#ffe98a" stop-opacity=".26"/><stop offset=".66" stop-color="#8affc9" stop-opacity=".26"/><stop offset="1" stop-color="#8ac8ff" stop-opacity=".3"/></linearGradient>
+      <linearGradient id="${uid}u" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb3e1"/><stop offset=".3" stop-color="#fff1a8"/><stop offset=".6" stop-color="#b3ffe0"/><stop offset="1" stop-color="#b3d6ff"/></linearGradient>
+    </defs>`;
+    // 1) 厚い白フチ（シールの台紙）
+    g += `<g fill="#fff" stroke="#fff" stroke-width="15" stroke-linejoin="round">${all}</g>`;
+    // 2) キャラ本体（細いこげ茶の線＋ベタ塗り）
+    g += `<g fill="${pal.b}" ${stroke}>${sh(sp.back)}</g>`;
+    g += sh(sp.innerBack || '');
+    if (sp.round) {
+      g += `<g fill="${ST_LINE}" stroke="${ST_LINE}" stroke-width="9.6" stroke-linejoin="round">${sp.body}</g><g fill="${fill}" stroke="${fill}" stroke-width="7" stroke-linejoin="round">${sp.body}</g>`;
+    } else {
+      g += `<g fill="${fill}" ${stroke}>${sh(sp.body)}</g>`;
+      if (sp.cover) g += `<g fill="${fill}">${sp.cover}</g>`;
+    }
+    g += sh(sp.inner || '');
+    g += `<g fill="${fill}" ${stroke}>${sh(sp.front)}</g>`;
+    // 3) ぷっくりツヤ（ドーム）
+    g += `<g mask="url(#${uid}m)">
+      <rect x="-10" y="-10" width="120" height="120" fill="url(#${uid}b)"/>
+      <rect x="-10" y="-10" width="120" height="120" fill="url(#${uid}r)"/>
+      ${d.rar >= 2 ? `<rect x="-10" y="-10" width="120" height="120" fill="url(#${uid}h)"/>` : ''}
+      <ellipse cx="25" cy="24" rx="15" ry="5.6" transform="rotate(-32 25 24)" fill="#fff" opacity=".95"/>
+      <circle cx="12" cy="38" r="2.6" fill="#fff" opacity=".9"/>
+      <ellipse cx="80" cy="92" rx="13" ry="3.2" transform="rotate(-24 80 92)" fill="#fff" opacity=".6"/>
+      ${d.rar >= 2 ? [[14,60,'#ff9ad5'],[88,40,'#8ac8ff'],[40,96,'#ffe98a'],[66,10,'#8affc9'],[92,76,'#ff9ad5'],[8,80,'#ffe98a'],[56,4,'#8ac8ff']].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="1.6" fill="${p[2]}"/>`).join('') : ''}
+    </g>`;
+    // 4) 顔・アクセ
+    g += stFace(d.face, sp) + stAcc(d.acc);
+    if (d.rar >= 1) {
+      const c = d.rar === 3 ? '#ff9ad5' : (d.rar === 2 ? '#ffd34d' : '#ffffff');
+      g += stSpark(6, 44, 6, c) + stSpark(96, 56, 5, d.rar >= 2 ? '#8ac8ff' : c) + stSpark(10, 92, 4.5, c) + stSpark(92, 94, 6, c);
+    }
+    return `<svg class="st-svg${d.rar >= 2 ? ' st-shine' : ''}" viewBox="-10 -10 120 120" width="${size}" height="${size}" aria-hidden="true">${g}</svg>`;
+  }
+
+  // ---- 抽選 ----
+  function stampDraw() {
+    const customs = stampCustomLoad();
+    if (customs.length && Math.random() < 0.18) return 'c:' + customs[Math.floor(Math.random() * customs.length)].id;
+    let roll = Math.random() * ST_RAR.reduce((s, r) => s + r.w, 0), rar = 0;
+    for (let i = 0; i < ST_RAR.length; i++) { if ((roll -= ST_RAR[i].w) < 0) { rar = i; break; } }
+    const pick = a => a[Math.floor(Math.random() * a.length)];
+    return [Math.floor(Math.random() * ST_SP.length), Math.floor(Math.random() * ST_PAL.length), Math.floor(Math.random() * 6), pick(ST_ACC_BY_RAR[rar]), rar].join('.');
+  }
+
+  // ---- 今日の条件チェック（1日：継続＋日課ぜんぶ＝最大2個）----
+  function stampCheckToday() {
+    try {
+      const st = stampLoad(), now = new Date(), ds = ymd(now);
+      const a = st.awarded[ds] || {}; let changed = false;
+      if (!a.main) {
+        const f = (typeof getChallengeFocusTask === 'function') ? getChallengeFocusTask() : null;
+        if (f && habitOccursOn(f, now) && isHabitDoneOn(f.id, ds)) { a.main = true; st.pending.push(stampDraw()); changed = true; }
+      }
+      if (!a.bonus) {
+        const list = (getHabitTasks(false, ['習慣', '掃除', '美容']) || []).filter(t => habitOccursOn(t, now));
+        if (list.length >= 2 && list.every(t => isHabitDoneOn(t.id, ds))) { a.bonus = true; st.pending.push(stampDraw()); changed = true; }
+      }
+      if (changed) {
+        st.awarded[ds] = a;
+        const cut = ymd(new Date(Date.now() - 90 * 86400000));
+        Object.keys(st.awarded).forEach(k => { if (k < cut) delete st.awarded[k]; });
+        stampSave(st);
+        try { showRewardToast('🎴 シールが出たよ！ごほうびの「スタンプ」で貼ろう'); } catch (e) {}
+      }
+      stampUpdateBanner();
+      if (document.getElementById('rewardOverlay') && document.getElementById('rewardOverlay').style.display !== 'none' && rewardTab === 'stamp') stampRender();
+    } catch (e) {}
+  }
+  window.stampCheckToday = stampCheckToday;
+
+  function stampUpdateBanner() {
+    let b = document.getElementById('stampBanner');
+    const st = stampLoad();
+    const open = document.getElementById('rewardOverlay') && document.getElementById('rewardOverlay').style.display !== 'none';
+    if (!st.pending.length || open) { if (b) b.style.display = 'none'; return; }
+    if (!b) {
+      b = document.createElement('button'); b.id = 'stampBanner';
+      b.onclick = function () { stampGoReveal(); };
+      document.body.appendChild(b);
+    }
+    b.innerHTML = '🎴 シールが出たよ！タップして貼ろう' + (st.pending.length > 1 ? '（' + st.pending.length + '枚）' : '');
+    b.style.display = 'block';
+  }
+  function stampGoReveal() {
+    try { openRewards(); } catch (e) {}
+    setTimeout(function () { rewardSwitchTab('stamp'); setTimeout(stampReveal, 150); }, 60);
+  }
+  window.stampGoReveal = stampGoReveal;
+
+  // ---- 貼る（ひらく演出）----
+  function stampReveal() {
+    const st = stampLoad();
+    if (!st.pending.length) return;
+    if (st.slots.length >= STAMP_PER_CARD) { showRewardToast('カードが完成してるよ！先に「ごほうび券をうけとる」を押してね'); return; }
+    const id = st.pending[0], info = stickerInfo(id), isNew = !st.collection[id];
+    const r = ST_RAR[info.rar];
+    let ov = document.getElementById('stampRevealOv');
+    if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'stampRevealOv';
+    ov.innerHTML = `<div class="st-rv-box r${info.rar}">
+        <div class="st-rv-rar" style="color:${r.color}">${info.custom ? '✨ マイシール' : '★ ' + r.k + '　' + r.label}</div>
+        <div class="st-rv-sticker">${stickerHTML(id, 190)}</div>
+        <div class="st-rv-name">${stampEsc(info.name)}${isNew ? ' <span class="st-new">NEW!</span>' : ''}</div>
+        <button class="st-rv-btn" onclick="stampPlace()">カードに貼る</button>
+      </div>`;
+    document.body.appendChild(ov);
+  }
+  function stampPlace() {
+    const st = stampLoad();
+    if (!st.pending.length || st.slots.length >= STAMP_PER_CARD) return;
+    const id = st.pending.shift();
+    st.collection[id] = (st.collection[id] || 0) + 1;
+    st.slots.push({ id: id, rot: Math.round((Math.random() * 30 - 15)), dx: Math.round(Math.random() * 6 - 3), dy: Math.round(Math.random() * 6 - 3), at: Date.now() });
+    stampSave(st);
+    const ov = document.getElementById('stampRevealOv'); if (ov) ov.remove();
+    stampRender(); stampUpdateBanner();
+    if (st.slots.length >= STAMP_PER_CARD) showRewardToast('🎉 カード完成！ごほうび券をうけとろう');
+    else if (st.pending.length) setTimeout(stampReveal, 350);
+  }
+  window.stampPlace = stampPlace; window.stampReveal = stampReveal;
+
+  function stampClaimCard() {
+    const st = stampLoad();
+    if (st.slots.length < STAMP_PER_CARD) return;
+    st.cards += 1;
+    st.tickets.push({ id: 't' + Date.now(), at: Date.now() });
+    st.completed.unshift({ at: Date.now(), n: st.cards, stickers: st.slots.map(s => s.id) });
+    st.completed = st.completed.slice(0, 20);
+    st.slots = [];
+    stampSave(st);
+    try { awardCompletion('stampcard_' + st.cards, 'スタンプカード完成', ymd(new Date()), STAMP_CARD_COINS); updateCoinDisplays(); } catch (e) {}
+    showRewardToast('🎟 ごほうび券をゲット！＋コインボーナス');
+    stampRender();
+    if (st.pending.length) setTimeout(stampReveal, 500);
+  }
+  window.stampClaimCard = stampClaimCard;
+
+  // ---- ごほうび券の交換 ----
+  async function stampUseTicket() {
+    const st = stampLoad();
+    if (!st.tickets.length) return;
+    let list = _rewardCache || [];
+    if (!list.length) { try { list = await rewardFetchAll(); } catch (e) { list = []; } }
+    list = list.slice().sort((a, b) => b.cost - a.cost);
+    let ov = document.getElementById('stampTicketOv'); if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'stampTicketOv';
+    ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+    ov.innerHTML = `<div class="st-tk-box">
+      <div class="st-tk-title">🎟 ごほうび券をつかう</div>
+      <div class="st-tk-sub">どれか1つと交換できます（コインは減りません）</div>
+      <div class="st-tk-list">${list.map(r => `<button class="st-tk-item" data-id="${stampEsc(r.id)}"><span>${stampEsc(r.emoji)} ${stampEsc(r.name)}</span><small>${r.cost}コイン相当</small></button>`).join('') || '<div class="st-tk-sub">ごほうび一覧が空です。下に自由に書いてもOK</div>'}</div>
+      <input id="stampTicketFree" class="st-tk-input" placeholder="自由に書く（例: 好きなカフェに行く）">
+      <button class="st-tk-free">これと交換</button>
+      <button class="st-tk-close">やめる</button>
+    </div>`;
+    document.body.appendChild(ov);
+    const use = function (name) {
+      if (!confirm('「' + name + '」と交換しますか？\nごほうび券を1枚つかいます。')) return;
+      const s2 = stampLoad(); if (!s2.tickets.length) return;
+      const tk = s2.tickets.shift();
+      s2.redeemed.unshift({ name: name, at: Date.now() });
+      s2.redeemed = s2.redeemed.slice(0, 50);
+      stampSave(s2); ov.remove(); stampRender();
+      showRewardToast('🎟 「' + name + '」と交換しました！');
+    };
+    ov.querySelectorAll('.st-tk-item').forEach(function (b) {
+      b.onclick = function () { const r = list.find(x => x.id === b.getAttribute('data-id')); if (r) use(r.name); };
+    });
+    ov.querySelector('.st-tk-free').onclick = function () { const v = (document.getElementById('stampTicketFree').value || '').trim(); if (v) use(v); };
+    ov.querySelector('.st-tk-close').onclick = function () { ov.remove(); };
+  }
+  window.stampUseTicket = stampUseTicket;
+
+  // ---- 図鑑 ----
+  function stampOpenBook() {
+    const st = stampLoad();
+    const ids = Object.keys(st.collection).sort((a, b) => (stickerInfo(b).rar - stickerInfo(a).rar) || (st.collection[b] - st.collection[a]));
+    let ov = document.getElementById('stampBookOv'); if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'stampBookOv';
+    const counts = [0, 0, 0, 0]; ids.forEach(i => { counts[stickerInfo(i).rar]++; });
+    ov.innerHTML = `<div class="st-bk-box">
+      <div class="st-bk-head"><b>📖 シール図鑑</b><span>${ids.length}種類ゲット</span><button onclick="document.getElementById('stampBookOv').remove()">とじる</button></div>
+      <div class="st-bk-sum">${ST_RAR.map((r, i) => `<span style="color:${r.color}">${r.k} ${counts[i]}</span>`).join('　')}</div>
+      <div class="st-bk-grid">${ids.length ? ids.map(i => `<div class="st-bk-cell" title="${stampEsc(stickerInfo(i).name)}">${stickerHTML(i, 62)}${st.collection[i] > 1 ? '<i>×' + st.collection[i] + '</i>' : ''}</div>`).join('') : '<div class="st-empty">まだシールがありません</div>'}</div>
+    </div>`;
+    document.body.appendChild(ov);
+  }
+  window.stampOpenBook = stampOpenBook;
+
+  // ---- 自分の画像（ちいかわ等を好きに追加）----
+  function stampAddCustom(file) {
+    if (!file) return;
+    const rd = new FileReader();
+    rd.onload = function () {
+      const im = new Image();
+      im.onload = function () {
+        const S = 160, cv = document.createElement('canvas'); cv.width = cv.height = S;
+        const cx = cv.getContext('2d'), k = Math.min(S / im.width, S / im.height) * 0.92;
+        const w = im.width * k, h = im.height * k;
+        cx.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);
+        const list = stampCustomLoad();
+        if (list.length >= 30) { alert('追加できるのは30枚までです'); return; }
+        list.push({ id: Date.now().toString(36), name: (file.name || 'マイシール').replace(/\.[a-z0-9]+$/i, '').slice(0, 16), data: cv.toDataURL('image/png') });
+        try { localStorage.setItem(STAMP_CUSTOM_KEY, JSON.stringify(list)); showRewardToast('✨ マイシールを追加しました（ときどき出ます）'); }
+        catch (e) { alert('保存できませんでした（容量がいっぱいです）'); }
+        stampRender();
+      };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(file);
+  }
+  window.stampAddCustom = stampAddCustom;
+
+  // ---- 画面 ----
+  function stampEnsureStyle() {
+    if (document.getElementById('stampStyle')) return;
+    const css = `
+    .st-svg{filter:drop-shadow(0 2.5px 2px rgba(0,0,0,.22));display:block}
+    .st-img{object-fit:contain;display:block;filter:drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff) drop-shadow(0 3px 3px rgba(0,0,0,.25))}
+    .st-shine{animation:stShine 2.6s ease-in-out infinite}
+    @keyframes stShine{0%,100%{filter:drop-shadow(0 2.5px 2px rgba(0,0,0,.22)) brightness(1)}50%{filter:drop-shadow(0 2.5px 2px rgba(0,0,0,.22)) brightness(1.1) saturate(1.25)}}
+    .st-card{background:#fff;border-radius:20px;padding:14px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:12px}
+    .st-card-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+    .st-card-h b{font-size:16px;color:#1c1c1e}.st-card-h span{font-size:13px;color:#8e8e93;font-weight:700}
+    .st-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    .st-slot{aspect-ratio:1;border-radius:50%;background:#f7f4ff;border:2px dashed #d9d0f5;display:flex;align-items:center;justify-content:center;position:relative;font-size:12px;color:#b9aee0;font-weight:800}
+    .st-slot.fill{border:none;background:radial-gradient(circle at 35% 30%,#fff 0,#f1ecff 100%)}
+    .st-slot.fill .st-svg,.st-slot.fill .st-img{width:88%;height:88%}
+    .st-slot.gift{border-color:#ffc86b;background:#fff8e6;color:#e59a1a;font-size:22px}
+    .st-cond{font-size:13px;color:#3a3a3c;line-height:1.9}
+    .st-cond .ok{color:#2e9e5b;font-weight:800}.st-cond .no{color:#8e8e93}
+    .st-btn{width:100%;border:none;border-radius:14px;padding:13px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:10px}
+    .st-btn.pri{background:linear-gradient(135deg,#ff8fc0,#a98bff);color:#fff}
+    .st-btn.sub{background:#f2f2f7;color:#1c1c1e;font-size:14px}
+    .st-btn.gold{background:linear-gradient(135deg,#ffd45e,#ff9f5e);color:#fff}
+    .st-row{display:flex;gap:8px}.st-row .st-btn{flex:1}
+    .st-empty{color:#8e8e93;font-size:13px;padding:14px;text-align:center}
+    .st-red{font-size:13px;color:#3a3a3c;line-height:1.8}
+    #stampBanner{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 150px);z-index:3400;border:none;border-radius:22px;padding:12px 18px;background:linear-gradient(135deg,#ff8fc0,#a98bff);color:#fff;font-weight:800;font-size:14px;font-family:inherit;box-shadow:0 6px 18px rgba(120,80,200,.35);animation:stBob 1.6s ease-in-out infinite}
+    @keyframes stBob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-4px)}}
+    #stampRevealOv,#stampTicketOv,#stampBookOv{position:fixed;inset:0;background:rgba(30,20,60,.55);z-index:4600;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+    .st-rv-box{background:#fff;border-radius:28px;padding:22px 20px 20px;width:100%;max-width:330px;text-align:center;animation:stPop .55s cubic-bezier(.2,1.4,.4,1)}
+    .st-rv-box.r2{box-shadow:0 0 0 4px #ffe48a,0 10px 40px rgba(255,200,60,.5)}
+    .st-rv-box.r3{box-shadow:0 0 0 4px #ffb3e1,0 10px 44px rgba(255,120,200,.6)}
+    @keyframes stPop{0%{transform:scale(.3) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+    .st-rv-rar{font-weight:900;font-size:14px;letter-spacing:.04em;margin-bottom:6px}
+    .st-rv-sticker{display:flex;justify-content:center;animation:stWob 2.4s ease-in-out infinite}
+    @keyframes stWob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) scale(1.03)}}
+    .st-rv-name{font-size:17px;font-weight:800;color:#1c1c1e;margin:8px 0 14px}
+    .st-new{background:#ff4d6d;color:#fff;border-radius:8px;padding:2px 7px;font-size:11px;vertical-align:middle}
+    .st-rv-btn{width:100%;border:none;border-radius:16px;padding:14px;font-size:16px;font-weight:800;color:#fff;background:linear-gradient(135deg,#ff8fc0,#a98bff);font-family:inherit;cursor:pointer}
+    .st-tk-box,.st-bk-box{background:#fff;border-radius:24px;padding:18px;width:100%;max-width:360px;max-height:82vh;overflow-y:auto}
+    .st-tk-title{font-size:17px;font-weight:800;color:#1c1c1e}.st-tk-sub{font-size:12px;color:#8e8e93;margin:4px 0 10px}
+    .st-tk-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+    .st-tk-item{display:flex;justify-content:space-between;align-items:center;border:none;background:#f7f4ff;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;color:#1c1c1e;text-align:left;cursor:pointer}
+    .st-tk-item small{color:#8e8e93;font-weight:600;font-size:11px;margin-left:8px}
+    .st-tk-input{width:100%;box-sizing:border-box;background:#f2f2f7;border:none;border-radius:10px;padding:11px 12px;font-size:14px;font-family:inherit;outline:none;margin-bottom:8px}
+    .st-tk-free{width:100%;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:800;background:#1c1c1e;color:#fff;font-family:inherit;cursor:pointer}
+    .st-tk-close{width:100%;border:none;background:none;padding:12px;font-size:13px;color:#8e8e93;font-family:inherit;cursor:pointer}
+    .st-bk-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}.st-bk-head b{font-size:17px;flex:1}.st-bk-head span{font-size:12px;color:#8e8e93;font-weight:700}
+    .st-bk-head button{border:none;background:#f2f2f7;border-radius:10px;padding:7px 12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+    .st-bk-sum{font-size:12px;font-weight:800;margin-bottom:10px}
+    .st-bk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .st-bk-cell{position:relative;display:flex;justify-content:center;align-items:center;background:#faf8ff;border-radius:14px;padding:6px}
+    .st-bk-cell i{position:absolute;right:4px;bottom:2px;font-size:10px;font-style:normal;font-weight:800;color:#6c5ce7;background:#fff;border-radius:8px;padding:0 4px}
+    `;
+    const el = document.createElement('style'); el.id = 'stampStyle'; el.textContent = css; document.head.appendChild(el);
+  }
+  function stampRender() {
+    stampEnsureStyle();
+    const wrap = document.getElementById('rwStampView'); if (!wrap) return;
+    const st = stampLoad(), ds = ymd(new Date()), a = st.awarded[ds] || {};
+    const full = st.slots.length >= STAMP_PER_CARD;
+    let slots = '';
+    for (let i = 0; i < STAMP_PER_CARD; i++) {
+      const s = st.slots[i];
+      if (s) slots += `<div class="st-slot fill"><div style="transform:rotate(${s.rot}deg) translate(${s.dx}px,${s.dy}px);width:100%;height:100%;display:flex;align-items:center;justify-content:center">${stickerHTML(s.id, 56)}</div></div>`;
+      else if (i === STAMP_PER_CARD - 1) slots += '<div class="st-slot gift">🎟</div>';
+      else slots += `<div class="st-slot">${i + 1}</div>`;
+    }
+    const f = (typeof getChallengeFocusTask === 'function') ? getChallengeFocusTask() : null;
+    const tk = st.tickets.length;
+    wrap.innerHTML = `
+      ${st.pending.length ? `<button class="st-btn pri" style="margin:0 0 12px" onclick="stampReveal()">🎴 シールが出たよ！貼る（${st.pending.length}枚）</button>` : ''}
+      <div class="st-card">
+        <div class="st-card-h"><b>🎴 スタンプカード ${st.cards + 1}枚目</b><span>${st.slots.length} / ${STAMP_PER_CARD}</span></div>
+        <div class="st-grid">${slots}</div>
+        ${full ? '<button class="st-btn gold" onclick="stampClaimCard()">🎉 カード完成！ごほうび券をうけとる（＋' + STAMP_CARD_COINS + 'コイン）</button>' : ''}
+      </div>
+      <div class="st-card">
+        <div class="st-card-h"><b>今日のスタンプ</b><span>1日 最大2個</span></div>
+        <div class="st-cond">
+          <div class="${a.main ? 'ok' : 'no'}">${a.main ? '✅' : '⬜'} 継続${f ? '「' + stampEsc(f.name) + '」' : ''}を記録</div>
+          <div class="${a.bonus ? 'ok' : 'no'}">${a.bonus ? '✅' : '⬜'} 今日の日課をぜんぶ達成（ボーナス）</div>
+        </div>
+      </div>
+      <div class="st-card">
+        <div class="st-card-h"><b>🎟 ごほうび券</b><span>${tk}枚</span></div>
+        <div class="st-red">10個そろえるともらえる券。好きなごほうびと交換できます。</div>
+        ${tk ? '<button class="st-btn gold" onclick="stampUseTicket()">券をつかう</button>' : ''}
+        ${st.redeemed.length ? '<div class="st-red" style="margin-top:10px;color:#8e8e93">' + st.redeemed.slice(0, 5).map(r => { const d = new Date(r.at); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + stampEsc(r.name); }).join('<br>') + '</div>' : ''}
+      </div>
+      <div class="st-row">
+        <button class="st-btn sub" onclick="stampOpenBook()">📖 シール図鑑（${Object.keys(st.collection).length}種）</button>
+        <button class="st-btn sub" onclick="document.getElementById('stampFile').click()">＋ 自分の画像</button>
+      </div>
+      <input id="stampFile" type="file" accept="image/*" style="display:none" onchange="stampAddCustom(this.files[0]); this.value='';">
+      <div class="st-red" style="margin-top:10px;color:#8e8e93;font-size:12px">好きなキャラの画像を追加すると、ときどきシールに混ざって出ます。</div>
+    `;
+  }
+  window.stampRender = stampRender;
+
+  // 起動・復帰・日課の操作のたびに条件を確認
+  try { document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') setTimeout(stampCheckToday, 600); }); } catch (e) {}
+  try { setInterval(function () { if (document.visibilityState === 'visible') stampCheckToday(); }, 20000); } catch (e) {}
+  setTimeout(stampCheckToday, 3000);
+  try { var __stTog = toggleHabitDone; toggleHabitDone = function () { var r = __stTog.apply(this, arguments); setTimeout(stampCheckToday, 400); return r; }; } catch (e) {}
+
   // ── ごほうび画面（オーバーレイ）──
   function openRewards() {
     if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.rewardDbId) {
@@ -10359,16 +10812,21 @@
       .then(() => { updateCoinDisplays(); if (rewardTab === 'history') renderRewardHistory(); })
       .catch(() => {});
   }
-  function closeRewards() { document.getElementById('rewardOverlay').style.display = 'none'; }
+  function closeRewards() { document.getElementById('rewardOverlay').style.display = 'none'; try { stampUpdateBanner(); } catch (e) {} }
 
   function rewardSwitchTab(tab) {
     rewardTab = tab;
-    const lb = document.getElementById('rwTabList'), hb = document.getElementById('rwTabHistory');
+    const lb = document.getElementById('rwTabList'), hb = document.getElementById('rwTabHistory'), sb = document.getElementById('rwTabStamp');
     if (lb) lb.classList.toggle('rw-tab-active', tab === 'list');
     if (hb) hb.classList.toggle('rw-tab-active', tab === 'history');
+    if (sb) sb.classList.toggle('rw-tab-active', tab === 'stamp');
     document.getElementById('rwListView').style.display = tab === 'list' ? 'block' : 'none';
     document.getElementById('rwHistoryView').style.display = tab === 'history' ? 'block' : 'none';
-    if (tab === 'list') renderRewardList(); else renderRewardHistory();
+    const sv = document.getElementById('rwStampView'); if (sv) sv.style.display = tab === 'stamp' ? 'block' : 'none';
+    if (tab === 'list') renderRewardList();
+    else if (tab === 'history') renderRewardHistory();
+    else { try { stampCheckToday(); } catch (e) {} stampRender(); }
+    try { stampUpdateBanner(); } catch (e) {}
   }
 
   async function renderRewardList() {
@@ -10478,7 +10936,7 @@
   //     名前ごとに束ねた「疑似テンプレート」
 
   // ============================================================
-  // ルーチンの「今日以降を終了」状態の管理
+  // 日課の「今日以降を終了」状態の管理
   // templateId(またはpseudo_名前) → endedAt(YYYY-MM-DD) のマップを保存
   // ============================================================
   function getRoutineEndedMap() {
@@ -10494,10 +10952,10 @@
     return !!getRoutineEndedAt(templateId);
   }
 
-  // ルーチンを今日以降終了する
+  // 日課を今日以降終了する
   function endRoutineFromToday(templateId) {
     const habit = getHabitTasks(true).find(h => h.id === templateId);
-    const name = habit ? (habit.name || 'このルーチン') : 'このルーチン';
+    const name = habit ? (habit.name || 'この日課') : 'この日課';
     if (!confirm(`「${name}」を今日以降終了します。\n今日以降の予定は削除され、過去の記録は残ります。よろしいですか？`)) return;
 
     const todayStr = ymd(new Date());
@@ -10532,7 +10990,7 @@
     renderTimeline();
   }
 
-  // ルーチンを再開（終了解除）
+  // 日課を再開（終了解除）
   function reactivateRoutine(templateId) {
     const m = getRoutineEndedMap();
     delete m[templateId];
@@ -10554,8 +11012,8 @@
   }
 
   // 今日以降のインスタンス削除（過去は残す。今日を含む）
-  // ── 繰り返しタスク（ルーチン種類=習慣/掃除/美容 以外）──
-  // ルーチン画面からは見えないが、繰り返し設定を持つタスクを一覧するためのもの。
+  // ── 定期タスク（日課種類=習慣/掃除/美容 以外）──
+  // 日課画面からは見えないが、繰り返し設定を持つタスクを一覧するためのもの。
   function getRepeatTaskTemplates(includeEnded) {
     // Notion往復で _type が 'time'/'later' に戻ることがあるため、_repeatConfig の有無でも拾う
     const isRepeatTpl = t => {
@@ -10573,8 +11031,8 @@
     });
   }
 
-  // 繰り返しタスクの「1回あたり平均どれくらいかかっているか」を実績から求める。
-  // ・ルーチン系: 日ごとのインスタンスに実績が付くので、その平均
+  // 定期タスクの「1回あたり平均どれくらいかかっているか」を実績から求める。
+  // ・日課系: 日ごとのインスタンスに実績が付くので、その平均
   // ・仕事などの繰り返し: インスタンスが作られずテンプレートに積み上がるので、達成回数で割る
   function repeatAvgMinutes(tpl) {
     if (!tpl) return null;
@@ -10608,7 +11066,7 @@
     return d;
   }
 
-  // 繰り返しタスクを「起点日以降」まとめて削除する。
+  // 定期タスクを「起点日以降」まとめて削除する。
   // scope='all' のときはテンプレート・全インスタンスを完全に削除する。
   function deleteRepeatTaskFrom(templateId, scope) {
     const tpl = tasks.find(t => t.id === templateId);
@@ -10636,7 +11094,7 @@
     toRemove.forEach(t => {
       if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
-          .catch(e => console.error('繰り返しタスク削除失敗', e));
+          .catch(e => console.error('定期タスク削除失敗', e));
       }
     });
 
@@ -10995,7 +11453,7 @@
     toRemove.forEach(t => {
       if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
-          .catch(e => console.error('ルーチン終了:インスタンス削除失敗', e));
+          .catch(e => console.error('日課終了:インスタンス削除失敗', e));
       }
     });
     const removeIds = new Set(toRemove.map(t => t.id));
@@ -11017,7 +11475,7 @@
     toRemove.forEach(t => {
       if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
-          .catch(e => console.error('ルーチン終了:疑似インスタンス削除失敗', e));
+          .catch(e => console.error('日課終了:疑似インスタンス削除失敗', e));
       }
     });
     const removeIds = new Set(toRemove.map(t => t.id));
@@ -11036,10 +11494,10 @@
       !t._habitTemplateId
     );
 
-    // (2) 疑似テンプレート: テンプレートにもインスタンスにも属さない繰り返しタスクを名前でグループ化。
-    // ※ これは「習慣」専用。掃除など他の種類は、明示的な繰り返し（_type==='repeat'）だけをルーチン扱いにし、
-    //    単発タスクをルーチンに混ぜないようにする。
-    // 本物の繰り返しテンプレートと同名のものは擬似ルーチン化しない（カード重複・「まだ対象日がありません」防止）
+    // (2) 疑似テンプレート: テンプレートにもインスタンスにも属さない定期タスクを名前でグループ化。
+    // ※ これは「習慣」専用。掃除など他の種類は、明示的な繰り返し（_type==='repeat'）だけを日課扱いにし、
+    //    単発タスクを日課に混ぜないようにする。
+    // 本物の繰り返しテンプレートと同名のものは擬似日課化しない（カード重複・「まだ対象日がありません」防止）
     const templateNames = new Set(templates.map(t => (t.name || '(無題)').trim()));
     const standalone = tasks.filter(t =>
       t['(B)種類'] === '習慣' &&
@@ -11119,7 +11577,7 @@
       );
     }
     // フォールバック: Notion往復などで _habitTemplateId / _habitDate が欠けたコピーも、
-    //  「同名テンプレ × 同じ表示日」のルーチンインスタンスとして拾う。
+    //  「同名テンプレ × 同じ表示日」の日課インスタンスとして拾う。
     //  これでスケジュールに出ている実体を確実に掴み、完了状態が両画面で一致する。
     const tpl = tasks.find(x => x && x.id === templateId && (x._type === 'repeat' || x._type === 'repeat_ended'));
     const tplName = tpl ? String(tpl.name || '').trim() : null;
@@ -11197,7 +11655,7 @@
           t['(A)実行日'] && t['(A)実行日'].start &&
           t['(A)実行日'].start.substring(0,10) === ds
         );
-        // テンプレIDに依存しない内容照合：同名ルーチンが同日に既にあれば新規作成しない。
+        // テンプレIDに依存しない内容照合：同名日課が同日に既にあれば新規作成しない。
         //  Notion往復で _habitTemplateId が失われたコピーや、同名の重複テンプレによる
         //  二重・三重生成を根本から防ぐ。
         const _tplNm = String(template.name || '').trim();
@@ -11256,7 +11714,7 @@
   }
 
   // ============================================================
-  // Phase B: 一般の繰り返し（仕事など・非ルーチン）を Notion へ実体化する
+  // Phase B: 一般の繰り返し（仕事など・非日課）を Notion へ実体化する
   //   ・出現判定はタイムラインと同一ロジック（_repeatOccursOnDay）
   //   ・重複防止は「名前 or _habitTemplateId」＋表示日で照合（Notion往復で _habitTemplateId が消えても効く）
   //   ・手動ボタンから実行（バルク作成を観察可能にする）。展開範囲は ±HABIT_*_DAYS
@@ -11316,12 +11774,12 @@
     };
   }
 
-  // 手動実行: 非ルーチンの繰り返しを ±2週間ぶん実体化して Notion 登録
+  // 手動実行: 非日課の繰り返しを ±2週間ぶん実体化して Notion 登録
   async function materializeRepeatsToNotion() {
     if ((!notionSettings.token && !notionSettings.managed) || !notionSettings.dbId) {
       alert('Notion設定を先に保存してください'); return;
     }
-    if (!confirm('仕事などの繰り返しタスクを、前後2週間ぶん個別タスクとしてNotionに登録します。\n\n※ 念のため先に「⬇️ データを書き出す」でバックアップを取ることを推奨します。\n実行しますか？')) return;
+    if (!confirm('仕事などの定期タスクを、前後2週間ぶん個別タスクとしてNotionに登録します。\n\n※ 念のため先に「⬇️ データを書き出す」でバックアップを取ることを推奨します。\n実行しますか？')) return;
     const logEl = document.getElementById('materializeLog');
     const log = m => { if (logEl) logEl.textContent = (logEl.textContent === 'まだ実行していません' ? '' : logEl.textContent) + m + '\n'; };
     if (logEl) logEl.textContent = '';
@@ -11356,7 +11814,7 @@
   }
   window.materializeRepeatsToNotion = materializeRepeatsToNotion;
 
-  // 自動: 非ルーチンの繰り返しを「先2週間ぶん」だけ静かにNotionへ実体化（1日1回・重複ガード）
+  // 自動: 非日課の繰り返しを「先2週間ぶん」だけ静かにNotionへ実体化（1日1回・重複ガード）
   let _autoMatRunning = false;
   async function autoMaterializeRepeats() {
     try {
@@ -11427,7 +11885,7 @@
     });
     log('② Notion実物: ' + notionTasks.length + '件（紐づけ情報あり: ' + Object.keys(dedupMap).length + '件）');
 
-    // 非ルーチンの繰り返し（仕事の曜日指定など）は、実体化していないとインスタンスが無く登録対象にならない。
+    // 非日課の繰り返し（仕事の曜日指定など）は、実体化していないとインスタンスが無く登録対象にならない。
     // ここで前後 HABIT_*_DAYS ぶんを曜日どおりに生成しておく（_repeatOccursOnDay は daysOfWeek 対応）。
     try {
       const _t0 = new Date(); _t0.setHours(0,0,0,0);
@@ -11763,7 +12221,7 @@
       changed = true;
     }
     // 3) 内容ベースの重複統合（テンプレIDに依存しない）。
-    //    同名 × 同日 × 同(終日/時刻あり) のルーチンが複数あれば1つに統合する。
+    //    同名 × 同日 × 同(終日/時刻あり) の日課が複数あれば1つに統合する。
     //    _habitTemplateId が無い/食い違うコピー（Notion往復・重複テンプレ由来）も対象にできる。
     //    残す優先度: done > Notionリンク済 > テンプレ紐付きあり > 先着。
     //    敗者がNotionにあればアーカイブして、再取得での復活を止める。
@@ -11784,7 +12242,7 @@
       removeIds2.add(loser.id);
       if (loser._notionId && notionLinked()) {
         notionApiCall(`/pages/${loser._notionId}`, 'PATCH', { archived: true })
-          .catch(e => console.error('重複ルーチン削除失敗', e));
+          .catch(e => console.error('重複日課削除失敗', e));
       }
     });
     if (removeIds2.size) {
@@ -12131,7 +12589,7 @@
     if (newState) h[templateId][dateStr] = true;
     else delete h[templateId][dateStr];
     saveHabitHistory(h);
-    { // <span class="coin-ico"></span> ルーチン達成でもコイン
+    { // <span class="coin-ico"></span> 日課達成でもコイン
       const _nm = (template && template.name) || (inst && inst.name) || '';
       if (newState) awardCompletion(templateId, _nm, dateStr, 8); else revokeCompletion(templateId, dateStr);
     }
@@ -12314,7 +12772,7 @@
     if (list) list.style.display = '';
     if (chal) chal.style.display = 'none';
     const repeatView = routineViewMode === 'repeat';
-    // 繰り返しビューはルーチン用の絞り込みを一切使わないので、コントロールバーごと隠す
+    // 繰り返しビューは日課用の絞り込みを一切使わないので、コントロールバーごと隠す
     const bar = document.getElementById('routineCtrlBar');
     if (bar) bar.style.display = repeatView ? 'none' : '';
     if (repeatView) return;
@@ -12361,7 +12819,7 @@
     renderRoutineScreen();
   }
 
-  // ルーチンの頻度を短い日本語に
+  // 日課の頻度を短い日本語に
   function routineFreqText(task) {
     const rc = task && task._repeatConfig;
     const wd = ['日','月','火','水','木','金','土'];
@@ -12392,12 +12850,12 @@
     return '繰り返し';
   }
 
-  // 種類を初期選択した状態で新規ルーチン作成モーダルを開く
+  // 種類を初期選択した状態で新規日課作成モーダルを開く
   function routineAddOfKind(kind) {
     try {
       openModal();                       // 新規タスク
       currentShurui = kind || '習慣';     // 種類を初期選択
-      // 繰り返しタブへ切り替え（ルーチン用）
+      // 繰り返しタブへ切り替え（日課用）
       const tabs = document.querySelectorAll('.modal-tab');
       if (tabs && tabs[2]) { tabs.forEach(t => t.classList.remove('active')); tabs[2].classList.add('active'); switchTab('repeat', tabs[2]); }
       ['later','time','repeat'].forEach(s => { try { updateSelectorDisplay(s); } catch(e){} });
@@ -12412,7 +12870,7 @@
   }
 
   // 1つの習慣のマスグリッドHTMLを生成
-  // 継続チャレンジの開始日（ルーチンごと）: 未設定なら今日を刻む＝「今日からカウント」
+  // 継続チャレンジの開始日（日課ごと）: 未設定なら今日を刻む＝「今日からカウント」
   const CHALLENGE_STARTS_KEY = 'challengeStarts';
   function _getChallengeStarts(){ try{ return JSON.parse(localStorage.getItem(CHALLENGE_STARTS_KEY)||'{}'); }catch(e){ return {}; } }
   function ensureRoutineChallengeStart(taskId){
@@ -12436,7 +12894,7 @@
     return res;
   }
 
-  // ルーチンのマス目グリッド
+  // 日課のマス目グリッド
   //  ・range='30': 日付なしの30マス（6列×5行）でキツキツ表示
   //      - opts.forward=true : 今日を先頭に前方向30個（継続チャレンジ）。今日=破線でタップ達成
   //      - opts.forward=false: 直近30個（終了カード等の履歴表示）
@@ -12546,14 +13004,14 @@
       toggleHabitDone(taskId, todayStr);   // 内部で再描画 → 今日のマスが種類カラーに変わる
       try { if (typeof syncChallengeNotifications === 'function') syncChallengeNotifications(); } catch(_){}
     } else if (typeof editTask === 'function') {
-      editTask(taskId);   // 今日が対象日でないルーチンは編集を開く
+      editTask(taskId);   // 今日が対象日でない日課は編集を開く
     }
   }
   window.onRoutineCardTap = onRoutineCardTap;
 
   // ============================================================
-  // 継続チャレンジ（まず1つのルーチンに集中して「続けられるか」を試す）
-  //  ・ルーチンタブのトラッカー表示の最上部に、大きなリングで表示
+  // 継続チャレンジ（まず1つの日課に集中して「続けられるか」を試す）
+  //  ・日課タブのトラッカー表示の最上部に、大きなリングで表示
   //  ・進捗リング = 現在の連続日数 / 目標日数（連続は「2日連続で落とすと途切れる」ルール）
   //  ・中央タップで今日の達成を記録（対象日のみ）
   // ============================================================
@@ -12625,7 +13083,7 @@
     return ov === 'daily';
   }
   function _challengeRoutines() {
-    // 継続チャレンジの候補は「毎日の繰り返し」ルーチンのみ
+    // 継続チャレンジの候補は「毎日の繰り返し」日課のみ
     try { return (getHabitTasks(false, ['習慣','掃除','美容']) || []).filter(isDailyRoutine); } catch(e) { return []; }
   }
   function getChallengeFocusTask() {
@@ -12809,6 +13267,7 @@
   }
   function challengeNotifyDisable() {
     const c = getChallengeNotify(); c.enabled = false; saveChallengeNotify(c);
+    try { if (typeof syncTaskAlarms === 'function') setTimeout(syncTaskAlarms, 400); } catch(e){}   // 開始時刻通知（文言つき）に切り替え
     try { fetch(_chalPushUrl() + '/cancel', { method:'POST', headers:_chalHeaders(), body:JSON.stringify({ client:_chalClient() }) }).catch(function(){}); } catch(e){}
     renderRoutineChallenge();
   }
@@ -12872,7 +13331,7 @@
       if (ds === todayStr0 && cfg.override && cfg.override.date === todayStr0 && cfg.override.time) {
         const op = cfg.override.time.split(':'); h = parseInt(op[0],10) || 0; m = parseInt(op[1],10) || 0;
       }
-      const nm = task.name || 'ルーチン';
+      const nm = task.name || '日課';
       const dayStart = new Date(day); dayStart.setHours(h, m, 0, 0);
       const baseMs = dayStart.getTime();
       // 当日3回：時刻ちょうど・1時間後・2時間後（文言はやさしめ・追い詰めない）
@@ -12902,6 +13361,7 @@
     try {
       await _postJobsIfChanged('-chal', jobs);
     } catch(e) {}
+    try { if (typeof syncTaskAlarms === 'function') setTimeout(syncTaskAlarms, 400); } catch(e){}
   }
   window.syncChallengeNotifications = syncChallengeNotifications;
 
@@ -13001,7 +13461,7 @@
   try { setInterval(function(){ if (typeof window._notifLiveRender === 'function') window._notifLiveRender(); }, 15000); setTimeout(function(){ window._notifLiveRender(); }, 3000); } catch(e){}
 
   window.notifStatusReport = function(){
-    const L = { '-chal':'継続チャレンジ', '-brief':'朝のまとめ', '-task':'タスク・ルーチン', '-gcal':'Googleカレンダーの予定', '-weather':'天気' };
+    const L = { '-chal':'継続チャレンジ', '-brief':'朝のまとめ', '-task':'タスク・日課', '-gcal':'Googleカレンダーの予定', '-weather':'天気' };
     const pad2 = n => String(n).padStart(2, '0');
     const fmt = t => { const d = new Date(t); return (d.getMonth()+1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
     const lines = [];
@@ -13257,7 +13717,7 @@
         var res=await fetch(_pushBase(p)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}),signal:ctrl?ctrl.signal:undefined});
         testMsg='\n   '+(await _pushRespText(res,p));
       } catch(e){ testMsg='テスト送信エラー:'+(e&&e.message||e); }
-      _notifMsg('✅ 通知を作り直しました（新しい購読を作成）。\n\nタスク・ルーチン・予定の通知をすべて登録し直しました。\n\n確認テスト：'+testMsg+'\n→ 5秒後に「通知テスト（貼り直し後）」が届けば復活しています。届いたら、以後のタスク通知も来ます。');
+      _notifMsg('✅ 通知を作り直しました（新しい購読を作成）。\n\nタスク・日課・予定の通知をすべて登録し直しました。\n\n確認テスト：'+testMsg+'\n→ 5秒後に「通知テスト（貼り直し後）」が届けば復活しています。届いたら、以後のタスク通知も来ます。');
     } catch(e){
       _notifMsg('通知の作り直しに失敗しました：' + (e && e.message || e) + '\n\niPhoneはホーム画面に追加したアプリ（PWA）で開いて、通知を許可してください。');
     }
@@ -13387,6 +13847,14 @@
   //   継続=🩵 / タスク=💚 / 予定=💜 / まとめ=🧡
   const NOTIF_PREFIX = { routine: '🩵継続', task: '💚タスク', event: '💜予定', brief: '🧡まとめ' };
   function _notifPrefix(cat) { return NOTIF_PREFIX[cat] || NOTIF_PREFIX.task; }
+  // 「継続」と呼ぶのは集中対象に選んだ1つだけ。他の習慣・掃除・美容は種類名で通知する
+  function _isFocusTask(t) {
+    try { const f = (typeof getChallengeFocusTask === 'function') ? getChallengeFocusTask() : null; return !!(f && t && f.id === t.id); } catch(e) { return false; }
+  }
+  function _routinePrefix(t) {
+    if (_isFocusTask(t)) return NOTIF_PREFIX.routine;
+    return '🍼日課';   // 習慣・掃除・美容は、通知では「日課」でそろえる
+  }
   // Googleカレンダーが「時間指定=5分前/1分前」「終日=前日21時」を通知するので、
   // アプリ側は重複を避けて “事前リマインド” に特化。前日より前には通知しない。
   // 各エントリ: { off: 発火オフセット, wrole: 文言の役割 }
@@ -13562,7 +14030,7 @@
         });
       });
     } catch(e){}
-    // ── オンタイム通知：開始時刻ちょうどに通知（単発＝💚タスク／習慣・ルーチン・繰り返し＝🩵継続）──
+    // ── オンタイム通知：開始時刻ちょうどに通知（単発＝💚タスク／習慣・日課・繰り返し＝🩵継続）──
     if (_taskOntimeOn()){
       try {
         // 通知本文：「20:10〜20:40（30分）・雑務」のように中身が分かる形にする
@@ -13605,11 +14073,16 @@
               if (w.getTime() <= now || w.getTime() > horizon) continue;
               let endHM = '';
               if (!allDayR && durMinR > 0){ const em = rhh*60 + rmm + durMinR; endHM = String(Math.floor(em/60)%24).padStart(2,'0') + ':' + String(em%60).padStart(2,'0'); }
+              const _isF = _isFocusTask(t);
+              // 継続の通知がオンなら、集中対象の分は「継続の通知（数回・文言つき）」に任せて二重にしない
+              try { if (_isF && getChallengeNotify().enabled) continue; } catch(e){}
               const tg = 'ontime_r_' + (t.id||'') + '_' + ymd(day).replace(/-/g,'');   // 札は日付入りで毎日別（IDは短い通し番号）
+              const _hm = String(rhh).padStart(2,'0')+':'+String(rmm).padStart(2,'0');
+              const _bodyBase = _otBody(t, _hm, endHM, allDayR);
               jobs.push({ id:'task'+(n++), when:w.getTime(), tag:tg,
-                url:_notifUrl('#task=' + (t.id||'') + '&date=' + ymd(day)),
-                title:_notifPrefix('routine')+'｜'+t.name,
-                body:_otBody(t, String(rhh).padStart(2,'0')+':'+String(rmm).padStart(2,'0'), endHM, allDayR) });
+                url:_notifUrl(_isF ? '#challenge' : ('#task=' + (t.id||'') + '&date=' + ymd(day))),
+                title:_routinePrefix(t)+'｜'+t.name,
+                body:_isF ? ('いまが記録の時間🔥 できたらタップしよう\n' + _bodyBase) : _bodyBase });
             }
             return;
           }
@@ -13630,7 +14103,7 @@
           const cat = t['(B)種類'] || '';
           jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n)+'_'+when,
             url:_notifUrl('#task='+(t.id||'')+'&date='+String(j.start).slice(0,10)),
-            title:(isR?_notifPrefix('routine'):'💚タスク')+'｜'+t.name,
+            title:(isR?_routinePrefix(t):'💚タスク')+'｜'+t.name,
             body:_otBody(t, allDay ? '' : String(j.start).substring(11,16), (!allDay && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDay) });
         });
       } catch(e){}
@@ -13927,7 +14400,7 @@
     } catch(e) {}
     return n;
   }
-  // これまでの挑戦の記録（挑戦開始日を持つルーチンごと）。終了済みは終了日まで、継続中は今日まで。
+  // これまでの挑戦の記録（挑戦開始日を持つ日課ごと）。終了済みは終了日まで、継続中は今日まで。
   function getChallengeRecords() {
     const starts = _getChallengeStarts();
     const target = getChallengeTarget();
@@ -13940,7 +14413,7 @@
     Object.keys(starts).forEach(taskId => {
       const start = starts[taskId];
       const task = byId[taskId];
-      if (!task) return;                         // 削除済みルーチンは出さない
+      if (!task) return;                         // 削除済み日課は出さない
       if (!isDailyRoutine(task)) return;          // 継続チャレンジは毎日のものだけ
       const endedAt = (task._endedAt) || endedMap[taskId] || null;
       const endStr = endedAt || null;            // null=継続中
@@ -13965,7 +14438,7 @@
     const total = recs.reduce((s, r) => s + r.days, 0);
     let items = '';
     if (!recs.length) {
-      items = '<div class="chist-empty">まだ挑戦の記録はありません。ルーチンを記録すると、ここに履歴が残ります。</div>';
+      items = '<div class="chist-empty">まだ挑戦の記録はありません。日課を記録すると、ここに履歴が残ります。</div>';
     } else {
       recs.forEach(r => {
         const ratio = Math.max(0, Math.min(1, r.target ? r.days / r.target : 0));
@@ -14014,8 +14487,8 @@
       return '<div class="chal-panel-mask" onclick="closeChallengePanel()"></div>'
         + '<div class="chal-panel">'
         +   '<div class="chal-panel-head"><span>継続の設定</span><button class="chal-panel-close" onclick="closeChallengePanel()">閉じる</button></div>'
-        +   '<div class="chal-field"><span class="chal-field-label">挑戦するルーチン（毎日）</span>'
-        +     `<select class="challenge-select" onchange="setChallengeFocus(this.value)">${opts || '<option>毎日のルーチンがありません</option>'}</select></div>`
+        +   '<div class="chal-field"><span class="chal-field-label">挑戦する日課（毎日）</span>'
+        +     `<select class="challenge-select" onchange="setChallengeFocus(this.value)">${opts || '<option>毎日の日課がありません</option>'}</select></div>`
         +   '<div class="chal-field"><span class="chal-field-label">目標日数</span>'
         +     `<button class="challenge-target" onclick="promptChallengeTarget()">目標 ${target}日 ✎</button></div>`
         +   _challengeNotifyHTML()
@@ -14045,7 +14518,7 @@
     const list = _challengeRoutines();
     if (!list.length) {
       box.innerHTML = '<div class="chal-screen">'
-        + '<div class="challenge-empty" style="margin-top:48px;">毎日つづけるルーチンを作ると、<br>ここで継続チャレンジ（30日）ができます。</div>'
+        + '<div class="challenge-empty" style="margin-top:48px;">毎日つづける日課を作ると、<br>ここで継続チャレンジ（30日）ができます。</div>'
         + _challengeHistoryBtnHTML()
         + '</div>'
         + _challengePanelHTML();
@@ -14096,6 +14569,24 @@
   }
 
   // 通知設定のUI（継続カード内）
+  // 通知の予約状況（最後にサーバーへ登録した結果）を表示
+  function _challengePushStatusHTML() {
+    try {
+      const m = JSON.parse(localStorage.getItem('pushLog') || '{}') || {};
+      const L = m['-chal'];
+      const pad = n => String(n).padStart(2,'0');
+      const fmt = ms => { const d = new Date(ms); return (d.getMonth()+1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+      let line;
+      if (!L) line = '⚠️ まだ予約されていません（アプリを開き直すか、いったんオフ→オン）';
+      else if (L.ok === false) line = '⚠️ 予約に失敗しました' + (L.quota ? '（サーバーの1日の上限。日本時間の朝9時すぎに回復）' : '（' + (L.status || '通信エラー') + '）');
+      else {
+        const nx = (L.next || [])[0];
+        line = '✅ ' + (L.n || 0) + '件を予約済み' + (nx ? '・次は ' + fmt(nx.w) : '');
+      }
+      return '<div class="cn-note">' + line + '</div>';
+    } catch(e) { return ''; }
+  }
+
   function _challengeNotifyHTML() {
     const nf = getChallengeNotify();
     if (!nf.enabled) {
@@ -14119,6 +14610,7 @@
       +   ' に「昨日ぶんの確認」'
       + '</div>'
       + '<div class="cn-note">✓完了にする か 🕒今日の時間を変える と、その日のぶんは止まります</div>'
+      + _challengePushStatusHTML()
       + '<div class="cn-today">'
       +   `<span class="cn-today-label">🕒 今日はこの時間に${overridden ? '（変更中）' : ''}</span>`
       +   `<input class="cn-time" type="time" value="${todayTime}" onchange="setChallengeNotifyToday(this.value)">`
@@ -14143,7 +14635,7 @@
     if (routineStatusMode === 'ended') {
       const ended = allHabits.filter(h => h._endedAt);
       if (ended.length === 0) {
-        container.innerHTML = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12.5h4"/></svg></span>終了済みのルーチンはありません。</div>`;
+        container.innerHTML = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12.5h4"/></svg></span>終了済みの日課はありません。</div>`;
         return;
       }
       let html = '';
@@ -14163,7 +14655,7 @@
           +   `<span class="routine-ended-badge"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h11l-1.6 3.5L16 11H5"/></svg> ${endedLabel} 終了</span>`
           + `</div>`
           + buildRoutineGrid(task)
-          + `<button class="routine-reactivate-btn" onclick="reactivateRoutine('${task.id}')">↺ このルーチンを再開する</button>`
+          + `<button class="routine-reactivate-btn" onclick="reactivateRoutine('${task.id}')">↺ この日課を再開する</button>`
           + `</div>`;
       });
       container.innerHTML = html;
@@ -14173,7 +14665,7 @@
     // ── アクティブタブ ──
     const activeHabits = allHabits.filter(h => !h._endedAt);
 
-    // ===== 繰り返しタスクビュー（ルーチン=習慣/掃除/美容 以外の繰り返し）=====
+    // ===== 定期タスクビュー（日課=習慣/掃除/美容 以外の繰り返し）=====
     if (routineViewMode === 'repeat') {
       container.className = 'repeatview';
       const reps = getRepeatTaskTemplates(true);
@@ -14181,19 +14673,19 @@
       const ended  = reps.filter(t => t._type === 'repeat_ended');
       const active = reps.filter(t => t._type !== 'repeat_ended');
 
-      // ルーチン種類（習慣・掃除・美容）の繰り返しは「一覧・管理」の担当。件数だけ案内する
+      // 日課種類（習慣・掃除・美容）の繰り返しは「一覧・管理」の担当。件数だけ案内する
       const routineRepeats = tasks.filter(t =>
         t && !t._habitTemplateId && isRoutineKind(t) &&
         (t._type === 'repeat' || t._type === 'repeat_ended' ||
          (t._repeatConfig && (t._repeatConfig.type || t._repeatConfig.time)))
       ).length;
 
-      let html = '<div class="rep-note">ルーチン（習慣・掃除・美容）以外で、繰り返し設定があるタスクです。'
-        + (routineRepeats ? '<br>ルーチン種類の繰り返し ' + routineRepeats + '件は「一覧・管理」にあります。' : '')
+      let html = '<div class="rep-note">日課（習慣・掃除・美容）以外で、繰り返し設定があるタスクです。'
+        + (routineRepeats ? '<br>日課種類の繰り返し ' + routineRepeats + '件は「一覧・管理」にあります。' : '')
         + '</div>';
 
       if (!reps.length) {
-        html += '<div class="rep-empty">ここに出る繰り返しタスクはありません。'
+        html += '<div class="rep-empty">ここに出る定期タスクはありません。'
           + (routineRepeats
               ? '<br>お持ちの繰り返し ' + routineRepeats + '件はすべて習慣・掃除・美容なので<br>「一覧・管理」に表示されます。'
               : '<br>タスク作成時に「繰り返し」タブから設定できます。')
@@ -14255,7 +14747,7 @@
       };
       const orderM = ['美容', '掃除', '習慣'];
       const kindOfM = t => t['(B)種類'] || '習慣';
-      // 「対象日」なら今日が対象のルーチンだけに絞る（トラッカーと同じ判定）
+      // 「対象日」なら今日が対象の日課だけに絞る（トラッカーと同じ判定）
       const listM = routineFilterMode === 'target'
         ? activeHabits.filter(t => habitOccursOn(t, new Date()))
         : activeHabits;
@@ -14297,7 +14789,7 @@
         html += `</div>`;
       });
       if (!showKinds.length || !activeHabits.length) {
-        html = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg></span>ルーチンがまだありません。<br>各種類の「＋ 追加」から作成できます。</div>` + html;
+        html = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg></span>日課がまだありません。<br>各種類の「＋ 追加」から作成できます。</div>` + html;
       }
       container.innerHTML = html;
       return;
@@ -14310,11 +14802,11 @@
       : activeHabits;
 
     if (activeHabits.length === 0) {
-      container.innerHTML = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 19a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.5A3.75 3.75 0 0 1 18 19H7z"/></svg></span>習慣タスクがまだありません。<br>「＋」から種類を「習慣」にして<br>繰り返しタスクを作りましょう。</div>`;
+      container.innerHTML = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 19a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.5A3.75 3.75 0 0 1 18 19H7z"/></svg></span>習慣タスクがまだありません。<br>「＋」から種類を「習慣」にして<br>定期タスクを作りましょう。</div>`;
       return;
     }
     if (habits.length === 0) {
-      container.innerHTML = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 19a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.5A3.75 3.75 0 0 1 18 19H7z"/></svg></span>今日の対象ルーチンはありません。<br>「すべて」に切り替えると全ルーチンを確認できます。</div>`;
+      container.innerHTML = `<div class="routine-empty"><span class="re-emoji"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 19a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6-1.5A3.75 3.75 0 0 1 18 19H7z"/></svg></span>今日の対象日課はありません。<br>「すべて」に切り替えると全日課を確認できます。</div>`;
       return;
     }
 
@@ -14327,7 +14819,7 @@
     const kindOrder = ['美容', '掃除', '習慣'];
     const kindOf = t => t['(B)種類'] || '習慣';
 
-    // 1枚のルーチンカードのHTMLを生成（accentは種類カラー）
+    // 1枚の日課カードのHTMLを生成（accentは種類カラー）
     const cardHTML = (task, accent) => {
       const isTodayOcc = habitOccursOn(task, new Date());
       const doneToday = isHabitDoneOn(task.id, todayStr);
@@ -14354,10 +14846,10 @@
     const doneTodayN = occToday.filter(t => isHabitDoneOn(t.id, todayStr)).length;
     const pct = occToday.length ? Math.round(doneTodayN / occToday.length * 100) : 0;
     const summary = `<div style="grid-column:1/-1;background:linear-gradient(135deg,#6c5ce7,#a78bfa);border-radius:18px;padding:15px 17px;color:#fff;box-shadow:0 6px 18px rgba(108,92,231,.28);">`
-      + `<div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:13px;font-weight:600;opacity:.92;">今日のルーチン</span>`
+      + `<div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:13px;font-weight:600;opacity:.92;">今日の日課</span>`
       + `<span style="margin-left:auto;font-size:22px;font-weight:800;letter-spacing:.02em;">${doneTodayN}<span style="font-size:14px;font-weight:600;opacity:.85;">/${occToday.length}</span></span></div>`
       + `<div style="margin-top:9px;height:8px;background:rgba(255,255,255,.28);border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#fff;border-radius:99px;transition:width .4s;"></div></div>`
-      + `<div style="margin-top:6px;font-size:11px;opacity:.9;">${occToday.length === 0 ? '今日が対象日のルーチンはありません' : (doneTodayN === occToday.length ? '🎉 今日のぶんは全部達成！' : 'あと ' + (occToday.length - doneTodayN) + ' 件')}</div>`
+      + `<div style="margin-top:6px;font-size:11px;opacity:.9;">${occToday.length === 0 ? '今日が対象日の日課はありません' : (doneTodayN === occToday.length ? '🎉 今日のぶんは全部達成！' : 'あと ' + (occToday.length - doneTodayN) + ' 件')}</div>`
       + `</div>`;
 
     let html = '';
@@ -14403,7 +14895,7 @@
     });
   }
   function openTdyScreen() { navMoreClose(); closeAppOverlays('tdy'); const b = document.getElementById('tdyLaunch'); if (b) b.click(); navSetActive('navTdy'); syncNavHeight(); }
-  // タイマーは「もっと」メニューから開くので、ナビ上はルーチンを点灯させておく
+  // タイマーは「もっと」メニューから開くので、ナビ上は日課を点灯させておく
   function openTimerScreen() { navMoreClose(); closeAppOverlays('timer'); const b = document.getElementById('mzLaunch'); if (b) b.click(); navSetActive('navRoutine'); syncNavHeight(); }
   // プロジェクトタブ: 全画面オーバーレイが開いていれば閉じてから切り替える
   function navProjectTap() { navMoreClose(); closeAppOverlays(null); switchScreen('project'); }
@@ -14442,17 +14934,17 @@
     const m = document.getElementById('navMoreMenu');
     const opened = m && m.style.display === 'block';
     // TODO・タイマー・GTDは全画面オーバーレイで、currentScreen が更新されない。
-    // 開いている間は「別の画面にいる」と扱い、まずルーチンに戻す（反応しないように見えるのを防ぐ）
+    // 開いている間は「別の画面にいる」と扱い、まず日課に戻す（反応しないように見えるのを防ぐ）
     const overlayOpen = ['tdyOverlay','mzOverlay','gtdOverlay'].some(id => {
       const el = document.getElementById(id);
       return el && el.classList.contains('open');
     });
     if (currentScreen === 'routine' && !overlayOpen) {
-      // ルーチン画面で、もう一度タップ → タイマー/グラフのメニュー
+      // 日課画面で、もう一度タップ → タイマー/グラフのメニュー
       if (opened) navMoreClose(); else navMoreOpen();
       return;
     }
-    // 他の画面・オーバーレイ表示中は、まずルーチンに戻る
+    // 他の画面・オーバーレイ表示中は、まず日課に戻る
     navMoreClose();
     closeAppOverlays(null);
     switchScreen('routine');
@@ -14499,7 +14991,7 @@
     try { const mv = document.getElementById('mzOverlay'); if (mv) mv.classList.remove('open'); } catch(e) {}
     try { const gv = document.getElementById('gtdOverlay'); if (gv) gv.classList.remove('open'); } catch(e) {}
     document.getElementById('navTodo').classList.toggle('active', screen === 'todo');
-    // プロジェクトは独立タブになったので、ルーチンと分けて点灯させる
+    // プロジェクトは独立タブになったので、日課と分けて点灯させる
     { const np = document.getElementById('navProject'); if (np) np.classList.toggle('active', screen === 'project'); }
     document.getElementById('navRoutine').classList.toggle('active', screen === 'routine' || screen === 'graph');
     const na = document.getElementById('navAi');
@@ -16098,9 +16590,9 @@
   }
   function _itemTime(t){ try { var d=t['(A)実行日']; if(d&&d.start&&String(d.start).length>10) return String(d.start).substring(11,16); }catch(e){} return ''; }
 
-  // 3グループの色（ルーチン/習慣・タスク・予定）
+  // 3グループの色（日課/習慣・タスク・予定）
   var GRP_STYLE = {
-    routine: { color:'#2e9e5b', bg:'#e8f7ee', label:'ルーチン' },
+    routine: { color:'#2e9e5b', bg:'#e8f7ee', label:'日課' },
     task:    { color:'#6c5ce7', bg:'#efedfb', label:'タスク' },
     event:   { color:'#3b82c4', bg:'#e9f3fc', label:'予定' },
   };
@@ -16392,7 +16884,7 @@
     var tri = _swTriagedMap();                    // 振り分け履歴（1週間は再表示しない）
     var COOL = 7*86400000;
     var nowMs = Date.now();
-    // 繰り返し（ルーチン/習慣以外も含む）テンプレの名前集合 → 同名は繰り返し扱いで除外
+    // 繰り返し（日課/習慣以外も含む）テンプレの名前集合 → 同名は繰り返し扱いで除外
     var repNames = {};
     (tasks||[]).forEach(function(t){
       if (t && (t._type==='repeat' || t._type==='repeat_ended' || t._repeatConfig)) repNames[String(t.name||'').trim()] = true;
@@ -16828,7 +17320,7 @@
   //   一掃 = 「不達成」として記録 → 端末から削除 → Notionはゴミ箱へ（既存のアーカイブキュー）
   // ============================================================
   var MISSED_KEY = 'missedTasks';
-  var _mOpts = { overdue:false, routine:true, repeat:true, later:false, project:false, minDays:0 };   // 普通のタスク（あとでやるに出るもの）は対象外。習慣・ルーチン・繰り返しの未完了分だけが対象
+  var _mOpts = { overdue:false, routine:true, repeat:true, later:false, project:false, minDays:0 };   // 普通のタスク（あとでやるに出るもの）は対象外。習慣・日課・繰り返しの未完了分だけが対象
   var _mTab = 'clear', _mScope = 'week', _mConfirm = false, _mLast = null;
   function _mEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
   function _mLoad(){ try{ var o = JSON.parse(localStorage.getItem(MISSED_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; } }
@@ -16848,7 +17340,7 @@
     (tasks || []).forEach(function(t){ if (t && (t._type === 'repeat' || t._type === 'repeat_ended') && t.name) m[String(t.name).trim()] = t.id; });
     return m;
   }
-  // 一掃の対象：期限切れの未完了（習慣・ルーチン・繰り返しの「その日の分」を含む）。本体（テンプレ）と空名は対象外
+  // 一掃の対象：期限切れの未完了（習慣・日課・繰り返しの「その日の分」を含む）。本体（テンプレ）と空名は対象外
   function _mCandidates(o){
     var today = new Date(); today.setHours(0,0,0,0);
     var out = [], repNames = _mRepeatNames();
@@ -16856,7 +17348,7 @@
       if (!t || (typeof _isBlankName === 'function' && _isBlankName(t.name))) return;
       if (t._type === 'repeat' || t._type === 'repeat_ended') return;     // 本体は絶対に対象にしない
       if (t._pseudo) return;
-      // ルーチン＝種類が 習慣・掃除・美容（ルーチン画面に出るもの）／定期タスク＝それ以外で「繰り返し」設定から作られたもの（出社など）
+      // 日課＝種類が 習慣・掃除・美容（日課画面に出るもの）／定期タスク＝それ以外で「繰り返し」設定から作られたもの（出社など）
       var isRtn = (typeof isRoutineKind === 'function' && isRoutineKind(t));
       var isRep = !isRtn && !!(t._habitTemplateId || t._repeatConfig || t._recurringId || repNames[String(t.name).trim()]);
       var group = isRtn ? 'routine' : (isRep ? 'repeat' : null);
@@ -16994,21 +17486,21 @@
       var all = _mCandidates(_mOpts);
       var nRtn = _mCandidates({ overdue:false, routine:true, repeat:false, later:false, project:_mOpts.project, minDays:_mOpts.minDays }).length;
       var nRep = _mCandidates({ overdue:false, routine:false, repeat:true, later:false, project:_mOpts.project, minDays:_mOpts.minDays }).length;
-      html += '<div class="mc-sub">毎日・毎週など<b>決まって出てくるタスク</b>で、<b>期限が過ぎたまま終わっていない「その日の分」</b>を、<b>不達成として記録</b>してから削除します（Notionはゴミ箱へ移動）。ルーチン・定期タスクの<b>本体は消えません</b>（消した日は作り直しません）。</div>'
-        + '<label class="mc-row" style="align-items:flex-start"><input type="checkbox" style="margin-top:3px" ' + (_mOpts.routine ? 'checked' : '') + ' onchange="_mcOpt(\'routine\',this.checked)"><span style="flex:1">ルーチン<span style="display:block;font-size:11.5px;color:#8e8b9e;font-weight:500">習慣・掃除・美容（ルーチン画面にあるもの）</span></span><span class="n">' + nRtn + '件</span></label>'
+      html += '<div class="mc-sub">毎日・毎週など<b>決まって出てくるタスク</b>で、<b>期限が過ぎたまま終わっていない「その日の分」</b>を、<b>不達成として記録</b>してから削除します（Notionはゴミ箱へ移動）。日課・定期タスクの<b>本体は消えません</b>（消した日は作り直しません）。</div>'
+        + '<label class="mc-row" style="align-items:flex-start"><input type="checkbox" style="margin-top:3px" ' + (_mOpts.routine ? 'checked' : '') + ' onchange="_mcOpt(\'routine\',this.checked)"><span style="flex:1">日課<span style="display:block;font-size:11.5px;color:#8e8b9e;font-weight:500">習慣・掃除・美容（日課画面にあるもの）</span></span><span class="n">' + nRtn + '件</span></label>'
         + '<label class="mc-row" style="align-items:flex-start"><input type="checkbox" style="margin-top:3px" ' + (_mOpts.repeat ? 'checked' : '') + ' onchange="_mcOpt(\'repeat\',this.checked)"><span style="flex:1">定期タスク<span style="display:block;font-size:11.5px;color:#8e8b9e;font-weight:500">仕事など、決まった周期で出てくるもの（例：出社）</span></span><span class="n">' + nRep + '件</span></label>'
         + '<div class="mc-sub" style="background:#eefaf2;border:1px solid #bfe8cd;border-radius:10px;padding:8px 10px;color:#1f7a45;margin-top:10px">「あとでやる」に出ている普通のタスクは、<b>消えません</b>（対象外です）。</div>'
         + '<div class="mc-row" style="font-size:13px;color:#6b6880">範囲：<select onchange="_mcOpt(\'minDays\',+this.value)" style="border:1px solid #d8d8de;border-radius:8px;padding:6px;font-size:13px;font-family:inherit">'
         + [[0, 'すべて'], [3, '3日以上前'], [7, '7日以上前'], [14, '14日以上前'], [30, '30日以上前']].map(function(p){ return '<option value="' + p[0] + '"' + (_mOpts.minDays === p[0] ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select></div>';
       if (all.length){
         html += '<div class="mc-h3">対象 ' + all.length + ' 件</div>'
-          + all.slice(0, 6).map(function(x){ return '<div class="mc-item"><span>' + _mEsc(x.t.name) + '</span><span class="sc" style="background:' + (x.group === 'routine' ? '#e8f7ee;color:#1f8a50' : '#e7e2ff;color:#5846d6') + '">' + (x.group === 'routine' ? 'ルーチン' : '定期タスク') + '</span><span class="d">' + (x.kind === 'overdue' ? x.days + '日遅れ' : '日付なし') + '</span></div>'; }).join('')
+          + all.slice(0, 6).map(function(x){ return '<div class="mc-item"><span>' + _mEsc(x.t.name) + '</span><span class="sc" style="background:' + (x.group === 'routine' ? '#e8f7ee;color:#1f8a50' : '#e7e2ff;color:#5846d6') + '">' + (x.group === 'routine' ? '日課' : '定期タスク') + '</span><span class="d">' + (x.kind === 'overdue' ? x.days + '日遅れ' : '日付なし') + '</span></div>'; }).join('')
           + (all.length > 6 ? '<div class="mc-sub" style="margin:6px 0 0">ほか ' + (all.length - 6) + ' 件</div>' : '');
         html += _mConfirm
           ? '<button class="mc-btn" onclick="_mcGo()">本当に ' + all.length + ' 件を一掃する（記録して削除）</button><button class="mc-btn" style="background:#f2f1f7;color:#6b6880;margin-top:8px" onclick="_mcCancel()">やめる</button>'
           : '<button class="mc-btn" onclick="_mcAsk()">🧹 不達成として記録して一掃</button>';
       } else {
-        html += '<div class="mc-sub" style="margin-top:14px">対象のルーチン・定期タスクの未完了分はありません。</div><button class="mc-btn dis" disabled>一掃するものがありません</button>';
+        html += '<div class="mc-sub" style="margin-top:14px">対象の日課・定期タスクの未完了分はありません。</div><button class="mc-btn dis" disabled>一掃するものがありません</button>';
       }
     } else {
       var st = _mStats(_mScope), r = st.range;
@@ -17376,7 +17868,7 @@
     return t && isRoutineKind(t) && t._type === 'repeat';
   }
 
-  // 「この日だけ / この日以降」を尋ねる（繰り返しタスク用）。
+  // 「この日だけ / この日以降」を尋ねる（定期タスク用）。
   // 戻り値: 'single' | 'future' | null(キャンセル)
   function askRepeatScope(actionLabel) {
     return new Promise(resolve => {
@@ -17384,7 +17876,7 @@
       ov.className = 'scope-overlay';
       ov.innerHTML = `
         <div class="scope-sheet">
-          <div class="scope-title">繰り返しタスクの${actionLabel}</div>
+          <div class="scope-title">定期タスクの${actionLabel}</div>
           <div class="scope-desc">変更の範囲を選んでください</div>
           <button class="scope-btn" data-v="single">この日だけ変更</button>
           <button class="scope-btn" data-v="future">この日以降すべて変更</button>
@@ -17431,7 +17923,7 @@
     }
   }
 
-  // 繰り返しタスクの時刻を「この日以降」適用する。
+  // 定期タスクの時刻を「この日以降」適用する。
   // ・テンプレートの _repeatConfig.time を更新（以後の展開に反映）
   // ・基準日(fromDateStr)以降の既存インスタンスを更新
   function applyRepeatTimeFuture(instOrTpl, newTime, fromDateStr) {
@@ -20661,7 +21153,29 @@
     }
     gcalRenderEventList();
     renderTimeline();
+    // 週・月ビューも作り直す（削除・移動した予定が残って見えないように）
+    try { if ((localStorage.getItem('schedViewMode') || 'day') !== 'day' && window.applySchedView) window.applySchedView(); } catch(e){}
   }
+
+  // ---- Google側で変更・削除した予定を、アプリを開いたまま／戻ってきたときにも反映 ----
+  let _gcalLastSync = Date.now();
+  async function gcalForegroundRefresh(force) {
+    try {
+      if (!gcalAccessToken || gcalCalendars.length === 0) return;
+      if (window._dragExpandMode) return;                       // ドラッグ中は触らない
+      if (!force && Date.now() - _gcalLastSync < 60000) return;   // 1分以内の連続更新はしない
+      _gcalLastSync = Date.now();
+      gcalEvents = {};
+      Object.keys(gcalFetching).forEach(k => delete gcalFetching[k]);
+      await gcalFetchEvents(currentDate);
+      try { renderTimeline(); } catch(e){}
+      try { gcalRenderEventList(); } catch(e){}
+      try { if ((localStorage.getItem('schedViewMode') || 'day') !== 'day' && window.applySchedView) window.applySchedView(); } catch(e){}
+    } catch(e){}
+  }
+  window.gcalForegroundRefresh = gcalForegroundRefresh;
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') gcalForegroundRefresh(false); });
+  setInterval(() => { if (document.visibilityState === 'visible') gcalForegroundRefresh(false); }, 3 * 60 * 1000);
 
   // ---- 書き込みUIの表示制御（＋ボタン / 書き込み権限の再接続ボタン） ----
   function gcalUpdateWriteUI() {
@@ -21864,14 +22378,40 @@
     var WDAY = ['日','月','火','水','木','金','土'];
 
     // ---- 位置情報 ----
-    function wxGetGeo(){
+    // 前回の現在地を覚えておき、自動の更新では許可ダイアログを出さない
+    //  （iPhoneのホーム画面アプリは許可を保持しないため、取得のたびに聞かれていた）
+    var WX_LASTGEO_KEY = 'wxLastGeo';
+    function wxLastGeo(){ try { var o = JSON.parse(localStorage.getItem(WX_LASTGEO_KEY) || 'null'); return (o && o.lat != null && o.lon != null) ? o : null; } catch(e){ return null; } }
+    function wxGetGeo(force){
       return new Promise(function(resolve, reject){
-        if (!navigator.geolocation) { reject(new Error('no geolocation')); return; }
-        navigator.geolocation.getCurrentPosition(
-          function(pos){ resolve({ lat:pos.coords.latitude, lon:pos.coords.longitude, place:'現在地' }); },
-          function(err){ reject(err); },
-          { enableHighAccuracy:true, timeout:10000, maximumAge:10*60*1000 }
-        );
+        var last = wxLastGeo();
+        var fresh = last && last.at && (Date.now() - last.at) < 6*3600*1000;   // 6時間以内は再取得しない
+        var useLast = function(){ resolve({ lat:last.lat, lon:last.lon, place:'現在地' }); };
+        var fetchNow = function(){
+          if (!navigator.geolocation) { if (last) useLast(); else reject(new Error('no geolocation')); return; }
+          navigator.geolocation.getCurrentPosition(
+            function(pos){
+              try { localStorage.setItem(WX_LASTGEO_KEY, JSON.stringify({ lat:pos.coords.latitude, lon:pos.coords.longitude, at:Date.now() })); } catch(e){}
+              resolve({ lat:pos.coords.latitude, lon:pos.coords.longitude, place:'現在地' });
+            },
+            function(err){ if (last) useLast(); else reject(err); },
+            { enableHighAccuracy:false, timeout:10000, maximumAge:10*60*1000 }
+          );
+        };
+        if (force) { fetchNow(); return; }            // 「現在地を更新」など、自分で押したときだけ確実に取り直す
+        if (fresh) { useLast(); return; }
+        // 古い／無いとき：許可済みなら取り直す。未許可（ダイアログが出る状態）なら、前回の位置があればそれを使う
+        try {
+          if (navigator.permissions && navigator.permissions.query) {
+            navigator.permissions.query({ name:'geolocation' }).then(function(st){
+              if (st.state === 'granted') fetchNow();
+              else if (last) useLast();
+              else fetchNow();                          // 初回だけは聞く
+            }).catch(function(){ if (last) useLast(); else fetchNow(); });
+            return;
+          }
+        } catch(e){}
+        if (last) useLast(); else fetchNow();
       });
     }
     // 地域名 → 緯度経度（Open-Meteo ジオコーディング）
@@ -21960,9 +22500,9 @@
       }).catch(function(){ return '現在地'; });
     }
 
-    function wxEnsureCurrent(force){
+    function wxEnsureCurrent(force, soft){
       if (!force){ var c = wxCurGet(); if (c) return Promise.resolve(c); }
-      return wxGetGeo().then(function(g){
+      return wxGetGeo(!!force && !soft).then(function(g){
         return Promise.all([ wxFetchForecast(g.lat, g.lon), wxReverseGeo(g.lat, g.lon) ]).then(function(res){
           var days = res[0], name = res[1] || '現在地';
           var c = { at:Date.now(), lat:g.lat, lon:g.lon, place:name, days:days };
@@ -22125,7 +22665,7 @@
     function wxUseGeo(){
       var el = document.getElementById('weatherPanel');
       if (el) el.innerHTML = '<div class="wx-loading">📍 現在地を取得中…</div>';
-      wxGetGeo().then(function(g){
+      wxGetGeo(true).then(function(g){
         var c = wxCfg(); c.lat=g.lat; c.lon=g.lon; c.place=g.place; wxSave(c);
         localStorage.removeItem(WX_CACHE_KEY);
         renderWeatherPanel();
@@ -22161,7 +22701,7 @@
       var el = document.getElementById('weatherPanel');
       if (el) el.innerHTML = '<div class="wx-loading">↻ 更新中…</div>';
       wxEnsureForecast(true).then(function(){ wxPaint(); }).catch(function(){ renderWeatherPanel(); });
-      wxEnsureCurrent(true).then(function(){ wxPaint(); }).catch(function(){});
+      wxEnsureCurrent(true, true).then(function(){ wxPaint(); }).catch(function(){});
     }
     window.wxRefresh = wxRefresh;
 
@@ -25649,7 +26189,7 @@
 <!-- ============================================================ -->
 <!-- 仕事タスクの締め切り強調ミニ一覧（ADHD向け・独立モジュール）   -->
 <!--   種類=仕事 のタスクに難易度から締め切りを自動付与し、        -->
-<!--   ルーチン画面トップに「締切が近い順・赤強調・カウントダウン」 -->
+<!--   日課画面トップに「締切が近い順・赤強調・カウントダウン」 -->
 <!--   localStorage: workTaskMeta                                   -->
 <!-- ============================================================ -->
 <style>
@@ -25815,7 +26355,7 @@
     // 未完了の仕事タスクの名前カウント（同名が何度も出る＝繰り返し/routineとみなす）
     var counts={};
     tasks.forEach(function(t){ if(isWork(t)){ var k=(t.name||'').trim(); counts[k]=(counts[k]||0)+1; } });
-    // 繰り返しテンプレ（ルーチン/習慣以外も含む）の名前集合 → 同名は出さない
+    // 繰り返しテンプレ（日課/習慣以外も含む）の名前集合 → 同名は出さない
     var repNames={};
     tasks.forEach(function(t){ if(t && (t._type==='repeat'||t._type==='repeat_ended'||t._repeatConfig)) repNames[(t.name||'').trim()]=true; });
     var items=[];
@@ -26079,7 +26619,7 @@
   // 勤怠は「日付ごと」、履歴系は「項目ごと」に、新しい変更が勝つ形でそろえる。削除も反映。
   var CFG_KEY = 'devSyncCfg', META_KEY = 'devSyncMeta', BACKUP_KEY = 'devSyncBackup';
   // 文字列として丸ごと同期する設定
-  var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify','pushServerCfg'];
+  var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify','pushServerCfg','stampCard'];
   // {項目: 値} の形で、項目ごとに同期するもの
   var MAP_KEYS = ['routinesDone','routineEnded','habitHistory','habitFreqOverrides','swTriaged','missedTasks','habitSkips'];
   var applying = false, busy = false, timer = null, lastRun = 0;
@@ -26145,7 +26685,7 @@
 
   // ===== 通信方式 =====
   //  worker : 独自の同期サーバー（URL＋合言葉を設定した場合）
-  //  proxy  : 既存のサーバー（ルーチン同期と同じ保存先）に同乗。設定不要・全端末で自動
+  //  proxy  : 既存のサーバー（日課同期と同じ保存先）に同乗。設定不要・全端末で自動
   var lastAd = null;
   function transport(){
     var c = cfg();
@@ -26211,7 +26751,7 @@
     if (tr.kind === 'worker') return post(tr.c, { since:since, push:push });
     return exchangeProxy(tr.info, push, cur, m, heal);
   }
-  // 他の保存処理（ルーチン同期）が blob を丸ごと書き換える前に、最新の appdata を渡す
+  // 他の保存処理（日課同期）が blob を丸ごと書き換える前に、最新の appdata を渡す
   window._devSyncFetchAd = async function(){
     try{
       var tr = transport(); if (!tr || tr.kind !== 'proxy') return null;
