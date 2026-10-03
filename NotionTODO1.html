@@ -4652,7 +4652,7 @@
   <div class="time-pop-card">
     <div style="padding:18px 20px 2px;font-size:16px;font-weight:700;color:#1c1c1e;">繰り返しを削除</div>
     <div id="repDelName" style="padding:2px 20px 0;font-size:13px;font-weight:600;color:#6c5ce7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-    <div style="padding:6px 20px 0;font-size:11px;color:#8e8e93;line-height:1.6;">選んだ日より前の予定は記録として残します。</div>
+    <div id="repDelNote" style="padding:6px 20px 0;font-size:11px;color:#8e8e93;line-height:1.6;">選んだ日より前の予定は記録として残します。</div>
     <div style="padding:14px 20px 6px;display:flex;flex-direction:column;gap:8px;">
       <button type="button" id="repDelDay"   onclick="runRepeatDelete('day')"   style="background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;"></button>
       <button type="button" id="repDelWeek"  onclick="runRepeatDelete('week')"  style="background:#f2f2f7;color:#3c3c43;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;touch-action:manipulation;"></button>
@@ -11066,6 +11066,10 @@
     return d;
   }
 
+  // 削除した定期タスクのNotionページID（アーカイブ完了まで保持。同期で復活させない）
+  function _repTombLoad() { try { const a = JSON.parse(localStorage.getItem('repDeletedNotionIds') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function _repTombAdd(id) { if (!id) return; const a = _repTombLoad(); if (a.indexOf(id) < 0) { a.push(id); try { localStorage.setItem('repDeletedNotionIds', JSON.stringify(a.slice(-300))); } catch (e) {} } }
+  function _repTombDel(id) { const a = _repTombLoad().filter(x => x !== id); try { localStorage.setItem('repDeletedNotionIds', JSON.stringify(a)); } catch (e) {} }
   // 定期タスクを「起点日以降」まとめて削除する。
   // scope='all' のときはテンプレート・全インスタンスを完全に削除する。
   function deleteRepeatTaskFrom(templateId, scope) {
@@ -11078,8 +11082,12 @@
     // 対象インスタンス: テンプレート紐付き、または同名の展開済み（Notion往復でID紐付けが消えた分）
     const toRemove = tasks.filter(t => {
       if (t.id === templateId) return false;
+      const sameName = (t.name || '').trim() === name;
       const mine = t._habitTemplateId === templateId ||
-        (!t._habitTemplateId && t._type === 'time' && (t.name || '').trim() === name);
+        (!t._habitTemplateId && t._type === 'time' && sameName) ||
+        // 「すべて削除」のときは、Notionの往復で増えた同名の定期タスク（重複）も消す。残ると別の行として復活して見えるため
+        (all && sameName && !t._habitTemplateId && (t._type === 'repeat' || t._type === 'repeat_ended' ||
+          !!(t._repeatConfig && (t._repeatConfig.type || t._repeatConfig.time || (t._repeatConfig.daysOfWeek && t._repeatConfig.daysOfWeek.length)))));
       if (!mine) return false;
       if (all) return true;
       const src = t._habitDate || (t['(A)実行日'] && t['(A)実行日'].start);
@@ -11090,10 +11098,13 @@
       return d >= cutoff;
     });
 
-    // Notion側もアーカイブ
+    // Notion側もアーカイブ（失敗しても、墓標に残して次回の同期でやり直す＆再取り込みしない）
+    toRemove.forEach(t => { if (t._notionId) _repTombAdd(t._notionId); });
+    if (all && tpl._notionId) _repTombAdd(tpl._notionId);
     toRemove.forEach(t => {
       if (t._notionId && notionLinked()) {
         notionApiCall(`/pages/${t._notionId}`, 'PATCH', { archived: true })
+          .then(() => _repTombDel(t._notionId))
           .catch(e => console.error('定期タスク削除失敗', e));
       }
     });
@@ -11103,6 +11114,7 @@
       removeIds.add(templateId);
       if (tpl._notionId && notionLinked()) {
         notionApiCall(`/pages/${tpl._notionId}`, 'PATCH', { archived: true })
+          .then(() => _repTombDel(tpl._notionId))
           .catch(e => console.error('繰り返しテンプレート削除失敗', e));
       }
     } else {
@@ -11425,6 +11437,10 @@
     document.getElementById('repDelDay').textContent   = '今日以降を削除（' + fmt(repeatCutoffDate('day')) + '〜）';
     document.getElementById('repDelWeek').textContent  = '今週以降を削除（' + fmt(repeatCutoffDate('week')) + '〜）';
     document.getElementById('repDelMonth').textContent = '今月以降を削除（' + fmt(repeatCutoffDate('month')) + '〜）';
+    const ended = t._type === 'repeat_ended';
+    ['repDelDay', 'repDelWeek', 'repDelMonth'].forEach(i => { const b = document.getElementById(i); if (b) b.style.display = ended ? 'none' : ''; });
+    const note = document.getElementById('repDelNote');
+    if (note) note.textContent = ended ? 'すでに終了している定期タスクです。「すべて削除」で一覧から完全に消えます。' : '「今日以降」などは、そこで終了にして「終了済み」に移します（過去の記録は残る）。一覧から完全に消すには、一番下の「すべて削除」を選んでください。';
     document.getElementById('repDelPop').style.display = 'flex';
   }
   function closeRepeatDeletePop() {
@@ -11438,6 +11454,7 @@
     if (scope === 'all' && !confirm('「' + nm + '」の繰り返し設定と、過去分も含むすべての予定を削除します。よろしいですか？')) return;
     const r = deleteRepeatTaskFrom(_repDelId, scope);
     closeRepeatDeletePop();
+    try { showRewardToast(scope === 'all' ? '🗑 「' + nm + '」を削除しました' : '「' + nm + '」を終了にしました（「終了済み」に移動）'); } catch (e) {}
     renderRoutineScreen();
     try { renderTimeline(); } catch(e) {}
     try { renderLater(); } catch(e) {}
@@ -14720,7 +14737,7 @@
                   })()
             +   '</span>'
             + '</div>'
-            + (isEnded ? '' : '<button class="rep-del" onclick="openRepeatDeletePop(\'' + _escapeHtml(t.id) + '\')" aria-label="削除">'
+            + ('<button class="rep-del" onclick="openRepeatDeletePop(\'' + _escapeHtml(t.id) + '\')" aria-label="削除">'
                 + '<svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7M10 11v6M14 11v6"/></svg></button>')
             + '</div>';
         };
@@ -14952,6 +14969,8 @@
   function navAiGo() { navMoreClose(); switchScreen('ai'); }
 
   function switchScreen(screen) {
+    // ごほうび画面が開いたままだと、下のボタンで画面を切り替えても上に残って見えないので、先に閉じる
+    try { const _ro = document.getElementById('rewardOverlay'); if (_ro && _ro.style.display !== 'none') closeRewards(); } catch (e) {}
     currentScreen = screen;
     const todoScreen = document.getElementById('todoScreen');
     const todoHeader = document.getElementById('todoHeader');
@@ -19846,6 +19865,13 @@
           continue;
         }
         const localIdx = tasks.findIndex(t => t._notionId === nTask._notionId);
+
+        // 削除済みの定期タスク：Notionに残っていたらアーカイブをやり直し、取り込まない
+        if (_repTombLoad().indexOf(nTask._notionId) >= 0) {
+          try { await notionApiCall(`/pages/${nTask._notionId}`, 'PATCH', { archived: true }); _repTombDel(nTask._notionId); } catch (e) {}
+          if (localIdx !== -1) tasks.splice(localIdx, 1);
+          continue;
+        }
 
         if (localIdx === -1) {
           // ローカルに存在しない → 追加
