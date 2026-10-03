@@ -4893,12 +4893,30 @@
         + '|' + JSON.stringify((t&&t._repeatConfig)||null);
     }catch(e){ return String((t&&t.name)||'')+'|'+((t&&t._type)||''); }
   }
+  // 削除したテンプレの記録（Workerからの再取り込み・他端末からの復活を防ぐ）
+  function _tplTombLoad(){ try{ var o=JSON.parse(localStorage.getItem('tplDeleted')||'{}')||{}; o.ids=o.ids||{}; o.keys=o.keys||{}; return o; }catch(e){ return {ids:{},keys:{}}; } }
+  function _tplTombSave(o){
+    try{
+      var cut=Date.now()-90*86400000;
+      ['ids','keys'].forEach(function(f){ Object.keys(o[f]||{}).forEach(function(k){ if(o[f][k]<cut) delete o[f][k]; }); });
+      localStorage.setItem('tplDeleted', JSON.stringify(o));
+    }catch(e){}
+  }
+  function _tplTombAddTpl(list){
+    var o=_tplTombLoad(), now=Date.now();
+    (list||[]).forEach(function(t){ if(!t) return; if(t.id) o.ids[t.id]=now; o.keys[_tplContentKey(t)]=now; });
+    _tplTombSave(o);
+  }
+  function _tplIsTomb(t, o){ o=o||_tplTombLoad(); return !!(t && t.id && o.ids[t.id]); }   // idだけで判定（同じ内容で作り直したものは消さない）
+  window._tplTombAddTpl = _tplTombAddTpl;
   function _applyTemplatesAuthoritative(remote){
     // ローカルのテンプレのみ入れ替え（テンプレ以外は保持）。remote内の内容重複は1つに畳む。
     tasks = (tasks||[]).filter(function(t){ return !_isTpl(t); });
     var seen={};
+    var _tb=_tplTombLoad();
     remote.forEach(function(t){
       if(!(t && t.id)) return;
+      if(_tplIsTomb(t,_tb)) return;   // 削除済みは入れない
       var k=_tplContentKey(t);
       if(seen[k]) return;         // 同一内容のテンプレは1つだけ採用（重複復活の元を断つ）
       seen[k]=1; tasks.push(t);
@@ -4907,8 +4925,10 @@
   function _mergeAddTemplates(remote){
     var haveId={}, haveKey={};
     _collectTemplates().forEach(function(t){ haveId[t.id]=1; haveKey[_tplContentKey(t)]=1; });
+    var _tb2=_tplTombLoad();
     remote.forEach(function(t){
       if(!(t && t.id)) return;
+      if(_tplIsTomb(t,_tb2)) return;           // 削除済みは復活させない
       if(haveId[t.id]) return;                 // 同一idは既に保持
       var k=_tplContentKey(t);
       if(haveKey[k]) return;                    // 同一内容のテンプレが既にある → 重複追加しない
@@ -4953,6 +4973,15 @@
       if(!r.ok) return;                       // 未実装(404)/未保存なら何もしない
       var blob=await r.json();
       if(!blob || !Array.isArray(blob.templates)) return;
+      // 他端末で削除されたテンプレを、この端末からも外す
+      try{
+        if(blob.deleted){
+          var _o=_tplTombLoad(), _add=false;
+          Object.keys(blob.deleted.ids||{}).forEach(function(k){ if(!_o.ids[k]){ _o.ids[k]=blob.deleted.ids[k]; _add=true; } });
+          Object.keys(blob.deleted.keys||{}).forEach(function(k){ if(!_o.keys[k]){ _o.keys[k]=blob.deleted.keys[k]; _add=true; } });
+          if(_add){ _tplTombSave(_o); var _n0=(tasks||[]).length; tasks=(tasks||[]).filter(function(t){ return !(_isTpl(t) && _tplIsTomb(t,_o)); }); if(tasks.length!==_n0) localStorage.setItem('tasks', JSON.stringify(tasks)); }
+        }
+      }catch(e){}
       var meta=_tplMeta();
       var localHash=_combinedHash();
       var noLocalChanges = (meta.syncedHash===localHash);
@@ -5036,7 +5065,7 @@
         var meta=_tplMeta();
         if(meta.syncedHash===hash) return;    // 変化なし → 送らない
         var updatedAt=Date.now();
-        var body={ updatedAt:updatedAt, templates:list };
+        var body={ updatedAt:updatedAt, templates:list.filter(function(t){ return !_tplIsTomb(t); }), deleted:_tplTombLoad() };
         try{ if(typeof _challengeStateForSync==='function') body.challenge=_challengeStateForSync(); }catch(e){}
         try{ if(window._devSyncFetchAd){ var _ad=await window._devSyncFetchAd(); if(_ad) body.appdata=_ad; } }catch(e){}   // 端末間同期のデータを消さない
         var r=await fetch(_tplSyncUrl(), { method:'POST', headers:_tplAuthHeaders(), body:JSON.stringify(body) });
@@ -11111,6 +11140,8 @@
 
     const removeIds = new Set(toRemove.map(t => t.id));
     if (all) {
+      // テンプレの削除を記録（Workerや他端末から復活させない）
+      try { window._tplTombAddTpl([tpl].concat(toRemove.filter(t => t._type === 'repeat' || t._type === 'repeat_ended' || t._repeatConfig))); } catch (e) {}
       removeIds.add(templateId);
       if (tpl._notionId && notionLinked()) {
         notionApiCall(`/pages/${tpl._notionId}`, 'PATCH', { archived: true })
@@ -11132,6 +11163,8 @@
 
     tasks = tasks.filter(t => !removeIds.has(t.id));
     localStorage.setItem('tasks', JSON.stringify(tasks));
+    try { if (typeof tplCloudPush === 'function') tplCloudPush(true); } catch (e) {}   // 削除をすぐWorkerへ反映
+    try { notifyTasksChanged(); } catch (e) {}
     return { removed: removeIds.size, name };
   }
 
