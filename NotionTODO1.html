@@ -3027,7 +3027,7 @@
       <div class="date-month-year">
         <div class="date-month" id="dateMonth">5月</div>
         <div class="date-year" id="dateYear">2026</div>
-        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1003a</div>
+        <div class="date-year" id="buildTag" style="font-size:9px;color:#8a6cf0;font-weight:700;letter-spacing:0.3px;">v1003f</div>
       </div>
     </div>
     <div class="header-right">
@@ -3406,7 +3406,18 @@
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">通知（プッシュ）</div>
         <div style="font-size:11px;color:#a0a0a8;margin-bottom:10px;line-height:1.5;">タスク・ルーチンの通知が来ないときは、まず「テスト通知」を試してください。届かない場合は「通知を貼り直す」で購読を作り直します。<br>※ iPhoneは<b>ホーム画面に追加したアプリ（PWA）</b>でのみ通知が届きます。</div>
         <button onclick="_notifTapTest()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔔 テスト通知を送る（8秒後）</button>
+        <button onclick="_notifTest2min()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;touch-action:manipulation;">🔔 2分後のテスト（タスクの通知と同じ経路）</button>
         <div id="notifLiveStatus" style="font-size:12px;line-height:1.5;margin-bottom:8px;color:#5a5769">予約の状態：確認中…</div>
+        <details style="margin-bottom:8px;">
+          <summary style="font-size:12px;color:#6c5ce7;cursor:pointer;font-weight:700;">通知サーバーの設定（Cloudflareの上限を避ける新しいサーバー）</summary>
+          <div style="margin-top:8px;">
+            <div style="font-size:11px;color:#8e8e93;line-height:1.5;margin-bottom:6px;">新しい通知サーバー（push-worker）のURLと合言葉を入力して保存すると、通知の予約をそちらに送ります。保存すると、通知の鍵が切り替わるので、自動で購読を作り直します。空欄で保存すると、これまでのサーバーに戻ります。</div>
+            <input id="pushSrvUrl" type="url" placeholder="https://〜.workers.dev" autocapitalize="off" autocorrect="off" style="width:100%;box-sizing:border-box;border:1px solid #d8d8de;border-radius:10px;padding:10px;font-size:14px;margin-bottom:6px;font-family:inherit;">
+            <input id="pushSrvKey" type="password" placeholder="合言葉（PUSH_KEY）" autocapitalize="off" autocorrect="off" style="width:100%;box-sizing:border-box;border:1px solid #d8d8de;border-radius:10px;padding:10px;font-size:14px;margin-bottom:6px;font-family:inherit;">
+            <button onclick="pushServerSave()" style="width:100%;box-sizing:border-box;background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:6px;-webkit-user-select:none;user-select:none;touch-action:manipulation;">保存して通知を貼り直す</button>
+            <button onclick="pushServerDiagnose()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;touch-action:manipulation;">🩺 通知サーバーを診断する</button>
+          </div>
+        </details>
         <button onclick="_notifStatusTap()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;-webkit-user-select:none;user-select:none;touch-action:manipulation;">📋 通知の予約状況を見る</button>
         <button onclick="_notifResubTap()" style="width:100%;box-sizing:border-box;background:#fff;color:#6c5ce7;border:1.5px solid #d8d8de;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">🔄 通知を貼り直す（購読を作り直す）</button>
       </div>
@@ -12617,7 +12628,13 @@
   function _mzPush() { try { return JSON.parse(localStorage.getItem('mzPush') || 'null'); } catch(e) { return null; } }
   function _chalPushUrl() { const p = _mzPush(); return (p && p.url) || NOTION_PROXY; }
   function _chalClient() { const p = _mzPush(); const base = (p && p.client) || ('c-' + Math.random().toString(36).slice(2) + Date.now().toString(36)); return base + '-chal'; }
-  function _chalHeaders() { const p = _mzPush(); const h = { 'Content-Type':'application/json' }; if (p && p.token) h['X-Auth'] = p.token; return h; }
+  // 新しい通知サーバー（KVのlistを使わない版）の設定。URLが入っていればそちらを使う
+  const NEW_PUSH_VAPID = 'BNkX1KIV3WdhIEf_MG9x4GhEqJznIFYKLNv4pU4_wHk0yRbtIt4CB2FIO9UNgiEFMI_Agd0sAFd56AsmcO0__zI';   // 新しい通知サーバーの公開鍵（対になる秘密鍵は、サーバーの VAPID_PRIVATE_JWK に設定）
+  function _pushCfg(){ try { const c = JSON.parse(localStorage.getItem('pushServerCfg') || 'null'); if (c && c.url) return { url:String(c.url).trim().replace(/\/+$/, ''), key:String(c.key || '') }; } catch(e){} return null; }
+  function _pushBase(p){ const c = _pushCfg(); return c ? c.url : ((p && p.url) || NOTION_PROXY); }
+  function _vapidKey(){ return _pushCfg() ? NEW_PUSH_VAPID : CHAL_VAPID; }
+  window._pushCfg = _pushCfg; window._pushBase = _pushBase; window._vapidKey = _vapidKey;
+  function _chalHeaders() { const p = _mzPush(); const h = { 'Content-Type':'application/json' }; const c = _pushCfg(); if (c) { if (c.key) h['X-Push-Key'] = c.key; } else if (p && p.token) h['X-Auth'] = p.token; return h; }
   function _u8FromB64(b64) { const pad = '='.repeat((4 - b64.length % 4) % 4); const s = (b64 + pad).replace(/-/g,'+').replace(/_/g,'/'); const raw = atob(s); const out = new Uint8Array(raw.length); for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i); return out; }
   // 既存の購読を再利用。無ければ購読を作成して mzPush にも保存（タイマーと共用）。
   // SW登録を確実に取得し、activeになるまで待つ（無ければ sw.js を登録）
@@ -12682,7 +12699,7 @@
     const reg = await _ensureSWReg(12000);
     if (!reg || !reg.active) throw new Error('サービスワーカーが有効化できませんでした\n' + (await _swDiagText()));
     let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(CHAL_VAPID) });
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(_vapidKey()) });
     p.sub = sub.toJSON(); p.enabled = true;
     if (!p.url) p.url = NOTION_PROXY;
     if (!p.client) p.client = 'c-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -12705,9 +12722,17 @@
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
       const reg = await navigator.serviceWorker.ready;
       let live = await reg.pushManager.getSubscription();
+      // 通知サーバーを切り替えると鍵が変わる。いまの購読が古い鍵で作られていたら、いったん外して新しい鍵で作り直す
+      try {
+        if (live && live.options && live.options.applicationServerKey) {
+          const cur = new Uint8Array(live.options.applicationServerKey), want = _u8FromB64(_vapidKey());
+          let same = cur.length === want.length; for (let i = 0; same && i < cur.length; i++) if (cur[i] !== want[i]) same = false;
+          if (!same) { try { await live.unsubscribe(); } catch(e){} live = null; }
+        }
+      } catch(e){}
       if (!live) {
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          try { live = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(CHAL_VAPID) }); } catch(e){ return; }
+          try { live = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(_vapidKey()) }); } catch(e){ return; }
         } else { return; }
       }
       const liveJson = live.toJSON();
@@ -12843,6 +12868,8 @@
     let prev = '';
     try { prev = localStorage.getItem(key) || ''; } catch (e) {}
     if (hash === prev) return { skipped: true };   // 内容が同じ → 書き込まない
+    // Cloudflareの無料枠（KVの1日の回数上限）に達している間は、送っても断られるだけなので待つ（回数を無駄に使わない）
+    try { const until = Number(localStorage.getItem('pushBackoffUntil') || 0); const bu = localStorage.getItem('pushBackoffUrl') || ''; if (until && Date.now() < until && (!bu || bu === String((typeof _pushBase === 'function' && _pushBase()) || ''))) return { skipped: true, quota: true }; } catch (e) {}
     // 予約の結果を記録する（通知が来ないとき、原因を画面で見られるように）
     const nextJobs = (jobs || []).slice().sort((a, b) => a.when - b.when).slice(0, 5).map(j => ({ w: j.when, t: j.title, b: String(j.body || '').split('\n')[0].slice(0, 30) }));
     const logIt = function(o){
@@ -12854,7 +12881,7 @@
       } catch (e) {}
     };
     const doPost = async function(list){
-      const r = await fetch((p.url || NOTION_PROXY) + '/schedule', {
+      const r = await fetch(_pushBase(p) + '/schedule', {
         method: 'POST', headers: _chalHeaders(),
         body: JSON.stringify({ client: client, sub: p.sub, replace: true, jobs: list })
       });
@@ -12864,7 +12891,17 @@
     try {
       let out = await doPost(jobs || []);
       let how = '';
-      if (!(out.res && out.res.ok)) {
+      const isQuota = o => /limit exceeded|too many requests|quota|rate limit/i.test(String((o && o.body) || ''));
+      if (!(out.res && out.res.ok) && isQuota(out)) {
+        // 上限に達している：UTCの0時（日本時間の朝9時）に回復するので、それまで送らない
+        const nd = new Date(); const resetAt = Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth(), nd.getUTCDate() + 1, 0, 2, 0);
+        try { localStorage.setItem('pushBackoffUntil', String(resetAt)); localStorage.setItem('pushBackoffUrl', String((typeof _pushBase === 'function' && _pushBase()) || '')); } catch (e) {}
+        logIt({ ok: false, status: out.res && out.res.status, body: out.body, quota: true, until: resetAt });
+        try { _notifFailToast(clientSuffix, out.res && out.res.status, out.body, true); } catch (e) {}
+        return { ok: false, quota: true, status: out.res && out.res.status };
+      }
+      // 形式の問題（400/413/422）のときだけ、IDを短くして再送する。500などは再送しても同じなので、しない
+      if (!(out.res && out.res.ok) && out.res && [400, 413, 422].indexOf(out.res.status) >= 0) {
         // 断られた：ID を短い連番に直して再送 → それでもだめなら件数を絞って再送
         const first = out;
         const short = (jobs || []).map((j, i) => Object.assign({}, j, { id: 'j' + i }));
@@ -12882,10 +12919,13 @@
 
   // 予約が失敗したとき、画面で気づけるように（同じ内容は10分に1回だけ）
   let _notifFailAt = {};
-  function _notifFailToast(suffix, status, body) {
-    const now = Date.now(); if (_notifFailAt[suffix] && now - _notifFailAt[suffix] < 10*60*1000) return;
-    _notifFailAt[suffix] = now;
-    if (typeof showToast === 'function') showToast('⚠️ 通知の予約をサーバーが受け付けませんでした（HTTP ' + (status || '?') + '）。設定の「通知の予約状況を見る」で確認できます');
+  function _notifFailToast(suffix, status, body, quota) {
+    const now = Date.now(); const k = quota ? 'quota' : suffix;
+    if (_notifFailAt[k] && now - _notifFailAt[k] < 30*60*1000) return;
+    _notifFailAt[k] = now;
+    if (typeof showToast !== 'function') return;
+    if (quota) showToast('⚠️ Cloudflareの無料枠（KVの1日の回数上限）に達したため、通知の予約を一時停止しています。日本時間の朝9時すぎに自動で回復します');
+    else showToast('⚠️ 通知の予約をサーバーが受け付けませんでした（HTTP ' + (status || '?') + '）。設定の「通知の予約状況を見る」で確認できます');
   }
   window._postJobsIfChanged = _postJobsIfChanged;
 
@@ -12901,7 +12941,10 @@
       const bad = ks.filter(k => !log[k].ok);
       const last = Math.max.apply(null, ks.map(k => log[k].t));
       const d = new Date(last);
-      if (bad.length){ el.innerHTML = '<b style="color:#e5484d">⚠️ 予約に失敗している通知があります（' + bad.length + '種類）</b><br>「通知の予約状況を見る」で理由を確認してください'; }
+      const quotaHit = ks.some(k => log[k].quota);
+      let until = 0; try { until = Number(localStorage.getItem('pushBackoffUntil') || 0); } catch(e){}
+      if (quotaHit && until > Date.now()){ const u = new Date(until); el.innerHTML = '<b style="color:#e08a00">⛔ Cloudflareの無料枠（KVの1日の回数上限）に達しています</b><br>日本時間の ' + u.toLocaleString('ja-JP', { timeZone:'Asia/Tokyo', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) + ' ごろに自動で回復します'; }
+      else if (bad.length){ el.innerHTML = '<b style="color:#e5484d">⚠️ 予約に失敗している通知があります（' + bad.length + '種類）</b><br>「通知の予約状況を見る」で理由を確認してください'; }
       else { el.innerHTML = '<b style="color:#2e9e5b">✅ 予約は正常に送られています</b>（最終 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + '）'; }
     } catch(e){}
   };
@@ -12918,6 +12961,7 @@
     lines.push('通知の許可：' + perm + ' ／ 購読：' + ((p && p.sub) ? 'あり（' + ((p.sub.endpoint||'').split('/')[2] || '?') + '）' : 'なし'));
     try { const w = JSON.parse(localStorage.getItem('wxConfig') || '{}'); lines.push('天気の通知：' + (w.notify ? 'オン' : 'オフ（🔔を押すとオン）') + (w.notify ? '／夜の通知：' + (w.eve === false ? 'オフ' : 'オン') : '')); } catch(e){}
     lines.push('開始時刻の通知：' + (localStorage.getItem('taskOntimeNotify') === '0' ? 'オフ' : 'オン'));
+    try { const pc = _pushCfg(); lines.push('通知サーバー：' + (pc ? '新しいサーバー（' + pc.url.replace(/^https:\/\//,'').slice(0, 30) + '）' : 'これまでのサーバー')); } catch(e){}
     lines.push('');
     lines.push('■ 予約の送信結果（アプリ → サーバー）');
     let log = {}; try { log = JSON.parse(localStorage.getItem('pushLog') || '{}') || {}; } catch(e){}
@@ -12927,7 +12971,8 @@
       const o = log[k];
       lines.push((o.ok ? '✅ ' : '⚠️ ') + L[k] + '：' + fmt(o.t) + ' に ' + o.n + '件を送信' + (o.status ? '（HTTP ' + o.status + '）' : ''));
       if (o.ok && o.how) lines.push('   ※ 最初は断られたため「' + o.how + '」で成功' + (o.firstStatus ? '（最初の応答 HTTP ' + o.firstStatus + '：' + String(o.firstBody||'').slice(0,60) + '）' : ''));
-      if (!o.ok) lines.push('   ' + (o.error ? 'エラー：' + o.error : '応答：' + (o.body || '(なし)') + (o.firstStatus && o.firstStatus !== o.status ? '（最初の応答 HTTP ' + o.firstStatus + '：' + String(o.firstBody||'').slice(0,60) + '）' : '')));
+      if (!o.ok && o.quota) lines.push('   ⛔ Cloudflareの無料枠（KVのlist回数 1日1,000回）の上限です。日本時間の朝9時すぎに回復します');
+      if (!o.ok && !o.quota) lines.push('   ' + (o.error ? 'エラー：' + o.error : '応答：' + (o.body || '(なし)') + (o.firstStatus && o.firstStatus !== o.status ? '（最初の応答 HTTP ' + o.firstStatus + '：' + String(o.firstBody||'').slice(0,60) + '）' : '')));
       if (o.ok && o.next && o.next.length) o.next.slice(0, k === '-task' ? 4 : 1).forEach((nx, ix) => lines.push((ix ? '            ' : '   次の予約：') + fmt(nx.w) + ' ' + String(nx.t).slice(0, 22)));
     });
     return lines.join('\n');
@@ -12948,7 +12993,7 @@
       let statusText = '';
       let bodyText = '';
       try {
-        const res = await fetch((p.url || NOTION_PROXY) + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: client, sub: p.sub, replace: true, jobs: [job] }) });
+        const res = await fetch(_pushBase(p) + '/schedule', { method: 'POST', headers: _chalHeaders(), body: JSON.stringify({ client: client, sub: p.sub, replace: true, jobs: [job] }) });
         statusText = res ? String(res.status) : '不明';
         try { bodyText = (await res.text() || '').slice(0, 120); } catch (e) {}
       } catch (e) {
@@ -13030,7 +13075,7 @@
       var job={id:'test'+stamp,when:when,tag:'test'+stamp,url:url,title:'🔔 テスト通知',body:'これが見えればサーバー通知もOK'};
       var ctrl = ('AbortController' in window) ? new AbortController() : null;
       if (ctrl) setTimeout(function(){ try{ctrl.abort();}catch(e){} }, 8000);
-      var res=await fetch((p.url||NOTION_PROXY)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}), signal: ctrl?ctrl.signal:undefined});
+      var res=await fetch(_pushBase(p)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}), signal: ctrl?ctrl.signal:undefined});
       pushMsg='\n   '+(await _pushRespText(res,p))+'\n   （8秒後に届く予定）';
     } catch(e){ pushMsg='送信エラー:'+(e&&e.message||e); }
     _notifMsg('テスト結果\n\n① ローカル通知：'+localMsg+'\n② サーバー通知：'+pushMsg+'\n\n[状態] PWA:'+(isPWA?'はい':'いいえ')+' / 許可:'+perm+'\n\n※ iPhoneは連続で送ると抑制されます。続けて試さず、1〜2分あけて1回だけ試してください。\n①は出るのに②が来ない場合は、この画面のスクショを送ってください。', '🔄 通知を貼り直す', function(){ try{ if(typeof notifResubscribeAll==='function') notifResubscribeAll(); }catch(e){} });
@@ -13043,6 +13088,79 @@
     try { if (typeof _notifMsg==='function') _notifMsg('通知機能の読み込みが未完了です。アプリを完全終了→再起動してからお試しください。'); else alert('機能の読み込み待ちです。アプリを再起動してください。'); } catch(e){}
   };
   // ボタン入口（即フィードバック）
+  // 通知サーバーの設定を保存 → 鍵が変わるので購読を作り直し、全部の通知を送り直す
+  // 新しい通知サーバーの診断：設定が正しいか／Cronが動いているか／Appleに受け付けられるか／この端末の予約が届いているか
+  window.pushServerDiagnose = async function(){
+    const L = []; let bad = 0;
+    const add = (ok, text, fix) => { L.push((ok ? '✅ ' : '⚠️ ') + text); if (!ok) { bad++; if (fix) L.push('    → ' + fix); } };
+    try {
+      _notifMsg('通知サーバーを診断しています…（数秒）');
+      const c = _pushCfg(); const p = _mzPush();
+      if (!c) { _notifMsg('新しい通知サーバーが未設定です。\nURLと合言葉を入力して「保存して通知を貼り直す」を押してください。\n（いまは、これまでのサーバーを使っています）'); return; }
+      if (c.key && /[^\x21-\x7e]/.test(c.key)) { _notifMsg('⚠️ 合言葉に、全角文字や空白が含まれています\n\n    → 合言葉は半角の英数字と記号だけです。push-worker-keys.txt の PUSH_KEY の値を、そのままコピーして貼り直してください'); return; }
+      const H = _chalHeaders();
+      let st = null, code = 0;
+      try { const r = await fetch(c.url + '/status?client=' + encodeURIComponent((p && p.client ? p.client : 'c') + '-task'), { headers: H }); code = r.status; if (r.ok) st = await r.json(); } catch(e){ add(false, 'サーバーに接続できません（' + (e && e.message || e) + '）', 'URLが正しいか（https://〜.workers.dev）、WorkerがデプロイされているかをCloudflareで確認してください'); }
+      if (code === 401) add(false, '合言葉が違います（401）', 'アプリの合言葉と、Cloudflareのシークレット PUSH_KEY を同じにしてください');
+      else if (code && code !== 200) add(false, 'サーバーの返事が正常ではありません（HTTP ' + code + '）', 'WorkerのURLと、コードが正しく貼られているかを確認してください');
+      if (st && st.check) {
+        const k = st.check;
+        add(!!k.kv, 'KVの接続（PUSH_KV）', 'Worker → 設定 → バインディング で、KV Namespace を変数名 PUSH_KV で追加してください');
+        add(!!k.vapidPrivate, '秘密鍵（VAPID_PRIVATE_JWK）', 'push-worker-keys.txt の「VAPID_PRIVATE_JWK」の値を、そのまま（{ から } まで）貼り直してください');
+        add(!!k.vapidPair, '秘密鍵と公開鍵が対になっている', 'VAPID_PUBLIC と VAPID_PRIVATE_JWK は、push-worker-keys.txt の同じ組の値を使ってください');
+        add(String(k.vapidPublic || '') === NEW_PUSH_VAPID, '公開鍵がアプリと一致している', 'VAPID_PUBLIC を push-worker-keys.txt の値に直してください（アプリは別の鍵で購読しています）');
+        add(k.subject === 'ok', 'VAPID_SUBJECT（メールアドレスの形式）', 'mailto:あなたのメールアドレス の形で設定してください（未設定でも動きますが、設定を推奨します）');
+        const age = k.lastTick ? (st.now - k.lastTick) : null;
+        add(age !== null && age < 15 * 60 * 1000, age === null ? '毎分の確認（Cron）がまだ動いていません' : '毎分の確認（Cron）が動いています（最終 ' + Math.round(age / 60000) + ' 分前）', 'Worker → 設定 → トリガー → Cronトリガー に「* * * * *」を追加してください。追加後、1〜2分待ってからもう一度診断してください');
+        if (st.mine) add(st.mine.jobs >= 0, 'この端末の予約がサーバーに届いている（' + st.mine.jobs + '件）' + (st.mine.next ? '／次の予約 ' + new Date(st.mine.next).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : ''), null);
+        else add(false, 'この端末の予約がサーバーにまだありません', '「通知を貼り直す」を押してください');
+      }
+      // 本番と同じ送り方で、いますぐ1件送ってみる（Appleに受け付けられるか）
+      if (st && p && p.sub) {
+        try {
+          const r = await fetch(c.url + '/selftest', { method:'POST', headers:H, body:JSON.stringify({ sub:p.sub, url:location.href.split('#')[0] }) });
+          const j = await r.json().catch(() => ({}));
+          if (j && j.accepted) add(true, 'Appleが通知を受け付けました（' + j.pushStatus + '）→ いま「✅ 通知サーバーのテスト」が届くはずです');
+          else add(false, 'Appleが通知を受け付けませんでした（' + (j.pushStatus || j.error || r.status) + '）', (j.pushStatus === 403 || j.pushStatus === 401) ? '鍵の不一致です。「保存して通知を貼り直す」でもう一度購読を作り直してください' : (j.pushStatus === 410 || j.pushStatus === 404) ? '購読が無効です。「保存して通知を貼り直す」を押してください' : '時間をおいて、もう一度診断してください');
+        } catch(e){ add(false, '送信テストに失敗しました（' + (e && e.message || e) + '）', null); }
+      } else if (st) add(false, 'この端末の購読がありません', '「保存して通知を貼り直す」を押して、通知を許可してください');
+    } catch(e){ L.push('診断中にエラー：' + (e && e.message || e)); bad++; }
+    _notifMsg((bad ? '⚠️ ' + bad + ' 件、確認が必要です\n\n' : '✅ すべて正常です。これで、サーバーの上限で通知が止まることはありません\n\n') + L.join('\n'));
+  };
+  window.pushServerSave = function(){
+    try {
+      const u = String((document.getElementById('pushSrvUrl') || {}).value || '').trim();
+      const k = String((document.getElementById('pushSrvKey') || {}).value || '');
+      if (u && !/^https:\/\//.test(u)) { _notifMsg('URLは https:// から始まる形で入力してください。'); return; }
+      if (u && k && /[^\x21-\x7e]/.test(k)) { _notifMsg('合言葉に、全角文字や空白が含まれています。\n合言葉は半角の英数字と記号だけにしてください。\npush-worker-keys.txt の PUSH_KEY の値を、そのままコピーして貼り付けてください。'); return; }
+      if (u) localStorage.setItem('pushServerCfg', JSON.stringify({ url:u, key:k })); else localStorage.removeItem('pushServerCfg');
+      try { localStorage.removeItem('pushBackoffUntil'); localStorage.removeItem('pushLog'); } catch(e){}
+      _notifMsg((u ? '新しい通知サーバーに切り替えました。' : 'これまでのサーバーに戻しました。') + '\n通知の鍵が変わるので、購読を作り直して、予約を送り直します…');
+      setTimeout(async function(){ try { await notifResubscribeAll(); } catch(e){} setTimeout(function(){ try { if (u) pushServerDiagnose(); } catch(e){} }, 1200); }, 400);
+    } catch(e){ try { _notifMsg('保存できませんでした：' + (e && e.message || e)); } catch(_){} }
+  };
+  (function(){ try { const c = (typeof _pushCfg === 'function') ? _pushCfg() : null; const set = function(){ const a = document.getElementById('pushSrvUrl'), b = document.getElementById('pushSrvKey'); if (a && c) a.value = c.url; if (b && c) b.value = c.key; }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', set); else setTimeout(set, 0); } catch(e){} })();
+  // 2分後のテスト：8秒後のテストは「すぐ送る」経路を通る可能性があるので、タスクの通知と同じ「毎分の確認」を通る長さで試す
+  window._notifTest2min = async function(){
+    try {
+      _notifMsg('2分後のテストを予約しています…');
+      const p = await _ensurePushSub();
+      if (!p || !p.sub){ _notifMsg('購読がありません。「通知を貼り直す」を押してから、もう一度お試しください。'); return; }
+      const stamp = Date.now(), when = stamp + 120000;
+      const client = (p.client || 'c') + '-test2-' + stamp;     // 毎回ちがう端末名（ほかの予約を上書きしない）
+      const url = (typeof _notifUrl === 'function') ? _notifUrl('#schedule') : location.href;
+      const job = { id:'task0', when:when, tag:'test2_' + stamp, url:url, title:'🔔 2分後のテスト', body:'届いたら、タスクの通知と同じ経路は正常です' };
+      let status = '', body = '';
+      try {
+        const res = await fetch(_pushBase(p) + '/schedule', { method:'POST', headers:_chalHeaders(), body:JSON.stringify({ client:client, sub:p.sub, replace:true, jobs:[job] }) });
+        status = String(res.status); try { body = ((await res.text()) || '').slice(0, 140); } catch(e){}
+      } catch(e){ status = '通信エラー：' + (e && e.message || e); }
+      const d = new Date(when), pad2 = n => String(n).padStart(2, '0');
+      _notifMsg('2分後のテストを予約しました。\n\nサーバーの返事：HTTP ' + status + (body ? '\n' + body : '') +
+        '\n\n' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + ' ごろ（約2分後）に通知が届くか、アプリを閉じて待ってください。\n\n' +
+        '・届いた → タスクの通知と同じ経路は正常です\n・届かない → サーバーの「時刻に送る処理」が止まっています（Cloudflareの上限など）');
+    } catch(e){ try { _notifMsg('テストを予約できませんでした：' + (e && e.message || e)); } catch(_){} }
+  };
   window._notifStatusTap = function(){
     try { _notifMsg(window.notifStatusReport(), '🔄 通知を貼り直す', function(){ _notifResubTap(); }); } catch(e){ try{ _notifMsg('予約状況を表示できません：' + (e && e.message || e)); }catch(_){} }
   };
@@ -13066,7 +13184,7 @@
       // 古い購読を破棄
       try { var oldSub = await reg.pushManager.getSubscription(); if (oldSub) await oldSub.unsubscribe(); } catch(e){}
       // 新規購読
-      var sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(CHAL_VAPID) });
+      var sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_u8FromB64(_vapidKey()) });
       var p = _mzPush() || { enabled:false, url:NOTION_PROXY, token:'', sub:null, client:'' };
       p.sub = sub.toJSON(); p.enabled = true;
       if (!p.url) p.url = NOTION_PROXY;
@@ -13086,7 +13204,7 @@
         var url=(typeof _notifUrl==='function')?_notifUrl('#challenge'):location.href;
         var job={id:'test'+stamp,when:when,tag:'test'+stamp,url:url,title:'🔔 通知テスト（貼り直し後）',body:'これが届けば通知は復活しています'};
         var ctrl=('AbortController' in window)?new AbortController():null; if(ctrl) setTimeout(function(){try{ctrl.abort();}catch(e){}},8000);
-        var res=await fetch((p.url||NOTION_PROXY)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}),signal:ctrl?ctrl.signal:undefined});
+        var res=await fetch(_pushBase(p)+'/schedule',{method:'POST',headers:_chalHeaders(),body:JSON.stringify({client:client,sub:p.sub,replace:true,jobs:[job]}),signal:ctrl?ctrl.signal:undefined});
         testMsg='\n   '+(await _pushRespText(res,p));
       } catch(e){ testMsg='テスト送信エラー:'+(e&&e.message||e); }
       _notifMsg('✅ 通知を作り直しました（新しい購読を作成）。\n\nタスク・ルーチン・予定の通知をすべて登録し直しました。\n\n確認テスト：'+testMsg+'\n→ 5秒後に「通知テスト（貼り直し後）」が届けば復活しています。届いたら、以後のタスク通知も来ます。');
@@ -21339,7 +21457,7 @@
   // ── PWA: Service Worker 登録（新バージョンを自動反映） ──
   // アイコン刷新時：キャッシュ済みの古いアイコン/マニフェストを一度だけ破棄する
   (function(){
-    var ICON_VER = 'icon-2026-10s';
+    var ICON_VER = 'icon-2026-10w';
     try {
       if (localStorage.getItem('__iconCacheVer') !== ICON_VER) {
         localStorage.setItem('__iconCacheVer', ICON_VER);
@@ -25634,7 +25752,7 @@
   // 勤怠は「日付ごと」、履歴系は「項目ごと」に、新しい変更が勝つ形でそろえる。削除も反映。
   var CFG_KEY = 'devSyncCfg', META_KEY = 'devSyncMeta', BACKUP_KEY = 'devSyncBackup';
   // 文字列として丸ごと同期する設定
-  var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify'];
+  var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify','pushServerCfg'];
   // {項目: 値} の形で、項目ごとに同期するもの
   var MAP_KEYS = ['routinesDone','routineEnded','habitHistory','habitFreqOverrides','swTriaged','missedTasks','habitSkips'];
   var applying = false, busy = false, timer = null, lastRun = 0;
