@@ -17522,13 +17522,22 @@
           minUnderFinger = timelineYToMin(relYfinger);
         }
         window._dragExpandMode = true;
+        // 位置合わせのスクロールがスムーズ（アニメ）だと途中で打ち消されて、1時台などに飛ぶため、先に即時スクロールへ
+        if (scroller) scroller.style.scrollBehavior = 'auto';
         renderTimeline();
         const _newCard = document.querySelector(`#timeline .tl-task-card[data-task-id="${task.id}"]`);
         if (_newCard) _newCard.classList.add('dragging');
-        if (scroller && minUnderFinger != null) {
+        const _alignToFinger = () => {
+          if (!scroller || minUnderFinger == null) return;
           const yNew = timelineMinToY(minUnderFinger);
-          if (yNew != null) scroller.scrollTop += (yNew - relYfinger);
-        }
+          if (yNew == null) return;
+          const tlNow = document.getElementById('timeline');
+          const curRel = lastClientY - tlNow.getBoundingClientRect().top;   // 今、指の位置にある y
+          scroller.scrollTop += (yNew - curRel);                             // 指の下に元の時刻が来るよう補正
+        };
+        _alignToFinger();
+        requestAnimationFrame(() => { if (isDragging) { _alignToFinger(); updateDragTime(lastClientY); } });
+        updateDragTime(lastClientY);   // 指の位置の前後の時刻を、長押しした瞬間から表示
         // 端で自動スクロール（指が端に近いほど速くスクロール）。
         // ※ scroll-behavior:smooth のままだと毎フレームのscrollTop変更が打ち消し合って
         //   ほとんど動かないため、ドラッグ中は auto に切り替える。
@@ -17730,13 +17739,21 @@
           minUnderFinger = timelineYToMin(relYfinger);
         }
         window._dragExpandMode = true;
+        if (scroller) scroller.style.scrollBehavior = 'auto';
         renderTimeline();
         const _newCard = document.querySelector(`#timeline .tl-event[data-gcal-id="${ev.id}"]`);
         if (_newCard) _newCard.classList.add('dragging');
-        if (scroller && minUnderFinger != null) {
+        const _alignToFinger = () => {
+          if (!scroller || minUnderFinger == null) return;
           const yNew = timelineMinToY(minUnderFinger);
-          if (yNew != null) scroller.scrollTop += (yNew - relYfinger);
-        }
+          if (yNew == null) return;
+          const tlNow = document.getElementById('timeline');
+          const curRel = lastClientY - tlNow.getBoundingClientRect().top;
+          scroller.scrollTop += (yNew - curRel);
+        };
+        _alignToFinger();
+        requestAnimationFrame(() => { if (isDragging) { _alignToFinger(); updateDragTime(lastClientY); } });
+        updateDragTime(lastClientY);
         if (scroller) {
           dragScroller = scroller;
           scroller.style.scrollBehavior = 'auto';
