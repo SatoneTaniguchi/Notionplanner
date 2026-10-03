@@ -149,11 +149,27 @@
   }
 
   /* 週表示 */
+  /* 日付バー：左右にスクロール（スワイプ）で前後の週へ移動 */
   .week-nav {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    padding: 0;
+  }
+  .week-nav::-webkit-scrollbar { display: none; }
+  .week-panel {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 2px;
     padding: 0 2px;
+    box-sizing: border-box;
   }
 
   .week-day {
@@ -5813,49 +5829,83 @@
     renderWeek();
   }
 
+  // 日付を選ぶ（日付バーのタップ／スワイプ共通）
+  function selectDateFromStrip(dateCopy) {
+    currentDate = new Date(dateCopy);
+    renderHeader();
+    renderLater();
+    try { if ((localStorage.getItem('schedViewMode') || 'day') !== 'day' && window.applySchedView) { window.applySchedView(); return; } } catch(e) {}
+    if (gcalAccessToken && !gcalEvents[currentDate.toDateString()]) {
+      const target = new Date(currentDate);
+      (async () => {
+        if (gcalCalendars.length === 0) await gcalFetchCalendars();
+        if (gcalCalendars.length > 0) await gcalFetchEvents(new Date(target));
+        renderTimeline();
+      })();
+    } else {
+      renderTimeline();
+    }
+  }
+
+  let _weekScrollBusy = false, _weekScrollTimer = null;
   function renderWeek() {
     const days = ['日','月','火','水','木','金','土'];
     const today = new Date();
     const d = new Date(currentDate);
-    // 週の日曜日を求める
-    const dayOfWeek = d.getDay();
     const sunday = new Date(d);
-    sunday.setDate(d.getDate() - dayOfWeek);
+    sunday.setDate(d.getDate() - d.getDay());
 
     const nav = document.getElementById('weekNav');
     nav.innerHTML = '';
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(sunday);
-      day.setDate(sunday.getDate() + i);
-      const isToday = day.toDateString() === today.toDateString();
-      const isSelected = day.toDateString() === currentDate.toDateString();
-      const cls = ['week-day'];
-      if (i === 0) cls.push('sunday');
-      if (i === 6) cls.push('saturday');
-      if (isToday) cls.push('today');
-      if (isSelected) cls.push('selected');
-      const btn = document.createElement('div');
-      btn.className = cls.join(' ');
-      btn.innerHTML = `
-        <div class="week-day-label">${days[i]}</div>
-        <div class="week-day-num">${day.getDate()}</div>
-      `;
-      const dateCopy = new Date(day);
-      btn.onclick = () => {
-        currentDate = dateCopy;
-        renderHeader();
-        renderLater();
-        if (gcalAccessToken && !gcalEvents[dateCopy.toDateString()]) {
-          (async () => {
-            if (gcalCalendars.length === 0) await gcalFetchCalendars();
-            if (gcalCalendars.length > 0) await gcalFetchEvents(new Date(dateCopy));
-            renderTimeline();
-          })();
-        } else {
-          renderTimeline();
-        }
-      };
-      nav.appendChild(btn);
+    // 前の週 / 今の週 / 次の週 の3枚を並べ、スクロールで隣へ移動
+    for (let w = -1; w <= 1; w++) {
+      const panel = document.createElement('div');
+      panel.className = 'week-panel';
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(sunday);
+        day.setDate(sunday.getDate() + w * 7 + i);
+        const isToday = day.toDateString() === today.toDateString();
+        const isSelected = day.toDateString() === currentDate.toDateString();
+        const cls = ['week-day'];
+        if (i === 0) cls.push('sunday');
+        if (i === 6) cls.push('saturday');
+        if (isToday) cls.push('today');
+        if (isSelected) cls.push('selected');
+        const btn = document.createElement('div');
+        btn.className = cls.join(' ');
+        btn.innerHTML = `
+          <div class="week-day-label">${days[i]}</div>
+          <div class="week-day-num">${day.getDate()}</div>
+        `;
+        const dateCopy = new Date(day);
+        btn.onclick = () => selectDateFromStrip(dateCopy);
+        panel.appendChild(btn);
+      }
+      nav.appendChild(panel);
+    }
+    // 中央（今の週）へ位置合わせ（アニメーションなし）
+    _weekScrollBusy = true;
+    nav.style.scrollSnapType = 'none';
+    nav.scrollLeft = nav.clientWidth;
+    requestAnimationFrame(() => {
+      nav.scrollLeft = nav.clientWidth;
+      nav.style.scrollSnapType = '';
+      setTimeout(() => { _weekScrollBusy = false; }, 60);
+    });
+    if (!nav._weekScrollBound) {
+      nav._weekScrollBound = true;
+      nav.addEventListener('scroll', () => {
+        if (_weekScrollBusy) return;
+        clearTimeout(_weekScrollTimer);
+        _weekScrollTimer = setTimeout(() => {
+          const w = nav.clientWidth || 1;
+          const idx = Math.round(nav.scrollLeft / w);
+          if (idx === 1) return;
+          const nd = new Date(currentDate);
+          nd.setDate(nd.getDate() + (idx < 1 ? -7 : 7));   // 同じ曜日のまま前後の週へ
+          selectDateFromStrip(nd);
+        }, 90);
+      }, { passive: true });
     }
   }
 
@@ -16067,6 +16117,9 @@
       (gcalEvents[ds]||[]).forEach(function(e){
         add({ name:e.title||'予定', grp:'event', time:(e.startTime||'').slice(0,5), done:false, ev:true });
       });
+      (gcalEvents[ds+'_allday']||[]).forEach(function(e){
+        add({ name:e.title||'予定', grp:'event', time:'', done:false, ev:true, allday:true });
+      });
     } catch(e){}
     var items = order.map(function(k){ return map[k]; });
     if (applyFilter){ var f = schedFilters(); items = items.filter(function(it){ return f[it.grp]; }); }
@@ -16074,6 +16127,7 @@
     items.sort(function(a,b){
       var ga = GRP_ORDER[a.grp]||9, gb = GRP_ORDER[b.grp]||9;
       if (ga !== gb) return ga - gb;
+      if (a.allday && !b.allday) return -1; if (b.allday && !a.allday) return 1;
       if (a.time && b.time) return a.time<b.time?-1:1;
       if (a.time) return -1; if (b.time) return 1; return 0;
     });
@@ -16156,9 +16210,11 @@
       var dsStr = day.toDateString();
       var items = scheduleItemsForDate(day, true);
       var chips = '';
+      var _hn = null; try { if (typeof window.jpHolidayName === 'function') _hn = window.jpHolidayName(day); } catch(e){}
+      if (_hn) chips += '<span class="cvw-chip" style="color:#12a150;background:#e7f7ee">🎌 ' + _esc(_hn) + '</span>';
       items.forEach(function(it){
         var st = _grpStyle(it.grp);
-        var tm = it.time ? '<b>' + it.time + '</b> ' : '';
+        var tm = it.allday ? '<b>終日</b> ' : (it.time ? '<b>' + it.time + '</b> ' : '');
         chips += '<span class="cvw-chip' + (it.done?' done':'') + '" style="color:' + st.color + ';background:' + st.bg + '">'
           + tm + _esc(it.name) + '</span>';
       });
@@ -16182,6 +16238,23 @@
 
   function _esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+  // ---- 表示範囲のGoogle予定をまとめて取得して再描画 ----
+  var _schedRangeSeq = 0;
+  function schedEnsureRange(mode){
+    try {
+      if (typeof gcalAccessToken === 'undefined' || !gcalAccessToken || typeof gcalFetchRange !== 'function') return;
+      var d = new Date(currentDate), a, b;
+      if (mode === 'month'){ a = new Date(d.getFullYear(), d.getMonth(), 1); b = new Date(d.getFullYear(), d.getMonth()+1, 0); }
+      else { a = new Date(d); a.setDate(d.getDate() - d.getDay()); b = new Date(a); b.setDate(a.getDate()+6); }
+      var seq = ++_schedRangeSeq;
+      gcalFetchRange(a, b).then(function(ok){
+        if (!ok || seq !== _schedRangeSeq || schedViewMode() !== mode) return;
+        var cv = document.getElementById('calView');
+        if (cv && cv.style.display !== 'none'){ if (mode==='month') renderMonthView(cv); else renderWeekView(cv); }
+      }).catch(function(){});
+    } catch(e){}
+  }
+
   // ---- 表示切替 ----
   function applySchedView(){
     var mode = schedViewMode();
@@ -16189,6 +16262,9 @@
     var ts = document.getElementById('tomorrowSummary');
     var cv = document.getElementById('calView');
     ['day','week','month'].forEach(function(x){ var b=document.getElementById('cvs-'+x); if(b) b.classList.toggle('active', x===mode); });
+    var _ad = document.getElementById('alldaySticky');
+    if (_ad) _ad.style.display = (mode === 'day') ? '' : 'none';
+    if (mode !== 'day') schedEnsureRange(mode);
     if (mode === 'day'){
       if (tl) tl.style.display='';
       if (ts) ts.style.display='';
@@ -16321,14 +16397,37 @@
   function _swDayOffset(n){ var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return d; }
   function _swApplyDate(t, dateObj){
     var s = ymd(dateObj);
-    t['(A)実行日'] = { start:s, end:s }; t._allDay = true; t._type = 'time';
+    t['(A)実行日'] = { start:s, end:s }; t._allDay = true; t._type = 'time'; delete t._swJustLater;
     t._localLastEdited = new Date().toISOString();
     persistTasks(); _swNotionSync(t);
   }
+  // 本来の締切は裏で保管（一覧には出さない／詳細のメモに「🎯 本締切」として残す）
+  function _setRealDeadline(t, ymdStr){
+    if (!t || !ymdStr) return;
+    var d = _swParseYmd(ymdStr); if (!d) return;
+    t._realDeadline = ymdStr;
+    var memo = String(t['(e)memo']||'').split('\n').filter(function(l){ return !/^🎯 本締切/.test(l); });
+    memo.push('🎯 本締切 ' + (d.getFullYear()) + '/' + (d.getMonth()+1) + '/' + d.getDate());
+    t['(e)memo'] = memo.join('\n').trim();
+  }
+  // 仕事のやることリストから呼ぶ：早めの作業日を実行日にして普通のタスク化。realYmd があれば本締切として保管
+  window.workTaskSetDate = function(id, dateYmd, realYmd){
+    try {
+      var t = (tasks||[]).find(function(x){ return x && x.id === id; });
+      var d = _swParseYmd(dateYmd);
+      if (!t || !d) return false;
+      if (realYmd) _setRealDeadline(t, realYmd);
+      _swApplyDate(t, d);
+      return true;
+    } catch(e){ return false; }
+  };
   function _swApplyLater(t){
     delete t['(A)実行日']; t._allDay = false; t._type = 'later';
+    delete t._habitDate; delete t._projectOnly; t._swJustLater = true;
     t._localLastEdited = new Date().toISOString();
     persistTasks(); _swNotionSync(t);
+    try { renderLater(); } catch(e){}
+    try { renderTimeline(); } catch(e){}
   }
 
   var _swQueue = [], _swIdx = 0, _swCounts = null;
@@ -16392,6 +16491,9 @@
   window.swSetMode = function(mode){
     if (_swMode === mode) return;
     _swMode = mode;
+    if (mode === 'date'){ // 仕分けで直前に「あとで」にしたものも含め、最新状態から組み直す
+      try { var _tm=_swTriagedMap(); (tasks||[]).forEach(function(x){ if (x && x._type==='later' && x._swJustLater){ delete _tm[x.id]; x._swSnoozeUntil=0; } }); localStorage.setItem('swTriaged', JSON.stringify(_tm)); } catch(e){}
+    }
     _swQueue = _swCandidates(mode); _swIdx = 0;   // モードごとに対象を組み替え（仕分け=期限切れ／日付=あとで）
     var s=document.getElementById('swModeSort'), d=document.getElementById('swModeDate');
     if(s) s.classList.toggle('on', mode==='sort'); if(d) d.classList.toggle('on', mode==='date');
@@ -16981,6 +17083,7 @@
     var memoHtml = '';
     try {
       var memo = t['(e)memo'] || t.memo || '';
+      memo = String(memo).split('\n').filter(function(l){ return !/^🎯 本締切/.test(l); }).join('\n');
       if (memo){ memo = String(memo).replace(/\s+/g,' ').trim(); if(memo.length>60) memo = memo.slice(0,60)+'…'; memoHtml = '<div class="sw-memo">📝 ' + (_esc?_esc(memo):memo) + '</div>'; }
     } catch(e){}
     return '<div class="sw-when' + (/⚠️/.test(when)?' over':'') + '">' + when + '</div>'
@@ -17019,7 +17122,11 @@
     } else if (act === 'week'){
       _swCounts.date++; _swApplyDate(t, _swAutoDate(7, _swIsWork(t)));
     }
-    if (act !== 'del') _swMarkTriaged(t);   // 振り分け記録（削除は不要）
+    if (act === 'later'){
+      // 仕分けで「あとで」にしたものは、日付モードの対象としてすぐ出す（クールダウンを付けない／既存のものも外す）
+      try { var _m=_swTriagedMap(); delete _m[t.id]; localStorage.setItem('swTriaged', JSON.stringify(_m)); } catch(e){}
+      t._swSnoozeUntil = 0; try { persistTasks(); } catch(e){}
+    } else if (act !== 'del') _swMarkTriaged(t);   // 振り分け記録（削除は不要）
     _swIdx++;
     _swRender();
   };
@@ -17072,8 +17179,7 @@
     var early = _swEarlyFromDeadline(d);
     _swApplyDate(t, early);
     try {
-      var note = '🎯 本締切 ' + (d.getMonth()+1)+'/'+d.getDate() + '（逆算で早め設定）';
-      t['(e)memo'] = (t['(e)memo'] ? t['(e)memo']+'\n' : '') + note;
+      _setRealDeadline(t, ymd(d));
       persistTasks(); _swNotionSync(t);
     } catch(e){}
     _swCounts.deadline++;
@@ -19879,6 +19985,85 @@
     console.log('[GCal] フェッチ完了:', dayStr, '通常イベント:', gcalEvents[dayStr].length, '終日:', (gcalEvents[dayStr+'_allday']||[]).length);
   }
 
+  // ===== 範囲まとめ取得（月・週ビュー用）：通常＋終日を日ごとのキャッシュに格納 =====
+  const gcalRangeFetching = {};
+  async function gcalFetchRange(startDate, endDate) {
+    if (!gcalAccessToken) return false;
+    const enabledCals = gcalCalendars.filter(c => c.enabled);
+    if (enabledCals.length === 0) return false;
+    const s0 = new Date(startDate); s0.setHours(0,0,0,0);
+    const e0 = new Date(endDate);   e0.setHours(23,59,59,999);
+    const rkey = s0.toDateString() + '~' + e0.toDateString();
+    if (gcalRangeFetching[rkey]) return false;
+    gcalRangeFetching[rkey] = true;
+    const pad = n => n.toString().padStart(2,'0');
+    const ymdStr = d => d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+    const timed = {}, allday = {};
+    const days = [];
+    for (let d = new Date(s0); d <= e0; d.setDate(d.getDate()+1)) days.push(new Date(d));
+    try {
+      await Promise.all(enabledCals.map(async cal => {
+        try {
+          const url = new URL('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(cal.id) + '/events');
+          url.searchParams.set('timeMin', s0.toISOString());
+          url.searchParams.set('timeMax', e0.toISOString());
+          url.searchParams.set('singleEvents', 'true');
+          url.searchParams.set('orderBy', 'startTime');
+          url.searchParams.set('maxResults', '250');
+          const r = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + gcalAccessToken } });
+          if (r.status === 401) { gcalHandleExpired(); return; }
+          const data = await r.json();
+          (data.items || []).forEach(ev => {
+            if (!ev.start) return;
+            if (!ev.start.dateTime) {
+              const sd = ev.start.date, ed = ev.end && ev.end.date;
+              days.forEach(d => {
+                const cs = ymdStr(d);
+                if (ed ? (cs < sd || cs >= ed) : (cs !== sd)) return;
+                const k = d.toDateString() + '_allday';
+                (allday[k] = allday[k] || []).push({
+                  id: ev.id, title: ev.summary || '(タイトルなし)', isAllDay: true,
+                  color: cal.color, calendarName: cal.name, calendarId: cal.id, _calendarId: cal.id,
+                  _rawStartDate: ev.start.date || null, _rawEndDate: ev.end && ev.end.date || null,
+                  _recurringId: ev.recurringEventId || null
+                });
+              });
+              return;
+            }
+            const sdt = new Date(ev.start.dateTime);
+            const edt = new Date(ev.end && ev.end.dateTime || ev.start.dateTime);
+            days.forEach(d => {
+              const ds0 = new Date(d); ds0.setHours(0,0,0,0);
+              const de0 = new Date(d); de0.setHours(23,59,59,999);
+              if (edt <= ds0 || sdt > de0) return;
+              const es = sdt < ds0 ? ds0 : sdt, ee = edt > de0 ? de0 : edt;
+              const k = d.toDateString();
+              (timed[k] = timed[k] || []).push({
+                id: ev.id, title: ev.summary || '(タイトルなし)',
+                startTime: pad(es.getHours()) + ':' + pad(es.getMinutes()),
+                endTime: pad(ee.getHours()) + ':' + pad(ee.getMinutes()),
+                color: cal.color, calendarName: cal.name, calendarId: cal.id, _calendarId: cal.id,
+                _rawStart: ev.start.dateTime, _rawEnd: ev.end && ev.end.dateTime || ev.start.dateTime,
+                _recurringId: ev.recurringEventId || null
+              });
+            });
+          });
+        } catch(e) { console.error('gcalFetchRange cal error', cal.id, e); }
+      }));
+      days.forEach(d => {
+        const k = d.toDateString();
+        const seen = Object.create(null);
+        const uniq = (timed[k] || []).filter(ev => { const kk = ev.id + '|' + ev.startTime; if (seen[kk]) return false; seen[kk] = true; return true; });
+        uniq.sort((a,b) => a.startTime.localeCompare(b.startTime));
+        gcalEvents[k] = uniq;
+        const seen2 = Object.create(null);
+        gcalEvents[k + '_allday'] = (allday[k + '_allday'] || []).filter(ev => { if (seen2[ev.id]) return false; seen2[ev.id] = true; return true; });
+      });
+      return true;
+    } finally { delete gcalRangeFetching[rkey]; }
+  }
+  window.gcalFetchRange = gcalFetchRange;
+
   function gcalHandleExpired() {
     // Worker＋リフレッシュトークンがあれば、画面を出さずに更新して再取得
     if (gcalWorkerEnabled() && gcalRefreshToken) {
@@ -21591,7 +21776,7 @@
         navigator.geolocation.getCurrentPosition(
           function(pos){ resolve({ lat:pos.coords.latitude, lon:pos.coords.longitude, place:'現在地' }); },
           function(err){ reject(err); },
-          { enableHighAccuracy:false, timeout:8000, maximumAge:30*60*1000 }
+          { enableHighAccuracy:true, timeout:10000, maximumAge:10*60*1000 }
         );
       });
     }
@@ -21667,7 +21852,17 @@
     function wxReverseGeo(lat, lon){
       var u = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lon + '&localityLanguage=ja';
       return fetch(u).then(function(r){ return r.json(); }).then(function(j){
-        return (j && (j.city || j.locality || j.principalSubdivision)) || '現在地';
+        if (!j) return '現在地';
+        // 行政区分のうち最も細かいもの（区・市など）を優先。東京都のような広域名は最後の手段
+        var best = '';
+        try {
+          var adm = (j.localityInfo && j.localityInfo.administrative) || [];
+          var lv = -1;
+          adm.forEach(function(a){
+            if (a && a.name && typeof a.adminLevel === 'number' && a.adminLevel > lv && a.adminLevel >= 6){ lv = a.adminLevel; best = a.name; }
+          });
+        } catch(e){}
+        return j.locality || best || j.city || j.principalSubdivision || '現在地';
       }).catch(function(){ return '現在地'; });
     }
 
@@ -21723,7 +21918,9 @@
         var tapAttr = kind==='cur' ? ' onclick="wxUseCurrent()"' : '';
         return '<div class="wx-mini"'+tapAttr+'><div class="wx-mini-h"><span class="wx-mini-place">'+badge+' '+place+'</span></div><div class="wx-mini-empty">'+emptyMsg+'</div></div>';
       }
+      // 家：15時までは今日、15時以降は明日の天気。現在地：従来どおり明日
       var idx = days[1] ? 1 : 0;
+      if (kind==='home' && new Date().getHours() < 15) idx = 0;
       var day = days[idx];
       var info = wxInfo(day.code);
       var mk = wxLaundryMark(day.score);
@@ -21760,11 +21957,12 @@
 
       // 折り畳み時：家の明日ぶんだけ1行で
       if (collapsed){
-        var hd = homeDays[1] || homeDays[0];
+        var _hIdx = (new Date().getHours() < 15 || !homeDays[1]) ? 0 : 1;
+        var hd = homeDays[_hIdx];
         var hi = wxInfo(hd.code); var hm = wxLaundryMark(hd.score);
         return header
           + '<div class="wx-collapsed" onclick="wxToggleCollapse()">'
-          +   '🏠' + (cfg.place||'家') + '　明日 ' + hi[0] + hi[1]
+          +   '🏠' + (cfg.place||'家') + '　' + (_hIdx===0?'今日':'明日') + ' ' + hi[0] + hi[1]
           +   ' <span class="wx-cmark" style="color:' + hm.color + ';background:' + hm.bg + '">' + hm.mark + ' ' + hm.word + '</span>'
           + '</div>';
       }
@@ -25516,8 +25714,10 @@
   }
 
   // 仕事タスクにメタ（締め切り）を用意。無ければ自動付与。繰り返し・重複名は除外。
+  function taskDateOf(t){ var j=t && t['(A)実行日']; return (j && j.start) ? String(j.start) : ''; }
   function collectWorkItems(){
-    var tasks=loadTasks(), meta=loadMeta(), changed=false, ids={};
+    var tasks=loadTasks(), meta=loadMeta(), changed=false, ids={}, mutated=false;
+    var canSet = (typeof window.workTaskSetDate==='function');
     // 未完了の仕事タスクの名前カウント（同名が何度も出る＝繰り返し/routineとみなす）
     var counts={};
     tasks.forEach(function(t){ if(isWork(t)){ var k=(t.name||'').trim(); counts[k]=(counts[k]||0)+1; } });
@@ -25535,12 +25735,44 @@
         if(!/締切|締め切り/.test(kikan)) return;
       }
       ids[t.id]=true;
-      if(!meta[t.id] || !meta[t.id].deadline){ meta[t.id]=assignDeadline(t); changed=true; }
-      items.push({ t:t, meta:meta[t.id], dl:parseISO(meta[t.id].deadline) });
+      var tdate = taskDateOf(t), m = meta[t.id];
+      if(!m || !m.deadline){
+        // 取り込み時：早めの作業日を決めて「普通のタスク」の実行日にする。元の日付は本締切として裏で保管
+        m = meta[t.id] = assignDeadline(t); changed=true;
+        if(canSet){
+          var early = m.deadline.slice(0,10), orig = tdate.slice(0,10);
+          if(orig && orig<=early){ m.deadline = (tdate.length>10 ? tdate.slice(0,16) : orig + m.deadline.slice(10)); }
+          else if(window.workTaskSetDate(t.id, early, orig||null)) mutated=true;
+          m.synced=true;
+        }
+      } else if(canSet && !m.synced){
+        // 既存分の移行（一度だけ）
+        var early2 = m.deadline.slice(0,10), orig2 = tdate.slice(0,10);
+        if(!orig2 || orig2>early2){ if(window.workTaskSetDate(t.id, early2, orig2||null)) mutated=true; }
+        m.synced=true; changed=true;
+      }
+      items.push({ t:t, meta:m, dl:null });
     });
     Object.keys(meta).forEach(function(id){ if(!ids[id]){ delete meta[id]; changed=true; } });
     if(changed) saveMeta(meta);
-    return items;
+    if(mutated) setTimeout(function(){ try{ window.dispatchEvent(new Event('tasks:changed')); }catch(e){} }, 0);
+    // 期限の時刻は「タスクの実行日」を正とする（仕分け・スケジュールで動かした日付に追従）
+    var fresh = {}; (mutated ? loadTasks() : tasks).forEach(function(x){ fresh[x.id]=x; });
+    var out=[];
+    items.forEach(function(it){
+      var ft = fresh[it.t.id] || it.t, td = taskDateOf(ft), m = it.meta;
+      if(td){
+        var d10 = td.slice(0,10);
+        var hhmm = td.length>10 ? td.slice(11,16) : ((m.deadline && m.deadline.slice(0,10)===d10) ? m.deadline.slice(11,16) : '16:00');
+        it.dl = parseISO(d10+'T'+hhmm); it.t = ft;
+      } else if(m.synced){
+        return;                       // 日付なし＝「あとで」に回したもの。ここには出さない
+      } else {
+        it.dl = parseISO(m.deadline);
+      }
+      out.push(it);
+    });
+    return out;
   }
   function ensureMeta(){ collectWorkItems(); return loadMeta(); }
 
@@ -25710,7 +25942,8 @@
     if(!rcId) return; var meta=loadMeta(); meta[rcId]=meta[rcId]||{};
     meta[rcId].deadline=iso(dt); meta[rcId].manual=true;
     if(opts&&opts.clearFull) meta[rcId].full=null;
-    saveMeta(meta); $('wtResched').classList.remove('open'); render();
+    saveMeta(meta);
+    try{ if(typeof window.workTaskSetDate==='function') window.workTaskSetDate(rcId, iso(dt).slice(0,10), null); }catch(e){} $('wtResched').classList.remove('open'); render();
   }
   function bindResched(){
     $('wtRcClose').onclick=function(){ $('wtResched').classList.remove('open'); };
