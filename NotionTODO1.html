@@ -16993,7 +16993,7 @@
   function renderMonthView(host){
     var base = new Date(currentDate);
     var y = base.getFullYear(), m = base.getMonth();
-    var first = new Date(y, m, 1), startDow = first.getDay();
+    var first = new Date(y, m, 1), startDow = (first.getDay()+6)%7;   // 月曜始まり
     var last = new Date(y, m+1, 0).getDate();
     var todayStr = new Date().toDateString();
     var selStr = currentDate.toDateString();
@@ -17003,7 +17003,7 @@
       + '<span class="cvm-title">' + y + '年 ' + (m+1) + '月</span>'
       + '<button class="cvm-navbtn" onclick="schedMonthShift(1)">›</button></div>';
     h += '<div class="cvm-grid">';
-    for (var w=0; w<7; w++){ h += '<div class="cvm-wd' + (w===0?' sun':'') + (w===6?' sat':'') + '">' + WD_J[w] + '</div>'; }
+    for (var w0=0; w0<7; w0++){ var w=(w0+1)%7; h += '<div class="cvm-wd' + (w===0?' sun':'') + (w===6?' sat':'') + '">' + WD_J[w] + '</div>'; }
     for (var e=0; e<startDow; e++){ h += '<div class="cvm-cell empty"></div>'; }
     for (var day=1; day<=last; day++){
       var d = new Date(y, m, day), dsStr = d.toDateString();
