@@ -2705,7 +2705,9 @@
   .routine-view-toggle {
     display: flex; gap: 4px; background: #efedfa; border-radius: 13px;
     padding: 3px; margin-bottom: 8px;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
+  .routine-view-toggle::-webkit-scrollbar { display: none; }
   /* 集約コントロールバー */
   .r-ctrlbar {
     display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
@@ -2720,9 +2722,9 @@
     background-repeat: no-repeat; background-position: right 10px center;
   }
   .routine-view-toggle button {
-    flex: 1; border: none; background: transparent; color: #8b88a0;
+    flex: 1 0 auto; border: none; background: transparent; color: #8b88a0;
     font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
-    padding: 7px 2px; border-radius: 10px; transition: all .15s;
+    padding: 7px 9px; border-radius: 10px; transition: all .15s;
     -webkit-tap-highlight-color: transparent; white-space: nowrap;
     display: inline-flex; align-items: center; justify-content: center; gap: 3px;
   }
@@ -3032,6 +3034,7 @@
 </style>
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>input[type=datetime-local][id^=gcal]{-webkit-appearance:none;appearance:none;display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;text-align:center;min-height:46px;overflow:hidden}input[type=datetime-local][id^=gcal]::-webkit-date-and-time-value{text-align:center;min-width:0}</style>
 </head>
 <body>
 
@@ -3159,101 +3162,126 @@
 </div>
 
 <!-- GCal 予定 編集パネル -->
+<style>
+#gcalEditPanel .ge-row{display:flex;align-items:center;gap:18px;padding:0 24px;min-height:56px}
+#gcalEditPanel .ge-ico{width:22px;height:22px;flex-shrink:0;stroke:#3a3a3c;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#gcalEditPanel .ge-dt{position:relative;flex:1;min-width:0}
+#gcalEditPanel .ge-dt .d{font-size:13px;color:#3a3a3c;white-space:nowrap}
+#gcalEditPanel .ge-dt .t{font-size:26px;font-weight:700;color:#1c1c1e;line-height:1.15;white-space:nowrap}
+#gcalEditPanel .ge-dt.alld .d{font-size:16px;font-weight:700;color:#1c1c1e}
+#gcalEditPanel .ge-ov{position:absolute !important;inset:0;width:100% !important;height:100% !important;min-height:0 !important;opacity:0;font-size:16px;z-index:2;border:none;padding:0;margin:0;background:transparent}
+#gcalEditPanel .ge-pill{border:1.5px solid #d1d1d6;background:#fff;color:#8e8e93;border-radius:999px;padding:9px 18px;font-size:16px;font-weight:500;cursor:pointer;white-space:nowrap;font-family:inherit}
+#gcalEditPanel .ge-pill.on{background:#1c1c1e;border-color:#1c1c1e;color:#fff}
+#gcalEditPanel .ge-field{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:18px;color:#1c1c1e;font-family:inherit;padding:14px 0;resize:none}
+#gcalEditPanel .ge-field::placeholder{color:#c7c7cc}
+#gcalEditPanel .ge-chip{display:inline-flex;align-items:center;gap:8px;background:#f2f2f7;border-radius:999px;padding:12px 18px;font-size:17px;color:#1c1c1e;cursor:pointer;margin:4px 8px 4px 0}
+#gcalEditPanel .ge-chip input{display:none}
+#gcalEditPanel .ge-chip .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+#gcalEditPanel .ge-chip.off{opacity:.45}
+#gcalEditFab{position:absolute;right:24px;width:64px;height:64px;border-radius:50%;background:#252527;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(0,0,0,.28);cursor:pointer;z-index:5}
+#gcalEditFab svg{width:30px;height:30px;stroke:#fff;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#gcalEditFab:disabled{opacity:.6}
+</style>
 <div id="gcalEditOverlay" style="
   position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:360;
   display:none;align-items:flex-end;justify-content:center;
 " onclick="if(event.target===this)gcalCloseEdit()">
   <div id="gcalEditPanel" style="
-    background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:430px;box-sizing:border-box;
-    max-height:90dvh;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
-    padding-bottom:calc(var(--navh, 60px) + 12px);
+    position:relative;background:#fff;border-radius:28px 28px 0 0;width:100%;max-width:430px;box-sizing:border-box;
+    height:94dvh;display:flex;flex-direction:column;overflow:hidden;
     transform:translateY(100%);transition:transform 0.28s cubic-bezier(.4,0,.2,1);
   ">
-    <div style="padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-      <div id="gcalEditHeading" style="font-size:17px;font-weight:700;color:#1c1c1e;">予定</div>
-      <button onclick="gcalCloseEdit()" style="background:none;border:none;font-size:22px;color:#8e8e93;cursor:pointer;">×</button>
+    <div style="flex-shrink:0;position:relative;height:52px;">
+      <div onclick="gcalCloseEdit()" style="position:absolute;left:50%;top:14px;transform:translateX(-50%);width:44px;height:5px;border-radius:3px;background:#c7c7cc;cursor:pointer;"></div>
+      <div style="position:absolute;right:20px;top:12px;">
+        <button type="button" onclick="gcalEditToggleMenu(event)" aria-label="メニュー" style="background:none;border:none;padding:6px 8px;cursor:pointer;display:flex;gap:4px;">
+          <span style="width:5px;height:5px;border-radius:50%;background:#1c1c1e"></span><span style="width:5px;height:5px;border-radius:50%;background:#1c1c1e"></span><span style="width:5px;height:5px;border-radius:50%;background:#1c1c1e"></span>
+        </button>
+        <div id="gcalEditMenu" style="display:none;position:absolute;right:0;top:34px;background:#fff;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.22);min-width:150px;overflow:hidden;z-index:9;">
+          <button id="gcalEditDeleteBtn" type="button" onclick="gcalEditToggleMenu();gcalDeleteEvent()" style="display:none;width:100%;text-align:left;background:none;border:none;color:#ff3b30;font-size:16px;font-weight:600;padding:14px 18px;cursor:pointer;">削除</button>
+          <button type="button" onclick="gcalEditToggleMenu();gcalCloseEdit()" style="display:block;width:100%;text-align:left;background:none;border:none;color:#1c1c1e;font-size:16px;padding:14px 18px;cursor:pointer;">閉じる</button>
+        </div>
+      </div>
     </div>
+    <div id="gcalEditHeading" style="display:none;"></div>
 
-    <div id="gcalEditLockNotice" style="display:none;margin:12px 20px 0;padding:10px 12px;background:#fff4e5;border:1px solid #ffd8a8;border-radius:12px;font-size:12.5px;color:#a15c00;line-height:1.5;">
-      🔒 この予定はタスクから自動生成されたものです（タスク↔Google同期で管理）。<br>アプリからの変更・削除はできません。
-    </div>
+    <div style="flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--navh,60px) + 120px);" onclick="gcalEditToggleMenu(null,true)">
+      <div id="gcalEditLockNotice" style="display:none;margin:0 24px 12px;padding:10px 12px;background:#fff4e5;border:1px solid #ffd8a8;border-radius:12px;font-size:12.5px;color:#a15c00;line-height:1.5;">
+        🔒 この予定はタスクから自動生成されたものです（タスク↔Google同期で管理）。<br>アプリからの変更・削除はできません。
+      </div>
 
-    <div style="padding:16px 20px 24px;display:flex;flex-direction:column;gap:14px;">
       <!-- タイトル -->
-      <div>
-        <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">タイトル</label>
-        <input id="gcalEditTitleInput" type="text" placeholder="予定のタイトル" style="
-          width:100%;box-sizing:border-box;border:1px solid #e5e5ea;border-radius:10px;
-          padding:11px 12px;font-size:15px;color:#1c1c1e;outline:none;">
+      <div class="ge-row" style="margin-top:6px;">
+        <div id="gcalEditBar" style="width:5px;align-self:stretch;margin:10px 0;border-radius:3px;background:#8aa4c4;flex-shrink:0;margin-right:-8px;"></div>
+        <input id="gcalEditTitleInput" type="text" placeholder="タイトル" class="ge-field" style="font-size:32px;font-weight:700;padding:14px 0;">
       </div>
 
-      <!-- 終日トグル -->
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:14px;color:#1c1c1e;cursor:pointer;">
-        <span>終日</span>
-        <input id="gcalEditAllDay" type="checkbox" onchange="gcalEditToggleAllDay()" style="width:20px;height:20px;accent-color:#34c759;">
-      </label>
-
-      <!-- 時間指定 -->
-      <div id="gcalEditTimedRow">
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="min-width:0;">
-            <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始</label>
-            <input id="gcalEditStart" type="datetime-local" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
-          </div>
-          <div style="min-width:0;">
-            <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了</label>
-            <input id="gcalEditEnd" type="datetime-local" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
-          </div>
+      <!-- 日時 -->
+      <div class="ge-row" style="margin-top:34px;min-height:70px;">
+        <svg class="ge-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <div id="gcalEditTimedRow" style="display:flex;align-items:center;gap:14px;flex:1;min-width:0;">
+          <div class="ge-dt"><div class="d" id="gcalDispSD"></div><div class="t" id="gcalDispST"></div>
+            <input id="gcalEditStart" type="datetime-local" class="ge-ov"></div>
+          <svg class="ge-ico" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M9 5l7 7-7 7"/></svg>
+          <div class="ge-dt"><div class="d" id="gcalDispED"></div><div class="t" id="gcalDispET"></div>
+            <input id="gcalEditEnd" type="datetime-local" class="ge-ov"></div>
         </div>
-      </div>
-
-      <!-- 終日（日付指定） -->
-      <div id="gcalEditAllDayRow" style="display:none;">
-        <div style="display:flex;gap:10px;">
-          <div style="flex:1;min-width:0;">
-            <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">開始日</label>
-            <input id="gcalEditStartDate" type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
-          </div>
-          <div style="flex:1;min-width:0;">
-            <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">終了日（含む）</label>
-            <input id="gcalEditEndDate" type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:none;border-radius:12px;padding:12px 14px;font-size:15px;color:#1c1c1e;outline:none;background:#f2f2f7;font-family:inherit;-webkit-tap-highlight-color:transparent;">
-          </div>
+        <div id="gcalEditAllDayRow" style="display:none;align-items:center;gap:14px;flex:1;min-width:0;">
+          <div class="ge-dt alld"><div class="d" id="gcalDispASD"></div>
+            <input id="gcalEditStartDate" type="date" class="ge-ov"></div>
+          <svg class="ge-ico" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M9 5l7 7-7 7"/></svg>
+          <div class="ge-dt alld"><div class="d" id="gcalDispAED"></div>
+            <input id="gcalEditEndDate" type="date" class="ge-ov"></div>
         </div>
+        <button type="button" id="gcalEditAllDayPill" class="ge-pill" onclick="gcalEditPillToggle()">終日</button>
+        <input id="gcalEditAllDay" type="checkbox" style="display:none" onchange="gcalEditToggleAllDay()">
       </div>
 
-      <!-- カレンダー選択 -->
-      <div>
-        <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:4px;">カレンダー</label>
-        <div id="gcalEditCalArea"></div>
+      <!-- 繰り返し -->
+      <div class="ge-row" id="gcalEditRepRow" style="margin-top:4px;">
+        <svg class="ge-ico" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4h-4"/></svg>
+        <div class="ge-dt" style="padding:14px 0;"><div id="gcalEditRepLabel" style="font-size:18px;color:#aeaeb2;">繰り返しなし</div>
+          <select id="gcalEditRep" class="ge-ov" onchange="gcalEditRefreshDisp()">
+            <option value="">繰り返しなし</option><option value="DAILY">毎日</option><option value="WEEKLY">毎週</option><option value="MONTHLY">毎月</option><option value="YEARLY">毎年</option>
+          </select></div>
+      </div>
+
+      <div style="height:26px"></div>
+
+      <!-- カレンダー -->
+      <div class="ge-row" style="align-items:flex-start;padding-top:6px;">
+        <svg class="ge-ico" viewBox="0 0 24 24" style="margin-top:12px"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+        <div id="gcalEditCalArea" style="flex:1;min-width:0;display:flex;flex-wrap:wrap;"></div>
       </div>
 
       <!-- アラーム／強調 -->
-      <div id="gcalEditAlarmSection">
-        <label style="font-size:12px;color:#8e8e93;display:block;margin-bottom:6px;">アラーム</label>
-        <div class="alarm-chips" id="gcalEditAlarmChips">
-          <button type="button" class="alarm-chip" data-pat="none" onclick="gcalEditSetAlarmPattern('none')">なし</button>
-          <button type="button" class="alarm-chip" data-pat="light" onclick="gcalEditSetAlarmPattern('light')">ゆるめ</button>
-          <button type="button" class="alarm-chip" data-pat="normal" onclick="gcalEditSetAlarmPattern('normal')">普通</button>
-          <button type="button" class="alarm-chip" data-pat="important" onclick="gcalEditSetAlarmPattern('important')">大事</button>
+      <div class="ge-row" id="gcalEditAlarmSection" style="align-items:flex-start;padding-top:10px;padding-bottom:6px;">
+        <svg class="ge-ico" viewBox="0 0 24 24" style="margin-top:10px"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg>
+        <div style="flex:1;min-width:0;">
+          <div class="alarm-chips" id="gcalEditRemChips"></div>
+          <div id="gcalEditRemNote" style="font-size:12px;color:#8e8e93;margin-top:8px;"></div>
         </div>
-        <div id="gcalEditAlarmTypeRow" style="display:none;margin-top:8px;">
-          <div style="font-size:12px;color:#8e8e93;margin-bottom:6px;">種別（文言）</div>
-          <div class="alarm-chips" id="gcalEditAlarmTypeChips">
-            <button type="button" class="alarm-chip type" data-typ="general" onclick="gcalEditSetAlarmType('general')">一般</button>
-            <button type="button" class="alarm-chip type" data-typ="outing" onclick="gcalEditSetAlarmType('outing')">おでかけ</button>
-          </div>
-        </div>
-        <div id="gcalEditAlarmPreview" style="display:none;margin-top:10px;"></div>
       </div>
 
-      <!-- アクション -->
-      <button id="gcalEditSaveBtn" onclick="gcalSaveEdit()" style="
-        margin-top:4px;background:#1c1c1e;color:#fff;border:none;border-radius:14px;
-        padding:14px;font-size:15px;font-weight:600;cursor:pointer;">保存</button>
-      <button id="gcalEditDeleteBtn" onclick="gcalDeleteEvent()" style="
-        display:none;margin-top:4px;background:none;color:#ff3b30;border:1px solid #ffccc7;border-radius:14px;
-        padding:14px;font-size:14px;font-weight:600;cursor:pointer;touch-action:manipulation;">削除</button>
+      <div style="height:22px"></div>
+
+      <!-- 場所 / URL / メモ -->
+      <div class="ge-row">
+        <svg class="ge-ico" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.7-6.5-11a6.5 6.5 0 0 1 13 0c0 5.3-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
+        <input id="gcalEditLoc" type="text" class="ge-field" placeholder="場所">
+      </div>
+      <div class="ge-row">
+        <svg class="ge-ico" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+        <input id="gcalEditUrl" type="url" class="ge-field" placeholder="URL" autocapitalize="off" autocorrect="off">
+      </div>
+      <div class="ge-row" style="align-items:flex-start;">
+        <svg class="ge-ico" viewBox="0 0 24 24" style="margin-top:16px"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5M8 9h8M8 13h4"/></svg>
+        <textarea id="gcalEditDesc" class="ge-field" rows="3" placeholder="メモ"></textarea>
+      </div>
     </div>
+
+    <button id="gcalEditSaveBtn" onclick="gcalSaveEdit()" aria-label="保存" style="display:none"></button>
+    <button id="gcalEditFab" type="button" onclick="gcalSaveEdit()" aria-label="保存" style="bottom:calc(var(--navh,60px) + 18px);"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
   </div>
 </div>
 <div id="notionOverlay" style="
@@ -3596,6 +3624,7 @@
     <button data-view="tracker" onclick="setRoutineView('tracker', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V4M16 20v-6M2 20h20"/></svg> トラッカー</button>
     <button data-view="manage" onclick="setRoutineView('manage', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg> 一覧・管理</button>
     <button data-view="repeat" onclick="setRoutineView('repeat', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 定期タスク</button>
+    <button data-view="subs" onclick="setRoutineView('subs', this)">💳 サブスク</button>
   </div>
   <!-- コントロールバー（種類・表示・期間・状態を1行に集約） -->
   <div class="r-ctrlbar" id="routineCtrlBar">
@@ -3623,6 +3652,7 @@
   </div>
   <!-- 継続チャレンジ（独立タブ・全面表示） -->
   <div id="routineChallenge"></div>
+  <div id="routineSubs" style="display:none"></div>
   <div id="routineList"></div>
 </div>
 
@@ -12811,6 +12841,14 @@
     const challengeView = routineViewMode === 'challenge';
     const list = document.getElementById('routineList');
     const chal = document.getElementById('routineChallenge');
+    const subsEl = document.getElementById('routineSubs');
+    if (subsEl) subsEl.style.display = (routineViewMode === 'subs') ? '' : 'none';
+    if (routineViewMode === 'subs') {
+      const bar1 = document.getElementById('routineCtrlBar'); if (bar1) bar1.style.display = 'none';
+      if (list) list.style.display = 'none';
+      if (chal) chal.style.display = 'none';
+      return;
+    }
     // 継続タブ: コントロールバーと一覧を隠し、チャレンジ枠だけ全面表示
     if (challengeView) {
       const bar0 = document.getElementById('routineCtrlBar');
@@ -14242,6 +14280,9 @@
   // Googleイベントのアラームを今後30日ぶんPush予約
   async function syncGcalEventAlarms() {
     const p = _mzPush(); if (!p || !p.sub) return;
+    // 予定の通知はGoogleカレンダー側で鳴らす。アプリからは予約しない（二重通知防止）
+    try { await _postJobsIfChanged('-gcal', []); } catch(e){}
+    return;
     const alarms = _gcalAlarms(); const ids = Object.keys(alarms);
     const client = (p.client || '') + '-gcal';
     if (!ids.length) { try { await _postJobsIfChanged('-gcal', []); } catch(e){} return; }
@@ -14364,6 +14405,9 @@
       } else if (route === 'tomorrow' || route === 'schedule') {
         if (typeof switchScreen === 'function') switchScreen('todo');
         setTimeout(() => { try { localStorage.setItem(TMR_OPEN_KEY, '1'); renderTomorrowSummary(); const el = document.getElementById('tomorrowSummary'); if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(e){} }, 100);
+      } else if (route === 'subs') {
+        if (typeof switchScreen === 'function') switchScreen('routine');
+        setTimeout(() => { try { setRoutineView('subs', document.querySelector('#routineViewToggle [data-view="subs"]')); } catch(e){} }, 80);
       } else if (route === 'routine') {
         if (typeof switchScreen === 'function') switchScreen('routine');
       } else if (route === 'weather') {
@@ -14670,9 +14714,221 @@
       + '</div>';
   }
 
+  // ============================================================
+  // 💳 サブスク管理（クレカ・各種定期支払い）
+  //   定期タスクとは別のデータ。金額・支払い方法・更新日を持ち、更新日の前に通知する
+  // ============================================================
+  const SUBS_KEY = 'subscriptions';
+  const SUB_CATS = [
+    { k:'video', e:'🎬', n:'動画・配信' }, { k:'music', e:'🎵', n:'音楽・本' }, { k:'app', e:'📱', n:'アプリ・AI' },
+    { k:'cloud', e:'☁️', n:'クラウド' }, { k:'game', e:'🎮', n:'ゲーム' }, { k:'health', e:'💪', n:'健康・美容' },
+    { k:'insure', e:'🛡', n:'保険・年会費' }, { k:'life', e:'💡', n:'通信・光熱' }, { k:'other', e:'📦', n:'その他' },
+  ];
+  const SUB_CYCLES = [
+    { k:'monthly', n:'毎月', unit:'月', months:1 }, { k:'yearly', n:'毎年', unit:'年', months:12 },
+    { k:'months3', n:'3か月ごと', unit:'3か月', months:3 }, { k:'months6', n:'半年ごと', unit:'半年', months:6 },
+    { k:'weekly', n:'毎週', unit:'週', months:0 },
+  ];
+  let subViewMode = 'date';   // date / pay / cat / paused
+  let subEditId = null;
+
+  function subLoad() { try { const a = JSON.parse(localStorage.getItem(SUBS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function subSave(list) { try { localStorage.setItem(SUBS_KEY, JSON.stringify(list)); } catch (e) {} setTimeout(function () { try { subSyncNotifications(); } catch (e) {} }, 400); }
+  function subYen(n) { return '¥' + Math.round(n || 0).toLocaleString('ja-JP'); }
+  function subEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+  function subCycle(k) { return SUB_CYCLES.find(c => c.k === k) || SUB_CYCLES[0]; }
+  function subCat(k) { return SUB_CATS.find(c => c.k === k) || SUB_CATS[SUB_CATS.length - 1]; }
+  function subParse(s) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+  function subAddMonths(base, n) {          // 月末はその月の末日に丸める（31日→2月は28/29日）
+    const d = new Date(base.getFullYear(), base.getMonth() + n, 1);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(base.getDate(), last)); return d;
+  }
+  // 次回の更新日（今日以降で最初の日）
+  function subNextDate(sub, from) {
+    const anchor = subParse(sub.anchor); if (!anchor) return null;
+    const today = from ? new Date(from) : new Date(); today.setHours(0, 0, 0, 0);
+    const c = subCycle(sub.cycle);
+    if (c.months === 0) {                    // 毎週
+      const diff = Math.ceil((today - anchor) / 86400000);
+      const k = diff <= 0 ? 0 : Math.ceil(diff / 7);
+      const d = new Date(anchor); d.setDate(anchor.getDate() + k * 7); return d;
+    }
+    let k = 0;
+    const est = (today.getFullYear() - anchor.getFullYear()) * 12 + (today.getMonth() - anchor.getMonth());
+    k = Math.max(0, Math.floor(est / c.months) - 1);
+    let d = subAddMonths(anchor, k * c.months);
+    while (d < today) { k++; d = subAddMonths(anchor, k * c.months); }
+    return d;
+  }
+  function subMonthly(sub) {                 // 月額換算
+    const c = subCycle(sub.cycle), a = +sub.amount || 0;
+    return c.months === 0 ? a * 52 / 12 : a / c.months;
+  }
+  function subDaysUntil(d) { const t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((d - t) / 86400000); }
+  function subFmtDate(d) { const w = ['日','月','火','水','木','金','土'][d.getDay()]; return (d.getMonth() + 1) + '/' + d.getDate() + '(' + w + ')'; }
+
+  function subStyle() {
+    if (document.getElementById('subStyle')) return;
+    const css = `
+    .sb-sum{background:linear-gradient(135deg,#7b6cf6,#b38cff);border-radius:20px;color:#fff;padding:16px;margin-bottom:12px;box-shadow:0 6px 18px rgba(108,92,231,.25)}
+    .sb-sum-l{font-size:12px;opacity:.85;font-weight:700}.sb-sum-big{font-size:30px;font-weight:900;letter-spacing:.01em;margin:2px 0 8px}
+    .sb-sum-row{display:flex;gap:8px}.sb-sum-box{flex:1;background:rgba(255,255,255,.18);border-radius:12px;padding:8px 10px}
+    .sb-sum-box b{display:block;font-size:15px;margin-top:1px}.sb-sum-box span{font-size:11px;opacity:.85;font-weight:700}
+    .sb-seg{display:flex;gap:4px;background:#efedfa;border-radius:12px;padding:3px;margin-bottom:10px}
+    .sb-seg button{flex:1;border:none;background:transparent;color:#8b88a0;font-size:12px;font-weight:800;font-family:inherit;padding:7px 2px;border-radius:9px;cursor:pointer}
+    .sb-seg button.on{background:#fff;color:#6c5ce7;box-shadow:0 2px 8px rgba(108,92,231,.18)}
+    .sb-add{width:100%;border:2px dashed #cfc6f5;background:#faf8ff;color:#6c5ce7;border-radius:16px;padding:13px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:10px}
+    .sb-grp{display:flex;align-items:baseline;justify-content:space-between;margin:14px 2px 6px;font-size:13px;font-weight:800;color:#4a4760}
+    .sb-grp span{font-size:12px;color:#8e8b9e;font-weight:700}
+    .sb-item{display:flex;align-items:center;gap:11px;background:#fff;border-radius:16px;padding:12px;margin-bottom:8px;box-shadow:0 1px 5px rgba(0,0,0,.05);cursor:pointer}
+    .sb-item.off{opacity:.5}
+    .sb-ico{flex:none;width:42px;height:42px;border-radius:13px;background:#f3f0ff;display:flex;align-items:center;justify-content:center;font-size:22px}
+    .sb-main{flex:1;min-width:0}.sb-name{font-size:15px;font-weight:800;color:#2b2840;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sb-meta{font-size:12px;color:#8e8b9e;margin-top:2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    .sb-pay{background:#f2f1f7;color:#5a5768;border-radius:8px;padding:1px 7px;font-weight:700}
+    .sb-right{text-align:right;flex:none}.sb-amt{font-size:15px;font-weight:900;color:#2b2840}.sb-unit{font-size:11px;color:#8e8b9e;font-weight:700}
+    .sb-due{font-size:12px;font-weight:800;color:#6c5ce7;margin-top:2px}.sb-due.soon{color:#e5484d}
+    .sb-empty{text-align:center;color:#8e8b9e;font-size:13px;padding:30px 10px;line-height:1.8}
+    #subSheet{position:fixed;inset:0;z-index:4700;background:rgba(30,20,60,.45);display:flex;align-items:flex-end;justify-content:center}
+    .sb-sheet{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+    .sb-sheet h3{margin:0 0 12px;font-size:17px;color:#2b2840}
+    .sb-f{margin-bottom:11px}.sb-f label{display:block;font-size:12px;font-weight:800;color:#8e8b9e;margin-bottom:4px}
+    .sb-f input,.sb-f select{width:100%;box-sizing:border-box;border:none;background:#f2f2f7;border-radius:11px;padding:12px;font-size:15px;font-family:inherit;color:#1c1c1e;outline:none;-webkit-appearance:none;appearance:none}
+    .sb-2{display:flex;gap:8px}.sb-2>*{flex:1;min-width:0}
+    .sb-btns{display:flex;gap:8px;margin-top:6px}.sb-btn{flex:1;border:none;border-radius:13px;padding:13px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
+    .sb-btn.pri{background:#6c5ce7;color:#fff}.sb-btn.sub{background:#f2f1f7;color:#4a4760}.sb-btn.del{background:#fff0f0;color:#e5484d}
+    `;
+    const el = document.createElement('style'); el.id = 'subStyle'; el.textContent = css; document.head.appendChild(el);
+  }
+
+  function renderSubs() {
+    subStyle();
+    const host = document.getElementById('routineSubs'); if (!host) return;
+    const all = subLoad();
+    const act = all.filter(s => s.status !== 'paused'), paused = all.filter(s => s.status === 'paused');
+    const monthly = act.reduce((t, s) => t + subMonthly(s), 0);
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    let left = 0, leftN = 0;
+    act.forEach(s => { const d = subNextDate(s); if (d && d <= monthEnd) { left += (+s.amount || 0); leftN++; } });
+    const seg = [['date', '日付順'], ['pay', '支払い方法'], ['cat', 'カテゴリ'], ['paused', '停止中' + (paused.length ? ' ' + paused.length : '')]];
+    let h = `<div class="sb-sum"><div class="sb-sum-l">月額の合計（${act.length}件）</div><div class="sb-sum-big">${subYen(monthly)}</div>
+      <div class="sb-sum-row"><div class="sb-sum-box"><span>年額の目安</span><b>${subYen(monthly * 12)}</b></div>
+      <div class="sb-sum-box"><span>今月の残り（${leftN}件）</span><b>${subYen(left)}</b></div></div></div>
+      <div class="sb-seg">${seg.map(x => `<button class="${subViewMode === x[0] ? 'on' : ''}" onclick="subSetView('${x[0]}')">${x[1]}</button>`).join('')}</div>
+      <button class="sb-add" onclick="subOpenEdit(null)">＋ サブスクを追加</button>`;
+    const item = s => {
+      const d = subNextDate(s), c = subCat(s.cat), cy = subCycle(s.cycle), dl = d ? subDaysUntil(d) : null;
+      const due = (s.status === 'paused') ? '停止中' : (d ? `${subFmtDate(d)}　${dl === 0 ? '今日' : 'あと' + dl + '日'}` : '日付未設定');
+      return `<div class="sb-item ${s.status === 'paused' ? 'off' : ''}" onclick="subOpenEdit('${s.id}')">
+        <div class="sb-ico">${c.e}</div>
+        <div class="sb-main"><div class="sb-name">${subEsc(s.name)}</div>
+          <div class="sb-meta">${s.pay ? `<span class="sb-pay">💳 ${subEsc(s.pay)}</span>` : ''}<span>${c.n}</span></div></div>
+        <div class="sb-right"><div class="sb-amt">${subYen(s.amount)}<span class="sb-unit"> /${cy.unit}</span></div>
+          <div class="sb-due ${dl !== null && dl <= 3 && s.status !== 'paused' ? 'soon' : ''}">${due}</div></div></div>`;
+    };
+    const byDate = (a, b) => ((subNextDate(a) || 0) - (subNextDate(b) || 0));
+    if (subViewMode === 'paused') {
+      h += paused.length ? paused.map(item).join('') : '<div class="sb-empty">停止中のサブスクはありません</div>';
+    } else if (!act.length) {
+      h += '<div class="sb-empty">まだ登録がありません<br>「＋ サブスクを追加」から、<br>動画・音楽・クレカの年会費などを登録しましょう</div>';
+    } else if (subViewMode === 'date') {
+      h += act.slice().sort(byDate).map(item).join('');
+    } else {
+      const key = subViewMode === 'pay' ? (s => s.pay || '（支払い方法なし）') : (s => { const c = subCat(s.cat); return c.e + ' ' + c.n; });
+      const g = {}; act.forEach(s => { (g[key(s)] = g[key(s)] || []).push(s); });
+      Object.keys(g).sort((a, b) => g[b].reduce((t, s) => t + subMonthly(s), 0) - g[a].reduce((t, s) => t + subMonthly(s), 0)).forEach(k => {
+        const list = g[k].sort(byDate), m = list.reduce((t, s) => t + subMonthly(s), 0);
+        h += `<div class="sb-grp"><div>${subViewMode === 'pay' && k.indexOf('（') !== 0 ? '💳 ' : ''}${subEsc(k)}</div><span>月 ${subYen(m)}・${list.length}件</span></div>` + list.map(item).join('');
+      });
+    }
+    host.innerHTML = h;
+  }
+  function subSetView(m) { subViewMode = m; renderSubs(); }
+
+  function subOpenEdit(id) {
+    subStyle(); subEditId = id;
+    const list = subLoad(), s = id ? (list.find(x => x.id === id) || {}) : {};
+    const pays = Array.from(new Set(list.map(x => x.pay).filter(Boolean)));
+    const todayStr = ymd(new Date());
+    let ov = document.getElementById('subSheet'); if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'subSheet';
+    ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+    ov.innerHTML = `<div class="sb-sheet"><h3>${id ? 'サブスクを編集' : 'サブスクを追加'}</h3>
+      <div class="sb-f"><label>名前</label><input id="sbName" placeholder="例: Netflix" value="${subEsc(s.name || '')}"></div>
+      <div class="sb-2">
+        <div class="sb-f"><label>金額（円）</label><input id="sbAmt" type="number" inputmode="numeric" placeholder="1490" value="${s.amount != null ? s.amount : ''}"></div>
+        <div class="sb-f"><label>支払い周期</label><select id="sbCycle">${SUB_CYCLES.map(c => `<option value="${c.k}" ${s.cycle === c.k ? 'selected' : ''}>${c.n}</option>`).join('')}</select></div>
+      </div>
+      <div class="sb-f"><label>次の更新日（引き落とし日）</label><input id="sbDate" type="date" value="${s.anchor ? ymd(subNextDate(s) || subParse(s.anchor)) : todayStr}"></div>
+      <div class="sb-f"><label>支払い方法（カード名など）</label><input id="sbPay" list="sbPayList" placeholder="例: 楽天カード" value="${subEsc(s.pay || '')}"><datalist id="sbPayList">${pays.map(p => `<option value="${subEsc(p)}">`).join('')}</datalist></div>
+      <div class="sb-2">
+        <div class="sb-f"><label>カテゴリ</label><select id="sbCat">${SUB_CATS.map(c => `<option value="${c.k}" ${(s.cat || 'other') === c.k ? 'selected' : ''}>${c.e} ${c.n}</option>`).join('')}</select></div>
+        <div class="sb-f"><label>更新の通知</label><select id="sbRemind">${[[-1, 'しない'], [0, '当日の朝'], [1, '1日前'], [3, '3日前'], [7, '7日前']].map(r => `<option value="${r[0]}" ${(s.remind != null ? s.remind : 3) === r[0] ? 'selected' : ''}>${r[1]}</option>`).join('')}</select></div>
+      </div>
+      <div class="sb-f"><label>解約ページなどのURL（任意）</label><input id="sbUrl" type="url" placeholder="https://" value="${subEsc(s.url || '')}"></div>
+      <div class="sb-f"><label>メモ（任意）</label><input id="sbMemo" placeholder="例: 無料期間は〜まで" value="${subEsc(s.memo || '')}"></div>
+      <div class="sb-btns"><button class="sb-btn sub" onclick="document.getElementById('subSheet').remove()">やめる</button><button class="sb-btn pri" onclick="subSaveEdit()">保存</button></div>
+      ${id ? `<div class="sb-btns"><button class="sb-btn sub" onclick="subTogglePause()">${s.status === 'paused' ? '▶ 再開する' : '⏸ 停止（解約）にする'}</button><button class="sb-btn del" onclick="subDelete()">削除</button></div>${s.url ? `<div class="sb-btns"><button class="sb-btn sub" onclick="window.open('${subEsc(s.url)}','_blank')">解約・管理ページを開く</button></div>` : ''}` : ''}
+    </div>`;
+    document.body.appendChild(ov);
+  }
+  function subSaveEdit() {
+    const v = id => (document.getElementById(id) || {}).value || '';
+    const name = v('sbName').trim(), amount = parseFloat(v('sbAmt'));
+    if (!name) { alert('名前を入力してください'); return; }
+    if (isNaN(amount) || amount < 0) { alert('金額を入力してください'); return; }
+    const list = subLoad();
+    const rec = { name: name, amount: amount, cycle: v('sbCycle'), anchor: v('sbDate') || ymd(new Date()), pay: v('sbPay').trim(), cat: v('sbCat'), remind: parseInt(v('sbRemind'), 10), url: v('sbUrl').trim(), memo: v('sbMemo').trim() };
+    if (subEditId) { const i = list.findIndex(x => x.id === subEditId); if (i >= 0) list[i] = Object.assign({}, list[i], rec); }
+    else list.push(Object.assign({ id: 's' + Date.now().toString(36), status: 'active', createdAt: Date.now() }, rec));
+    subSave(list);
+    const ov = document.getElementById('subSheet'); if (ov) ov.remove();
+    renderSubs();
+  }
+  function subTogglePause() {
+    const list = subLoad(), s = list.find(x => x.id === subEditId); if (!s) return;
+    s.status = s.status === 'paused' ? 'active' : 'paused'; subSave(list);
+    const ov = document.getElementById('subSheet'); if (ov) ov.remove(); renderSubs();
+  }
+  function subDelete() {
+    const list = subLoad(), s = list.find(x => x.id === subEditId); if (!s) return;
+    if (!confirm('「' + s.name + '」を削除しますか？')) return;
+    subSave(list.filter(x => x.id !== subEditId));
+    const ov = document.getElementById('subSheet'); if (ov) ov.remove(); renderSubs();
+  }
+  window.renderSubs = renderSubs; window.subSetView = subSetView; window.subOpenEdit = subOpenEdit;
+  window.subSaveEdit = subSaveEdit; window.subTogglePause = subTogglePause; window.subDelete = subDelete;
+
+  // ---- 更新日の前に通知（朝9時）----
+  async function subSyncNotifications() {
+    const p = (typeof _mzPush === 'function') ? _mzPush() : null;
+    if (!p || !p.sub) return;
+    const jobs = []; let n = 0; const now = Date.now();
+    subLoad().filter(s => s.status !== 'paused' && s.remind != null && s.remind >= 0).forEach(s => {
+      let from = new Date(); from.setHours(0, 0, 0, 0);
+      for (let k = 0; k < 4; k++) {             // 先の更新日を最大4回分
+        const d = subNextDate(s, from); if (!d) break;
+        const t = new Date(d); t.setDate(d.getDate() - s.remind); t.setHours(9, 0, 0, 0);
+        if (t.getTime() > now) {
+          const when = s.remind === 0 ? '今日' : (s.remind === 1 ? '明日' : s.remind + '日後');
+          jobs.push({ id: 'sub' + (n++), when: t.getTime(), tag: 'sub_' + s.id + '_' + ymd(d).replace(/-/g, ''),
+            url: _notifUrl('#subs'), title: '💳サブスク｜' + s.name,
+            body: when + ' ' + subFmtDate(d) + ' に ' + subYen(s.amount) + ' が引き落とし' + (s.pay ? '（' + s.pay + '）' : '') });
+        }
+        from = new Date(d); from.setDate(d.getDate() + 1);
+      }
+    });
+    try { await _postJobsIfChanged('-sub', jobs.slice(0, 60)); } catch (e) {}
+  }
+  window.subSyncNotifications = subSyncNotifications;
+  setTimeout(function () { try { subSyncNotifications(); } catch (e) {} }, 6000);
+
   function renderRoutineScreen() {
     try { renderRoutineChallenge(); } catch(e) { console.error('継続チャレンジ描画エラー', e); }
     if (routineViewMode === 'challenge') { _routineApplyControlsVisibility(); return; }
+    if (routineViewMode === 'subs') { _routineApplyControlsVisibility(); try { renderSubs(); } catch (e) { console.error(e); } return; }
     const container = document.getElementById('routineList');
     if (!container) return;
     container.className = ''; // 既定はグリッド（管理ビューで 'manage' に上書き）
@@ -17788,6 +18044,51 @@
   };
 
   // ドラッグ／スワイプ
+  // ---- タスク詳細（カードをタップ）----
+  function _swOpenDetail(t){
+    if (!t) return;
+    if (!document.getElementById('swDetailStyle')) {
+      var st = document.createElement('style'); st.id = 'swDetailStyle';
+      st.textContent = ''
+        + '#swDetail{position:fixed;inset:0;z-index:calc(var(--z-nav,9700) + 60);background:rgba(30,20,60,.45);display:flex;align-items:flex-end;justify-content:center;}'
+        + '.swd-sheet{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:520px;max-height:82vh;overflow-y:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box;animation:swdUp .22s ease;}'
+        + '@keyframes swdUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}'
+        + '.swd-name{font-size:19px;font-weight:800;color:#2b2840;line-height:1.4;margin-bottom:10px;word-break:break-word;}'
+        + '.swd-row{display:flex;gap:10px;padding:9px 0;border-top:1px solid #f0eef7;font-size:14px;color:#3a3750;}'
+        + '.swd-k{flex:0 0 74px;color:#8e8b9e;font-weight:700;font-size:12px;padding-top:2px;}'
+        + '.swd-v{flex:1;word-break:break-word;line-height:1.6;white-space:pre-wrap;}'
+        + '.swd-v a{color:#6c5ce7;}'
+        + '.swd-btns{display:flex;gap:8px;margin-top:14px;}'
+        + '.swd-btn{flex:1;border:none;border-radius:14px;padding:13px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;}'
+        + '.swd-btn.sub{background:#f2f1f7;color:#4a4760;}.swd-btn.pri{background:#6c5ce7;color:#fff;}';
+      document.head.appendChild(st);
+    }
+    var esc = function(x){ return (typeof _esc === 'function') ? _esc(String(x == null ? '' : x)) : String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+    var link = function(x){ return esc(x).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); };
+    var rows = [];
+    // 日付
+    try { var j = t['(A)実行日']; var when = '日付なし（あとで）'; if (j && j.start) { var d = new Date(j.start); when = (d.getMonth()+1) + '/' + d.getDate() + (String(j.start).length > 10 ? ' ' + String(j.start).substring(11,16) : '') + (j.end && j.end !== j.start && String(j.end).length > 10 ? '〜' + String(j.end).substring(11,16) : ''); } rows.push(['日付', esc(when)]); } catch(e){}
+    var cat = t['(B)種類']; if (cat) rows.push(['種類', esc(cat)]);
+    var kk = t['(B)実行期間']; if (kk) rows.push(['実行期間', esc(kk)]);
+    var hrs = t['(C)見込み/h']; if (hrs) rows.push(['見込み', esc(hrs >= 1 ? hrs + '時間' : Math.round(hrs * 60) + '分')]);
+    try { var pn = (Array.isArray(t._projectNames) && t._projectNames.length) ? t._projectNames.join('、') : (t.project || ''); if (pn) rows.push(['プロジェクト', esc(pn)]); } catch(e){}
+    var memo = t['(e)memo'] || t.memo || ''; if (memo) rows.push(['メモ', link(memo)]);
+    var url = t['(e)URL']; if (url) rows.push(['URL', link(url)]);
+    var ov = document.getElementById('swDetail'); if (ov) ov.remove();
+    ov = document.createElement('div'); ov.id = 'swDetail';
+    ov.innerHTML = '<div class="swd-sheet"><div class="swd-name">' + esc(t.name) + '</div>'
+      + rows.map(function(r){ return '<div class="swd-row"><div class="swd-k">' + r[0] + '</div><div class="swd-v">' + r[1] + '</div></div>'; }).join('')
+      + '<div class="swd-btns"><button class="swd-btn sub" id="swdClose">とじる</button><button class="swd-btn pri" id="swdEdit">編集する</button></div></div>';
+    ov.addEventListener('click', function(e){ if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    document.getElementById('swdClose').onclick = function(){ ov.remove(); };
+    document.getElementById('swdEdit').onclick = function(){
+      ov.remove();
+      try { closeSwipeTriage(); } catch(e){}
+      setTimeout(function(){ try { if (typeof editTask === 'function') editTask(t.id); } catch(e){} }, 150);
+    };
+  }
+
   function _swBindDrag(card){
     if (!card) return;
     var sx=0, sy=0, dx=0, dy=0, dragging=false;
@@ -17835,6 +18136,8 @@
         card.style.transition = 'transform .2s ease';
         card.style.transform = '';
         setTimeout(function(){ card.style.transition=''; }, 200);
+        // ほぼ動かさずに離した＝タップ → タスクの詳細を開く
+        if (Math.sqrt(dx*dx+dy*dy) < 8) { try { _swOpenDetail(_swQueue[_swIdx]); } catch(e){} }
       }
     }
     card.addEventListener('touchstart', function(e){ var t=e.touches[0]; sx=t.clientX; sy=t.clientY; dragging=true; card.style.transition=''; }, {passive:true});
@@ -20579,7 +20882,7 @@
               _calendarId: cal.id,
               _rawStartDate: ev.start?.date || null,
               _rawEndDate: ev.end?.date || null,
-              _recurringId: ev.recurringEventId || null
+              _recurringId: ev.recurringEventId || null, _loc: ev.location || '', _desc: ev.description || '', _rem: ev.reminders || null
             });
             return;
           }
@@ -20609,7 +20912,7 @@
             _calendarId: cal.id,
             _rawStart: ev.start.dateTime,
             _rawEnd: ev.end?.dateTime || ev.start.dateTime,
-            _recurringId: ev.recurringEventId || null
+            _recurringId: ev.recurringEventId || null, _loc: ev.location || '', _desc: ev.description || '', _rem: ev.reminders || null
           });
         });
       } catch(e) { console.error('gcalFetchEvents cal error', cal.id, e); }
@@ -20670,7 +20973,7 @@
                   id: ev.id, title: ev.summary || '(タイトルなし)', isAllDay: true,
                   color: cal.color, calendarName: cal.name, calendarId: cal.id, _calendarId: cal.id,
                   _rawStartDate: ev.start.date || null, _rawEndDate: ev.end && ev.end.date || null,
-                  _recurringId: ev.recurringEventId || null
+                  _recurringId: ev.recurringEventId || null, _loc: ev.location || '', _desc: ev.description || '', _rem: ev.reminders || null
                 });
               });
               return;
@@ -20689,7 +20992,7 @@
                 endTime: pad(ee.getHours()) + ':' + pad(ee.getMinutes()),
                 color: cal.color, calendarName: cal.name, calendarId: cal.id, _calendarId: cal.id,
                 _rawStart: ev.start.dateTime, _rawEnd: ev.end && ev.end.dateTime || ev.start.dateTime,
-                _recurringId: ev.recurringEventId || null
+                _recurringId: ev.recurringEventId || null, _loc: ev.location || '', _desc: ev.description || '', _rem: ev.reminders || null
               });
             });
           });
@@ -21268,10 +21571,58 @@
 
   function gcalEditToggleAllDay() {
     const allDay = gcalEditEl('gcalEditAllDay').checked;
-    gcalEditEl('gcalEditTimedRow').style.display  = allDay ? 'none'  : 'block';
-    gcalEditEl('gcalEditAllDayRow').style.display = allDay ? 'block' : 'none';
+    gcalEditEl('gcalEditTimedRow').style.display  = allDay ? 'none'  : 'flex';
+    gcalEditEl('gcalEditAllDayRow').style.display = allDay ? 'flex' : 'none';
+    const _pl = gcalEditEl('gcalEditAllDayPill'); if (_pl) _pl.classList.toggle('on', allDay);
+    try { gcalEditRefreshDisp(); } catch(e){}
     try { if (typeof gcalEditRenderAlarm === 'function') gcalEditRenderAlarm(); } catch(e){}
   }
+
+  const _GE_WD = ['日','月','火','水','木','金','土'];
+  function _geDateLbl(y,m,d){ const w=new Date(y,m-1,d).getDay(); return m+'月'+d+'日 ('+_GE_WD[w]+')'; }
+  function gcalEditPillToggle(){ const c=gcalEditEl('gcalEditAllDay'); if(!c||c.disabled) return; c.checked=!c.checked; gcalEditToggleAllDay(); }
+  function gcalEditToggleMenu(ev, hideOnly){
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    const m=gcalEditEl('gcalEditMenu'); if(!m) return;
+    if (hideOnly) { m.style.display='none'; return; }
+    m.style.display = (m.style.display==='block') ? 'none' : 'block';
+  }
+  let _geDur = 3600000;
+  function gcalEditRefreshDisp(){
+    const g=gcalEditEl; const set=(id,v)=>{ const e=g(id); if(e) e.textContent=v; };
+    const ps=(v)=>{ const m=/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(v||''); return m?{y:+m[1],mo:+m[2],d:+m[3],h:m[4],mi:m[5]}:null; };
+    const s1=ps(g('gcalEditStart').value), e1=ps(g('gcalEditEnd').value);
+    if (s1){ set('gcalDispSD',_geDateLbl(s1.y,s1.mo,s1.d)); set('gcalDispST',s1.h+':'+s1.mi); }
+    if (e1){ set('gcalDispED',_geDateLbl(e1.y,e1.mo,e1.d)); set('gcalDispET',e1.h+':'+e1.mi); }
+    const s2=ps(g('gcalEditStartDate').value), e2=ps(g('gcalEditEndDate').value);
+    if (s2) set('gcalDispASD',_geDateLbl(s2.y,s2.mo,s2.d));
+    if (e2) set('gcalDispAED',_geDateLbl(e2.y,e2.mo,e2.d));
+    const rep=g('gcalEditRep'), lb=g('gcalEditRepLabel');
+    if (rep && lb){ const o=rep.options[rep.selectedIndex]; lb.textContent=o?o.textContent:'繰り返しなし'; lb.style.color=rep.value?'#1c1c1e':'#aeaeb2'; }
+  }
+  window.gcalEditRefreshDisp = gcalEditRefreshDisp;
+  (function(){
+    const g=gcalEditEl;
+    const st=g('gcalEditStart'), en=g('gcalEditEnd'), sd=g('gcalEditStartDate'), ed=g('gcalEditEndDate');
+    if (!st) return;
+    st.addEventListener('input', function(){   // 開始を動かしたら長さを保って終了も動かす
+      const a=new Date(st.value); if(!isNaN(a)) { const b=new Date(a.getTime()+_geDur); en.value=gcalLocalInputStr(b); }
+      gcalEditRefreshDisp();
+    });
+    en.addEventListener('input', function(){ const a=new Date(st.value), b=new Date(en.value); if(!isNaN(a)&&!isNaN(b)&&b>a) _geDur=b-a; gcalEditRefreshDisp(); });
+    sd.addEventListener('input', function(){ if(!ed.value || ed.value<sd.value) ed.value=sd.value; gcalEditRefreshDisp(); });
+    ed.addEventListener('input', function(){ if(ed.value<sd.value) sd.value=ed.value; gcalEditRefreshDisp(); });
+
+  })();
+  function gcalEditBarColor(){
+    const bar=gcalEditEl('gcalEditBar'); if(!bar) return;
+    let col='#8aa4c4';
+    if (gcalEditState.mode==='edit' && gcalEditState.ev){ const ev=gcalEditState.ev; const cal=gcalGetCalendarById(ev.calendarId); col=(typeof gcalNameColor==='function' && gcalNameColor((cal&&cal.name)||ev.calendarName))||(cal&&cal.color)||ev.color||col; }
+    else { const c=document.querySelector('[data-gcal-edit-cal]:checked'); if(c){ const cal=gcalGetCalendarById(c.dataset.gcalEditCal); if(cal) col=(typeof gcalNameColor==='function' && gcalNameColor(cal.name))||cal.color||col; } }
+    bar.style.background=col;
+  }
+  // 説明欄 → URL行とメモに分解 / 結合
+  function _geSplitDesc(d){ const lines=String(d||'').split('\n'); let url=''; const i=lines.findIndex(l=>/^https?:\/\/\S+$/.test(l.trim())); if(i>=0){ url=lines[i].trim(); lines.splice(i,1); } return { url, memo: lines.join('\n').trim() }; }
 
   // カレンダー選択UIを描画（新規=複数選択 / 編集=固定表示）
   function gcalEditRenderCalChoices() {
@@ -21281,8 +21632,8 @@
       const cal = gcalGetCalendarById(gcalEditState.ev.calendarId);
       const nm = (cal && cal.name) || gcalEditState.ev.calendarName || gcalEditState.ev.calendarId;
       const col = (cal && cal.color) || gcalEditState.ev.color || '#4285f4';
-      area.innerHTML = `<div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#1c1c1e;">
-        <span style="width:11px;height:11px;border-radius:50%;background:${col};flex-shrink:0;"></span>${nm}</div>`;
+      area.innerHTML = `<span class="ge-chip"><span class="dot" style="background:${col}"></span>${nm}</span>`;
+      gcalEditBarColor();
       return;
     }
     // 新規: 書き込み可能カレンダーを複数選択
@@ -21293,43 +21644,52 @@
     }
     area.innerHTML = writable.map((cal, i) => {
       const checked = cal.primary || (i === 0 && !writable.some(c => c.primary));
-      return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;color:#1c1c1e;cursor:pointer;">
-        <input type="checkbox" data-gcal-edit-cal="${cal.id}" ${checked ? 'checked' : ''} style="width:18px;height:18px;accent-color:#34c759;">
-        <span style="width:11px;height:11px;border-radius:50%;background:${(typeof gcalNameColor==='function' && gcalNameColor(cal.name)) || cal.color};flex-shrink:0;"></span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${cal.name}</span>
+      return `<label class="ge-chip ${checked ? '' : 'off'}">
+        <input type="checkbox" data-gcal-edit-cal="${cal.id}" ${checked ? 'checked' : ''} onchange="this.parentNode.classList.toggle('off',!this.checked);gcalEditBarColor()">
+        <span class="dot" style="background:${(typeof gcalNameColor==='function' && gcalNameColor(cal.name)) || cal.color}"></span>
+        <span>${cal.name}</span>
       </label>`;
     }).join('');
+    gcalEditBarColor();
   }
 
   // 編集フォームのアラーム状態（保存時に反映）
-  let gcalEditAlarm = { pattern: 'none', type: 'general' };
-  function gcalEditSetAlarmPattern(p) { gcalEditAlarm.pattern = p; gcalEditRenderAlarm(); }
-  function gcalEditSetAlarmType(ty) { gcalEditAlarm.type = ty; gcalEditRenderAlarm(); }
-  window.gcalEditSetAlarmPattern = gcalEditSetAlarmPattern;
-  window.gcalEditSetAlarmType = gcalEditSetAlarmType;
-  function gcalEditRenderAlarm() {
-    const pw = document.getElementById('gcalEditAlarmChips');
-    if (pw) pw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-pat') === gcalEditAlarm.pattern));
-    const tw = document.getElementById('gcalEditAlarmTypeChips');
-    if (tw) tw.querySelectorAll('.alarm-chip').forEach(b => b.classList.toggle('selected', b.getAttribute('data-typ') === gcalEditAlarm.type));
-    const typeRow = document.getElementById('gcalEditAlarmTypeRow');
-    if (typeRow) typeRow.style.display = (gcalEditAlarm.pattern === 'none') ? 'none' : 'block';
-    // プレビュー
-    const box = document.getElementById('gcalEditAlarmPreview');
-    if (box) {
-      const allDay = (function(){ const c = gcalEditEl('gcalEditAllDay'); return c ? c.checked : false; })();
-      const entries = (typeof alarmTimings === 'function') ? alarmTimings(gcalEditAlarm.pattern, allDay) : [];
-      if (gcalEditAlarm.pattern === 'none' || !entries.length) { box.style.display = 'none'; box.innerHTML = ''; }
-      else {
-        const titleEl = gcalEditEl('gcalEditTitleInput');
-        const title = (titleEl && titleEl.value.trim()) || 'この予定';
-        box.style.display = 'block';
-        box.innerHTML = '<div style="font-size:11px;color:#a8a5b8;margin-bottom:6px;line-height:1.5;">' + (allDay ? '前日はまとめ通知にお任せ。ここは当日の念押しです。' : '前日はまとめ通知、直前(5分/1分前)はGoogle。ここは当日の準備リマインドです。') + '</div>'
-          + entries.map(e => `<div class="alarm-prev-row"><span class="alarm-prev-when">${_alarmWhenLabel(e)}</span><span class="alarm-prev-msg">${_escapeHtml(_alarmMsg(gcalEditAlarm.type, e, title))}</span></div>`).join('');
-      }
-    }
+  // 通知はGoogleカレンダー側のリマインダーに任せる（アプリからは鳴らさない）
+  let gcalEditRem = { useDefault: true, mins: [] };
+  const _GE_REM_T = [[0,'開始時'],[10,'10分前'],[30,'30分前'],[60,'1時間前'],[1440,'1日前']];
+  const _GE_REM_A = [[0,'当日0:00'],[360,'前日18:00'],[900,'前日9:00'],[1440+540,'2日前9:00']];
+  function gcalEditRemFrom(r){
+    if (!r) return { useDefault:true, mins:[] };
+    if (r.useDefault) return { useDefault:true, mins:[] };
+    return { useDefault:false, mins:(r.overrides||[]).filter(o=>o.method==='popup').map(o=>o.minutes) };
   }
-  window.gcalEditRenderAlarm = gcalEditRenderAlarm;
+  function gcalEditRemToggle(m){
+    if (m==='def'){ gcalEditRem={ useDefault:true, mins:[] }; }
+    else if (m==='none'){ gcalEditRem={ useDefault:false, mins:[] }; }
+    else {
+      const i=gcalEditRem.mins.indexOf(m);
+      gcalEditRem.useDefault=false;
+      if(i>=0) gcalEditRem.mins.splice(i,1); else if(gcalEditRem.mins.length<5) gcalEditRem.mins.push(m);
+    }
+    gcalEditRenderAlarm();
+  }
+  function gcalEditRenderAlarm(){
+    const box=document.getElementById('gcalEditRemChips'); if(!box) return;
+    const allDay=(function(){ const c=gcalEditEl('gcalEditAllDay'); return c?c.checked:false; })();
+    const opts=allDay?_GE_REM_A:_GE_REM_T;
+    const known=opts.map(o=>o[0]);
+    const extra=gcalEditRem.mins.filter(m=>known.indexOf(m)<0);
+    const lbl=m=> m>=1440 && m%1440===0 ? (m/1440)+'日前' : m>=60 && m%60===0 ? (m/60)+'時間前' : m+'分前';
+    const chip=(on,label,arg)=>'<button type="button" class="alarm-chip'+(on?' selected':'')+'" onclick="gcalEditRemToggle('+arg+')">'+label+'</button>';
+    let h=chip(gcalEditRem.useDefault,'デフォルト',"'def'")+chip(!gcalEditRem.useDefault&&!gcalEditRem.mins.length,'なし',"'none'");
+    opts.forEach(o=>{ h+=chip(!gcalEditRem.useDefault&&gcalEditRem.mins.indexOf(o[0])>=0,o[1],o[0]); });
+    extra.forEach(m=>{ h+=chip(true,lbl(m),m); });
+    box.innerHTML=h;
+    const note=document.getElementById('gcalEditRemNote');
+    if(note) note.textContent = gcalEditRem.useDefault ? 'Googleカレンダーの標準の通知設定を使います' : (gcalEditRem.mins.length ? 'Googleカレンダーから通知が届きます' : '通知しません');
+  }
+  window.gcalEditRenderAlarm = gcalEditRenderAlarm; window.gcalEditRemToggle = gcalEditRemToggle;
+  window.gcalEditBarColor = gcalEditBarColor; window.gcalEditPillToggle = gcalEditPillToggle; window.gcalEditToggleMenu = gcalEditToggleMenu;
 
   function gcalEditSetLocked(locked) {
     gcalEditState.locked = locked;
@@ -21337,10 +21697,10 @@
     const saveBtn = gcalEditEl('gcalEditSaveBtn');
     const delBtn  = gcalEditEl('gcalEditDeleteBtn');
     if (notice) notice.style.display = locked ? 'block' : 'none';
-    if (saveBtn) saveBtn.style.display = locked ? 'none' : 'block';
+    const fab = gcalEditEl('gcalEditFab'); if (fab) fab.style.display = locked ? 'none' : 'flex';
     if (delBtn)  delBtn.style.display  = (locked || gcalEditState.mode === 'new') ? 'none' : 'block';
     // 入力の有効/無効
-    ['gcalEditTitleInput','gcalEditAllDay','gcalEditStart','gcalEditEnd','gcalEditStartDate','gcalEditEndDate']
+    ['gcalEditTitleInput','gcalEditAllDay','gcalEditStart','gcalEditEnd','gcalEditStartDate','gcalEditEndDate','gcalEditLoc','gcalEditUrl','gcalEditDesc','gcalEditRep','gcalEditAllDayPill']
       .forEach(id => { const el = gcalEditEl(id); if (el) el.disabled = locked; });
     const area = gcalEditEl('gcalEditCalArea');
     if (area) area.querySelectorAll('input').forEach(i => i.disabled = locked);
@@ -21353,6 +21713,9 @@
     gcalEditState = { mode: 'new', ev: null, locked: false };
     gcalEditEl('gcalEditHeading').textContent = '新規予定';
     gcalEditEl('gcalEditTitleInput').value = '';
+    gcalEditEl('gcalEditLoc').value = ''; gcalEditEl('gcalEditUrl').value = ''; gcalEditEl('gcalEditDesc').value = '';
+    gcalEditEl('gcalEditRep').value = ''; gcalEditEl('gcalEditRepRow').style.display = 'flex'; gcalEditEl('gcalEditRep').disabled = false;
+    try { gcalEditToggleMenu(null,true); } catch(e){}
 
     const base = prefill && prefill.start ? new Date(prefill.start) : (() => {
       const d = new Date(gcalPanelDate); d.setHours(12,0,0,0); return d;
@@ -21366,11 +21729,12 @@
     gcalEditEl('gcalEditEnd').value   = gcalLocalInputStr(endBase);
     gcalEditEl('gcalEditStartDate').value = gcalDateInputStr(base);
     gcalEditEl('gcalEditEndDate').value   = gcalDateInputStr(base);
+    _geDur = Math.max(60000, endBase - base);
     gcalEditToggleAllDay();
     gcalEditRenderCalChoices();
-    gcalEditAlarm = { pattern: 'none', type: 'general' };  // 新規はアラームなしから
+    gcalEditRem = { useDefault: true, mins: [] };  // 新規はGoogleの標準通知
     const _alSecNew = document.getElementById('gcalEditAlarmSection');
-    if (_alSecNew) _alSecNew.style.display = 'block';
+    if (_alSecNew) _alSecNew.style.display = 'flex';
     gcalEditRenderAlarm();
     gcalEditSetLocked(false);
     gcalOpenEditOverlay();
@@ -21384,6 +21748,12 @@
     gcalEditState = { mode: 'edit', ev, locked };
     gcalEditEl('gcalEditHeading').textContent = locked ? '予定（タスク由来・編集不可）' : '予定を編集';
     gcalEditEl('gcalEditTitleInput').value = ev.title || '';
+    gcalEditEl('gcalEditLoc').value = ev._loc || '';
+    { const sp = _geSplitDesc(ev._desc); gcalEditEl('gcalEditUrl').value = sp.url; gcalEditEl('gcalEditDesc').value = sp.memo; }
+    { const rr = gcalEditEl('gcalEditRep'); rr.value = ''; rr.disabled = locked || !!ev._recurringId;
+      const lb0 = gcalEditEl('gcalEditRepLabel'); gcalEditEl('gcalEditRepRow').style.display = 'flex';
+      if (ev._recurringId) { rr.options[0].textContent = '繰り返し予定'; } else { rr.options[0].textContent = '繰り返しなし'; } }
+    try { gcalEditToggleMenu(null,true); } catch(e){}
 
     const allDay = !!ev.isAllDay;
     gcalEditEl('gcalEditAllDay').checked = allDay;
@@ -21405,13 +21775,14 @@
       gcalEditEl('gcalEditEnd').value   = gcalLocalInputStr(eDt);
       gcalEditEl('gcalEditStartDate').value = gcalDateInputStr(sDt);
       gcalEditEl('gcalEditEndDate').value   = gcalDateInputStr(sDt);
+      _geDur = Math.max(60000, eDt - sDt);
     }
     gcalEditToggleAllDay();
     gcalEditRenderCalChoices();
     // 保存済みのアラーム設定を反映（タスク由来のロック時は非表示）
-    gcalEditAlarm = locked ? { pattern:'none', type:'general' } : Object.assign({ pattern:'none', type:'general' }, getGcalAlarm(ev.id));
+    gcalEditRem = gcalEditRemFrom(ev._rem);
     const alSec = document.getElementById('gcalEditAlarmSection');
-    if (alSec) alSec.style.display = locked ? 'none' : 'block';
+    if (alSec) alSec.style.display = locked ? 'none' : 'flex';
     gcalEditRenderAlarm();
     gcalEditSetLocked(locked);
     gcalOpenEditOverlay();
@@ -21947,6 +22318,14 @@
     const title = (gcalEditEl('gcalEditTitleInput').value || '').trim() || '(タイトルなし)';
     const allDay = gcalEditEl('gcalEditAllDay').checked;
     const body = { summary: title };
+    body.reminders = gcalEditRem.useDefault ? { useDefault: true } : { useDefault: false, overrides: gcalEditRem.mins.map(m => ({ method: 'popup', minutes: m })) };
+    { const loc=(gcalEditEl('gcalEditLoc').value||'').trim(), url=(gcalEditEl('gcalEditUrl').value||'').trim(), memo=(gcalEditEl('gcalEditDesc').value||'').trim();
+      const desc=[url,memo].filter(Boolean).join('\n');
+      if (gcalEditState.mode==='new') { if(loc) body.location=loc; if(desc) body.description=desc; }
+      else { body.location = loc || null; body.description = desc || null; }
+      const rp=gcalEditEl('gcalEditRep').value;
+      if (gcalEditState.mode==='new' && rp) body.recurrence=['RRULE:FREQ='+rp];
+      else if (gcalEditState.mode==='edit' && rp && !gcalEditState.ev._recurringId) body.recurrence=['RRULE:FREQ='+rp]; }
 
     if (allDay) {
       const sd = gcalEditEl('gcalEditStartDate').value;
@@ -21966,19 +22345,16 @@
       body.end   = { dateTime: gcalLocalToRFC3339(e), timeZone: tz };
     }
 
-    const saveBtn = gcalEditEl('gcalEditSaveBtn');
-    const origLabel = saveBtn ? saveBtn.textContent : '保存';
+    const saveBtn = gcalEditEl('gcalEditFab');
+    const origLabel = saveBtn ? saveBtn.innerHTML : '';
     try {
-      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中…'; }
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<span style="color:#fff;font-size:13px;font-weight:700">保存中</span>'; }
       if (gcalEditState.mode === 'new') {
         const calIds = Array.from(new Set(Array.from(document.querySelectorAll('[data-gcal-edit-cal]:checked')).map(i => i.dataset.gcalEditCal)));
         if (calIds.length === 0) { alert('追加先カレンダーを選択してください。'); return; }
         const createdIds = [];
         for (const cid of calIds) { const created = await gcalApiInsert(cid, body); if (created && created.id) createdIds.push(created.id); }
-        // アラーム設定を作成した予定に付与
-        if (gcalEditAlarm && gcalEditAlarm.pattern !== 'none') {
-          createdIds.forEach(id => setGcalAlarm(id, gcalEditAlarm.pattern, gcalEditAlarm.type));
-        }
+
       } else {
         const ev = gcalEditState.ev;
         // 終日⇄時間指定の切替に対応: PATCHは部分更新なので、反対側のフィールドを null で明示的に消す。
@@ -21991,8 +22367,7 @@
           body.end   = { dateTime: body.end.dateTime,   timeZone: body.end.timeZone,   date: null };
         }
         await gcalApiPatch(ev.calendarId, ev.id, body);
-        // アラーム設定を反映（なし選択で解除）
-        if (gcalEditAlarm) setGcalAlarm(ev.id, gcalEditAlarm.pattern, gcalEditAlarm.type);
+        try { setGcalAlarm(ev.id, 'none', 'general'); } catch(e){}   // 旧アプリ通知は解除（通知はGoogle側）
       }
       await gcalAfterWrite();
       try { if (typeof syncGcalEventAlarms === 'function') syncGcalEventAlarms(); } catch(e){}
@@ -22001,7 +22376,7 @@
     } catch (err) {
       alert('保存に失敗しました: ' + (err.message || err));
     } finally {
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = origLabel; }
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = origLabel; }
     }
   }
 
@@ -25057,6 +25432,9 @@
     <div style="font-size:13px;font-weight:700;color:#2d2b3a;margin-bottom:6px">勤務セッション <span style="color:#a7a4b6;font-size:11px;font-weight:600">在宅→退勤→オフィスなど複数OK</span></div>
     <div id="edSessions"></div>
     <button class="att-sbtn" id="edAddSess" style="width:100%;margin-bottom:10px">＋ セッションを追加</button>
+    <div style="font-size:13px;font-weight:700;color:#2d2b3a;margin-bottom:6px">出勤場所 <span style="color:#a7a4b6;font-size:11px;font-weight:600">時刻なしでOK（空欄＝記録なし）</span></div>
+    <input type="text" id="edLoc" placeholder="例: 渋谷オフィス" style="width:100%;box-sizing:border-box;border:1px solid #e3e0ee;border-radius:9px;padding:9px 10px;font-size:15px;font-family:inherit;outline:none;margin-bottom:6px">
+    <div id="edLocChips" class="att-locrow" style="gap:5px;margin-bottom:12px"></div>
     <div class="att-set-row"><label>実働を直接入力 <span style="color:#a7a4b6;font-size:11px">打刻なしでOK</span></label><input type="text" id="edWork" placeholder="例: 7.5h / 7:30" style="width:110px"></div>
     <div class="att-sub" style="margin:-4px 0 8px">※ 直接入力すると、その値がそのまま実働になります（セッションより優先）。</div>
     <div class="att-set-row"><label>有給</label>
@@ -25845,7 +26223,7 @@
     if(on){
       if(!Object.keys(g.offices).length) geoAlert('先に出社先を登録してください（出社先に着いてから「ここを登録」）。');
       // 許可ダイアログを出すため、操作の直後に一度だけ現在地を取る
-      geoPos(false).then(function(){ geoAutoCheck(true); }).catch(function(e){ geoAlert(geoErrMsg(e)); });
+      geoPos(false).then(function(){ geoAutoCheck('user'); }).catch(function(e){ geoAlert(geoErrMsg(e)); });
     }
     toast(on?'自動場所記録: オン':'自動場所記録: オフ');
   };
@@ -25939,15 +26317,16 @@
       if(navigator.permissions && navigator.permissions.query){
         navigator.permissions.query({name:'geolocation'}).then(function(st){
           if(st.state==='granted') go();
-          else if(st.state==='prompt' && !_geoPromptTried){
-            // iPhoneのホーム画面アプリは起動のたびに許可を聞き直すことがある。スイッチをオンにしているので、起動ごとに1回だけ聞く
-            _geoPromptTried=true; geoStat('位置情報の許可を確認しています…「許可」を選んでください'); go();
+          else if(st.state==='prompt'){
+            // 許可ポップアップは自分でボタンを押した時だけ。自動では出さない
+            if(force==='user'){ geoStat('位置情報の許可を確認しています…「許可」を選んでください'); go(); }
+            else { geoStat('位置情報が未許可のため自動記録は待機中（下のボタンで一度許可すると動きます）'); done(); }
           }
           else if(st.state==='denied'){ geoStat('位置情報が許可されていません（iPhoneの設定で許可してください）'); done(); }
           else done();
-        }).catch(go);
-      } else go();
-    } catch(e){ go(); }
+        }).catch(function(){ if(force==='user') go(); else done(); });
+      } else { if(force==='user') go(); else done(); }
+    } catch(e){ if(force==='user') go(); else done(); }
   }
   window.attGeoAutoCheck=geoAutoCheck;
   // 今日すでに「出社の場所」が記録されているのに出社タスクが未完了なら、完了を付ける
@@ -26058,6 +26437,15 @@
     $('attEditTitle').textContent=(d.getMonth()+1)+'/'+d.getDate()+'（'+WD[d.getDay()]+'）'+(hn?' '+hn:'');
     edSess = (key===todayKey?getSessions(rec):pairSessions(getSessions(rec))).map(function(s){ return { in:s.in||'', out:s.out||'', loc:s.loc||'', locType:s.locType||locTypeOf(s.loc), brk:(s.brk!=null?s.brk:null) }; });
     renderEdSessions();
+    // 出勤場所欄：場所だけ記録した日はその場所、打刻なしでlocだけ残っている日もその場所
+    var _ssNow=getSessions(rec);
+    $('edLoc').value = (rec.locNote && rec.locNote.loc) ? rec.locNote.loc : ((!_ssNow.length && rec.loc) ? rec.loc : '');
+    var lc=$('edLocChips'); lc.innerHTML='';
+    ['在宅'].concat(OFFICES).forEach(function(p){
+      var b=document.createElement('button'); b.type='button'; b.className='att-locchip'; b.textContent=p; b.style.cssText='padding:5px 10px;font-size:12px';
+      b.onclick=function(){ $('edLoc').value=p; };
+      lc.appendChild(b);
+    });
     $('edWork').value=(rec.manualWork!=null&&rec.manualWork!=='')?fmtDur(num(rec.manualWork)):'';
     $('edLeave').value=rec.leave||'none'; $('edHoli').checked=!!rec.holiday;
     updateEdTotal();
@@ -26068,7 +26456,22 @@
     var raw=edSess.filter(function(s){ return s.in || s.out; })
       .map(function(s){ var loc=(s.loc||'').trim(); var o={ in:s.in||'', out:s.out||null, loc:loc, locType:locTypeOf(loc) }; if(s.brk!=null&&s.brk!=='') o.brk=s.brk; return o; });
     var sessions=pairSessions(raw).map(function(s){ var loc=(s.loc||'').trim(); if(!loc && (s.in||s.out)) loc='在宅'; return { in:s.in||'', out:s.out||null, loc:loc, locType:locTypeOf(loc), brk:(s.brk!=null?s.brk:undefined) }; });
-    return { sessions:sessions, manualWork:(wv==null?'':wv), leave:$('edLeave').value, holiday:$('edHoli').checked };
+    // 出勤場所：専用欄を優先。時刻が空の行に書かれた場所も捨てずに拾う
+    var locOnly=($('edLoc')?$('edLoc').value:'').trim();
+    if(!locOnly){ edSess.forEach(function(s){ if(!locOnly && !s.in && !s.out && (s.loc||'').trim()) locOnly=(s.loc||'').trim(); }); }
+    return { sessions:sessions, loc:locOnly, manualWork:(wv==null?'':wv), leave:$('edLeave').value, holiday:$('edHoli').checked };
+  }
+  // 編集内容から日の記録を組み立てる（場所のメモ locNote を消さずに残す）
+  function buildEditedRec(t, old){
+    var rec={ sessions:t.sessions, manualWork:t.manualWork, leave:t.leave, holiday:t.holiday };
+    var last=t.sessions.length?t.sessions[t.sessions.length-1]:null;
+    if(last){ rec.loc=last.loc; rec.locType=last.locType; }   // 表示用ミラー
+    if(t.loc){
+      var lt=locTypeOf(t.loc), same=old && old.locNote && old.locNote.loc===t.loc;
+      rec.locNote={ loc:t.loc, locType:lt, at:(same?(old.locNote.at||''):''), auto:(same?!!old.locNote.auto:false), ts:(same?(old.locNote.ts||Date.now()):Date.now()) };
+      if(!last){ rec.loc=t.loc; rec.locType=lt; }
+    }
+    return rec;
   }
   function updateEdTotal(){
     var t=readEdit();
@@ -26086,14 +26489,9 @@
     $('attEdit').addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
     $('edSave').onclick=function(){
       var t=readEdit();
-      var empty = !t.sessions.length && (t.manualWork==='') && (t.leave==='none') && !t.holiday;
+      var empty = !t.sessions.length && !t.loc && (t.manualWork==='') && (t.leave==='none') && !t.holiday;
       if(empty){ delete R[editKey]; }
-      else {
-        var last=t.sessions.length?t.sessions[t.sessions.length-1]:null;
-        var rec={ sessions:t.sessions, manualWork:t.manualWork, leave:t.leave, holiday:t.holiday };
-        if(last){ rec.loc=last.loc; rec.locType=last.locType; } // 表示用ミラー
-        R[editKey]=rec;
-      }
+      else { R[editKey]=buildEditedRec(t, R[editKey]); }
       saveRec(R); $('attEdit').classList.remove('open'); render(); toast('保存しました'); check20Heavy();
     };
     $('edDelete').onclick=function(){ if(!confirm('この日の記録を削除しますか？')) return; delete R[editKey]; saveRec(R); $('attEdit').classList.remove('open'); render(); toast('削除しました'); };
@@ -26678,7 +27076,7 @@
   // 勤怠は「日付ごと」、履歴系は「項目ごと」に、新しい変更が勝つ形でそろえる。削除も反映。
   var CFG_KEY = 'devSyncCfg', META_KEY = 'devSyncMeta', BACKUP_KEY = 'devSyncBackup';
   // 文字列として丸ごと同期する設定
-  var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify','pushServerCfg','stampCard'];
+  var LS_KEYS = ['attendanceSettings','attMonthTarget','attOfficeGeo','wxConfig','schedFilters','schedViewMode','taskOntimeNotify','challengeNotify','pushServerCfg','stampCard','subscriptions'];
   // {項目: 値} の形で、項目ごとに同期するもの
   var MAP_KEYS = ['routinesDone','routineEnded','habitHistory','habitFreqOverrides','swTriaged','missedTasks','habitSkips'];
   var applying = false, busy = false, timer = null, lastRun = 0;
