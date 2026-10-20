@@ -25424,6 +25424,11 @@
           <label style="flex:1;font-size:12px;color:#6b6880;">開始時刻<br><input id="attCalcStart" type="time" oninput="attCalcRun()" style="width:100%;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
           <label style="flex:1;font-size:12px;color:#6b6880;">働く時間（例 8:45）<br><input id="attCalcDur" type="text" inputmode="numeric" placeholder="8:45" oninput="attCalcRun()" style="width:100%;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
         </div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-top:8px;">
+          <label style="flex:1;font-size:12px;color:#6b6880;">中断する時刻（任意）<br><input id="attCalcPause" type="time" oninput="attCalcRun()" style="width:100%;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
+          <label style="flex:1;font-size:12px;color:#6b6880;">終わりたい時刻（任意）<br><input id="attCalcWant" type="time" oninput="attCalcRun()" style="width:100%;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
+        </div>
+        <div style="font-size:11px;color:#a8a5b8;margin-top:4px;">中断と終わりたい時刻を入れると「何時に再開すれば足りるか」を出します</div>
         <div id="attCalcRes" style="margin-top:10px;font-size:14px;color:#2d2b3a;line-height:1.6;">開始時刻と働く時間を入れてください</div>
       </div>
       <div class="att-minirow">
@@ -25873,6 +25878,30 @@
     else if(/^\d+$/.test(dv)) dm=parseInt(dv,10)*60;
     if(dm==null || dm<=0){ res.textContent='働く時間は「8:45」のように入れてください'; return; }
     var sm=parseHM(sv);
+    var pv=($('attCalcPause')||{}).value, wv=($('attCalcWant')||{}).value;
+    if(pv && wv){
+      var pm=parseHM(pv), wm=parseHM(wv);
+      if(pm<sm) pm+=1440; if(wm<=pm) wm+=1440;
+      // 開始〜中断までに働いた分（休憩・夜間は差し引く）
+      var done=0, t0=sm; 
+      // projectFinish の逆：1分ずつ「働いている時間か」を数える
+      var wins=breakWins(), nS=parseHM(S.nS), nE=parseHM(S.nE);
+      for(var t=sm; t<pm; t++){
+        var d1=((t%1440)+1440)%1440, off=(d1>=nS||d1<nE);
+        for(var i=0;i<wins.length && !off;i++){ if(d1>=wins[i][0] && d1<wins[i][1]) off=true; }
+        if(!off) done++;
+      }
+      var rem=dm-done;
+      if(rem<=0){ res.innerHTML='✅ 中断までの '+fmtDur(done)+' で、目標の '+fmtDur(dm)+' に届いています。再開は不要です。'; return; }
+      if(projectFinish(pm, rem)>wm){
+        res.innerHTML='⚠️ <b>'+fmtClock(wm)+'</b> までには足りません。<br><span style="font-size:12px;color:#8e8b9e">'+fmtClock(pm)+' にすぐ再開しても終わるのは <b>'+fmtClock(projectFinish(pm, rem))+'</b>（中断までの実働 '+fmtDur(done)+'、あと '+fmtDur(rem)+'）</span>';
+        return;
+      }
+      var r=pm; while(r<wm && projectFinish(r+1, rem)<=wm) r++;   // 終わりたい時刻に間に合う、いちばん遅い再開時刻
+      res.innerHTML='▶️ <b style="font-size:22px">'+fmtClock(r)+'</b> に再開すれば <b>'+fmtClock(wm)+'</b> に終われます（これより遅いと足りません）'
+        +'<br><span style="font-size:12px;color:#8e8b9e">開始 '+fmtClock(sm)+' → '+fmtClock(pm)+' 中断（実働 '+fmtDur(done)+'）／あと '+fmtDur(rem)+' 働けば合計 '+fmtDur(dm)+'（休憩・夜間は自動で除外）</span>';
+      return;
+    }
     var end=projectFinish(sm, dm);
     var brk=(end-sm)-dm;
     res.innerHTML='🏁 <b style="font-size:22px">'+fmtClock(end)+'</b> に退勤（打刻）すればOK'
