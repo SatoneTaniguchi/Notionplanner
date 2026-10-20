@@ -2693,13 +2693,13 @@
     background: #f6f5fb; border: 1px solid #e7e4f2; border-radius: 8px; padding: 4px 4px;
   }
   .cn-today {
-    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eceaf3;
   }
   .cn-today-label { font-size: 12px; font-weight: 700; color: #6b6880; flex: 1 1 100%; }
   .cn-snooze {
-    font-family: inherit; font-size: 12px; font-weight: 700; color: #4a90e2;
-    background: #eef4fe; border: 1px solid #d7e6fb; border-radius: 9px; padding: 6px 10px; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 700; color: #4a90e2;
+    background: #eef4fe; border: 1px solid #d7e6fb; border-radius: 12px; padding: 12px 18px; min-height: 44px; cursor: pointer; touch-action: manipulation;
   }
   .cn-snooze:active { transform: scale(.97); }
   .routine-view-toggle {
@@ -3034,6 +3034,9 @@
 </style>
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>#calPrevBtn,#calNextBtn,#repeatStartCalPrev,#repeatStartCalNext,#repeatEndCalPrev,#repeatEndCalNext,#attCalPrev,#attCalNext{min-width:48px;min-height:44px;padding:0 14px !important;font-size:24px !important;touch-action:manipulation;border-radius:12px !important;background:#f2f1f7 !important;}
+#calPrevBtn+#calNextBtn,#repeatStartCalPrev+#repeatStartCalNext,#repeatEndCalPrev+#repeatEndCalNext{margin-left:10px}
+.cvm-nav{gap:10px}</style>
 <style>input[type=datetime-local][id^=gcal]{-webkit-appearance:none;appearance:none;display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;text-align:center;min-height:46px;overflow:hidden}input[type=datetime-local][id^=gcal]::-webkit-date-and-time-value{text-align:center;min-width:0}</style>
 </head>
 <body>
@@ -5838,12 +5841,12 @@
     document.getElementById('datePickerTrigger').addEventListener('click', toggleDatePicker);
     document.getElementById('calPrevBtn').addEventListener('click', function(e) {
       e.stopPropagation();
-      calPickerDate.setMonth(calPickerDate.getMonth() - 1);
+      calPickerDate = new Date(calPickerDate.getFullYear(), calPickerDate.getMonth() - 1, 1);
       renderCalPicker();
     });
     document.getElementById('calNextBtn').addEventListener('click', function(e) {
       e.stopPropagation();
-      calPickerDate.setMonth(calPickerDate.getMonth() + 1);
+      calPickerDate = new Date(calPickerDate.getFullYear(), calPickerDate.getMonth() + 1, 1);
       renderCalPicker();
     });
 
@@ -17143,7 +17146,7 @@
     + '.cvf-chip{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12px;font-weight:800;color:#a7a4b6;background:#f4f3f8;border:1px solid #e7e4f2;border-radius:20px;padding:5px 12px 5px 8px;cursor:pointer;}'
     + '.cvf-box{width:15px;height:15px;border-radius:5px;border:1.5px solid #c7c4d4;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1;}'
     + '.cvm-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px;}'
-    + '.cvm-navbtn{border:none;background:#f2f1f7;color:#5a5768;width:32px;height:32px;border-radius:10px;font-size:18px;cursor:pointer;}'
+    + '.cvm-navbtn{border:none;background:#f2f1f7;color:#5a5768;width:48px;height:44px;border-radius:12px;font-size:24px;cursor:pointer;touch-action:manipulation;}'
     + '.cvm-title{font-size:15px;font-weight:800;color:#1c1c1e;}'
     + '.cvm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}'
     + '.cvm-wd{text-align:center;font-size:11px;font-weight:800;color:#8e8b9e;padding:2px 0;}'
@@ -19054,12 +19057,12 @@
     });
     document.getElementById('repeatStartCalPrev').addEventListener('click', function(e) {
       e.stopPropagation();
-      repeatStartCalMonth.setMonth(repeatStartCalMonth.getMonth() - 1);
+      repeatStartCalMonth = new Date(repeatStartCalMonth.getFullYear(), repeatStartCalMonth.getMonth() - 1, 1);
       renderRepeatCal('start');
     });
     document.getElementById('repeatStartCalNext').addEventListener('click', function(e) {
       e.stopPropagation();
-      repeatStartCalMonth.setMonth(repeatStartCalMonth.getMonth() + 1);
+      repeatStartCalMonth = new Date(repeatStartCalMonth.getFullYear(), repeatStartCalMonth.getMonth() + 1, 1);
       renderRepeatCal('start');
     });
 
@@ -19073,12 +19076,12 @@
     });
     document.getElementById('repeatEndCalPrev').addEventListener('click', function(e) {
       e.stopPropagation();
-      repeatEndCalMonth.setMonth(repeatEndCalMonth.getMonth() - 1);
+      repeatEndCalMonth = new Date(repeatEndCalMonth.getFullYear(), repeatEndCalMonth.getMonth() - 1, 1);
       renderRepeatCal('end');
     });
     document.getElementById('repeatEndCalNext').addEventListener('click', function(e) {
       e.stopPropagation();
-      repeatEndCalMonth.setMonth(repeatEndCalMonth.getMonth() + 1);
+      repeatEndCalMonth = new Date(repeatEndCalMonth.getFullYear(), repeatEndCalMonth.getMonth() + 1, 1);
       renderRepeatCal('end');
     });
 
@@ -20073,7 +20076,7 @@
 
     const today = new Date();
     const monthAgo  = new Date(today); monthAgo.setMonth(monthAgo.getMonth() - 1);
-    const monthLater = new Date(today); monthLater.setMonth(monthLater.getMonth() + 1);
+    const monthLater = new Date(today); monthLater.setMonth(monthLater.getMonth() + 12);   // 先の予定も取り込む（旧:1か月）
     const fmt = d => d.toISOString().split('T')[0];
 
     const props = notionSettings.props || NOTION_PROP_DEFAULT;
@@ -23008,6 +23011,39 @@
     function wxToggleCollapse(){ try { localStorage.setItem('wxCollapsed', wxCollapsed()?'0':'1'); } catch(e){} wxPaint(); }
     window.wxToggleCollapse = wxToggleCollapse;
 
+    // 天気通知の「予約の状態」を画面に出す（届かないとき、どこで止まっているか分かるように）
+    function wxPushStatusHTML(cfg){
+      try {
+        var pad = function(n){ return String(n).padStart(2,'0'); };
+        var fmt = function(ms){ var d = new Date(ms); return (d.getMonth()+1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+        var line, ok = false;
+        var perm = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+        var p = (typeof _mzPush==='function') ? _mzPush() : null;
+        var L = (JSON.parse(localStorage.getItem('pushLog') || '{}') || {})['-weather'];
+        if (!cfg.notify) line = '🔕 天気アラートがオフです（右上の🔕を押すとオン）';
+        else if (cfg.lat == null) line = '⚠️ 地域が未設定です';
+        else if (perm === 'denied') line = '⚠️ このアプリの通知が「許可しない」になっています（iPhoneの設定→通知）';
+        else if (perm !== 'granted') line = '⚠️ 通知の許可がまだです（🔔を押して許可）';
+        else if (!p || !p.sub) line = '⚠️ このアプリの通知登録がありません（🔔をオフ→オン）';
+        else if (!L) line = '⚠️ まだ予約されていません（↻を押すか、アプリを開き直してください）';
+        else if (L.ok === false) line = '⚠️ 予約に失敗しました' + (L.quota ? '（サーバーの1日の上限。日本時間の朝9時すぎに回復）' : '（' + (L.status || L.error || '通信エラー') + '）');
+        else { var nx = (L.next || [])[0]; ok = true; line = '✅ ' + (L.n || 0) + '件を予約済み' + (nx ? '・次は ' + fmt(nx.w) + '「' + String(nx.t||'').slice(0,18) + '」' : '（今は通知する天気がありません）'); }
+        return '<div style="font-size:11.5px;color:' + (ok ? '#2e9e5b' : '#c0392b') + ';margin:2px 2px 6px;line-height:1.5;">' + line
+          + (cfg.notify ? ' <button onclick="wxSendTest()" style="font-family:inherit;font-size:11.5px;font-weight:700;border:1px solid #d7d5e6;background:#fff;border-radius:8px;padding:3px 8px;margin-left:4px;cursor:pointer;">テスト通知</button>' : '') + '</div>';
+      } catch(e){ return ''; }
+    }
+    // 1分後に届くテスト通知を予約して、通知の経路そのものが生きているか確かめる
+    async function wxSendTest(){
+      try {
+        var p = (typeof _mzPush==='function') ? _mzPush() : null;
+        if (!p || !p.sub){ alert('このアプリの通知登録がありません。🔔をオフ→オンにしてください。'); return; }
+        var r = await _postJobsIfChanged('-wxtest', [{ id:'t0', when: Date.now() + 60000, tag:'wxtest' + Date.now(), url:(typeof _notifUrl==='function') ? _notifUrl('#weather') : location.href, title:'🔔 テスト通知', body:'届いていれば、通知の経路は正常です' }]);
+        if (r && (r.ok || r.skipped)) alert('1分後にテスト通知を送ります。アプリを閉じて待ってください。\n届かなければ、iPhoneの設定→通知でこのアプリの通知が許可されているか確認してください。');
+        else alert('テスト通知の予約に失敗しました。' + (r && r.quota ? '\nサーバーの1日の上限に達しています（日本時間の朝9時すぎに回復）。' : '\nHTTP ' + ((r && r.status) || '不明') + '／設定の「通知の予約状況を見る」で理由を確認できます。'));
+      } catch(e){ alert('テスト通知に失敗しました：' + (e && e.message || e)); }
+    }
+    window.wxSendTest = wxSendTest;
+
     function wxRenderDays(homeDays){
       var cfg = wxCfg();
       var cur = wxCurGet(); // {place, days} または null
@@ -23021,7 +23057,8 @@
         + '<div class="wx-top">'
         +   '<div class="wx-title" onclick="wxToggleCollapse()">' + (collapsed?'▸':'▾') + ' 🧺 天気 &amp; 洗濯</div>'
         +   '<div class="wx-top-r">' + bell + '<button class="wx-refresh" onclick="wxRefresh()" title="更新">↻</button></div>'
-        + '</div>';
+        + '</div>'
+        + wxPushStatusHTML(cfg);
 
       // 折り畳み時：家の明日ぶんだけ1行で
       if (collapsed){
@@ -23286,15 +23323,20 @@
           }
         }
 
-        if (!laundry && !rain) continue;               // ★ 洗濯日でも雨でもない日は通知しない
+        // --- 当日の雨判定（傘のお知らせ） ---
+        var todayRain = null;
+        if (today){
+          var lv0 = wxRainLevel(today);
+          var tdMd = (fireDay.getMonth()+1) + '/' + fireDay.getDate();
+          if (lv0 === 'rain') todayRain = { pri:5, title:'☔ 今日は雨（' + tdMd + '）', line:'今日 ' + wxDayLine(today) + '\n🌂 傘を忘れずに' };
+          else if (lv0 === 'maybe') todayRain = { pri:2, title:'🌦 今日は雨が降るかも（' + tdMd + '）', line:'今日 ' + wxDayLine(today) + '\n🌂 折りたたみ傘があると安心' };
+        }
 
-        // 優先度の高い方をタイトルに、両方あれば本文に併記
-        var primary, secondary;
-        if (laundry && rain){ if (laundry.pri >= rain.pri){ primary=laundry; secondary=rain; } else { primary=rain; secondary=laundry; } }
-        else { primary = laundry || rain; secondary = null; }
-
-        var title = primary.title;
-        var body = primary.line + (secondary ? ('\n\n' + secondary.line) : '');
+        var items = [laundry, rain, todayRain].filter(Boolean);
+        if (!items.length) continue;                   // ★ 洗濯日でも雨でもない日は通知しない
+        items.sort(function(a,b){ return b.pri - a.pri; });   // 優先度の高い順（先頭をタイトルに、残りは本文に併記）
+        var title = items[0].title;
+        var body = items.map(function(x){ return x.line; }).join('\n\n');
 
         jobs.push({ id:'wx'+(n++), when:fire.getTime(), tag:'wx'+ymdStr(fireDay).replace(/-/g,''), url:url, title:title, body:body });
       }
@@ -23351,7 +23393,64 @@
           jobs.push({ id:'wxe'+(n++), when:eFire.getTime(), tag:'wxe'+ymdStr(tDate).replace(/-/g,''), url:url, title:etitle, body:ebody });
         }
       }
-      try { if (typeof _postJobsIfChanged==='function') await _postJobsIfChanged('-weather', jobs); } catch(e){}
+      // ===== 雨の降り始めの通知（1時間前）：今日〜明日の「雨が降りだす時間」を1時間単位の予報から拾う =====
+      try {
+        var hu = 'https://api.open-meteo.com/v1/forecast?latitude=' + cfg.lat + '&longitude=' + cfg.lon + '&timezone=auto&forecast_days=3&hourly=precipitation_probability,precipitation';
+        var hj = await fetch(hu).then(function(r){ return r.json(); });
+        var ht = hj && hj.hourly && hj.hourly.time, hp = hj && hj.hourly && hj.hourly.precipitation_probability, hr = hj && hj.hourly && hj.hourly.precipitation;
+        var hmap = {};
+        if (ht && hp){ for (var hz=0; hz<ht.length; hz++){ hmap[ht[hz].slice(0,13)] = { p: hp[hz], r: hr ? hr[hz] : null }; } }
+        // ----- 今日・明日の「出かける予定」（場所つきの時間指定イベント）：出発の1時間前に天気つきで知らせる -----
+        try {
+          var evBase = new Date(); evBase.setHours(0,0,0,0);
+          for (var eo=0; eo<2; eo++){
+            var evDay = new Date(evBase); evDay.setDate(evBase.getDate()+eo);
+            var evList = (typeof gcalEvents !== 'undefined' && gcalEvents[evDay.toDateString()]) || [];
+            evList.forEach(function(ev){
+              if (!ev || ev.isAllDay || !ev._loc || !ev.startTime) return;
+              if (/習慣/.test(String(ev.calendarName||''))) return;
+              var hm2 = String(ev.startTime).split(':'); var st = new Date(evDay); st.setHours(parseInt(hm2[0],10)||0, parseInt(hm2[1],10)||0, 0, 0);
+              if (st.getTime() <= now) return;
+              var fire2 = st.getTime() - 3600000;
+              if (fire2 <= now) fire2 = (st.getTime() - now > 900000) ? now + 60000 : 0;   // 1時間を切っていても、15分以上先なら今すぐ知らせる
+              if (!fire2) return;
+              var wk = ymdStr(st) + 'T' + String(st.getHours()).padStart(2,'0');
+              var w = hmap[wk]; var pr = w && w.p != null ? w.p : null, mmv = w && w.r != null ? w.r : 0;
+              var wetE = (pr!=null && pr>=60) || mmv>=0.5, maybeE = !wetE && pr!=null && pr>=30;
+              var hmLbl = String(st.getHours()).padStart(2,'0') + ':' + String(st.getMinutes()).padStart(2,'0');
+              jobs.push({ id:'wxo'+(n++), when:fire2, tag:'wxo_'+(ev.id||'')+'_'+ymdStr(st), url:url,
+                title:(wetE ? '☔' : '👜') + ' 1時間後に出発｜' + (ev.title||'予定') + '（' + hmLbl + '）',
+                body:'📍 ' + ev._loc + '\n' + (wetE ? '雨の予報（降水確率' + pr + '%）。🌂 傘を忘れずに' : maybeE ? '雨が降るかも（降水確率' + pr + '%）。🌂 折りたたみ傘があると安心' : (pr!=null ? '降水確率' + pr + '%。傘はなくても大丈夫そう' : '持ち物の確認を') ) });
+            });
+          }
+        } catch(e){}
+        if (ht && hp){
+          var lastOnset = 0, cnt = 0;
+          for (var hi=1; hi<ht.length && cnt<6; hi++){
+            var wet = function(k){ return (hp[k]!=null && hp[k]>=60) || (hr && hr[k]!=null && hr[k]>=0.5); };
+            if (!wet(hi) || wet(hi-1)) continue;                 // 降りだしの1時間だけ拾う
+            var hs = new Date(ht[hi]); if (isNaN(hs.getTime())) continue;
+            if (hs.getTime() - lastOnset < 3*3600000) continue;  // 続けて何度も鳴らさない
+            var hfire = new Date(hs.getTime() - 3600000);        // 降りだしの1時間前
+            var hh2 = hfire.getHours();
+            if (hfire.getTime() <= now || hh2 < 6 || hh2 >= 22) continue;   // 過去／深夜早朝は鳴らさない
+            lastOnset = hs.getTime(); cnt++;
+            var hm = String(hs.getHours()).padStart(2,'0') + ':00';
+            jobs.push({ id:'wxr'+(n++), when:hfire.getTime(), tag:'wxr'+ht[hi].replace(/[-:T]/g,''), url:url,
+              title:'☔ 1時間後から雨になりそう（' + hm + '頃）',
+              body:'降水確率' + (hp[hi]==null?'—':hp[hi]) + '%' + (hr && hr[hi]!=null ? ('　' + hr[hi] + 'mm') : '') + '\n🌂 傘を持って出よう／洗濯物は取り込みを' });
+          }
+        }
+      } catch(e){}
+      // 予報の数字が少し変わるたびに送り直すと、Cloudflareの無料枠（1日の書き込み回数）を使い切る。
+      // 通知の「日時と種類」が同じなら、3時間に1回までしか送り直さない
+      try {
+        var sig = jobs.map(function(j){ return j.tag + '@' + j.when; }).join('|');
+        var lastSig = localStorage.getItem('wxPostSig') || '', lastAt = Number(localStorage.getItem('wxPostAt') || 0);
+        if (sig === lastSig && (Date.now() - lastAt) < 3*3600000) return;
+        var rr = (typeof _postJobsIfChanged==='function') ? await _postJobsIfChanged('-weather', jobs) : null;
+        if (rr && rr.ok !== false && !rr.error){ localStorage.setItem('wxPostSig', sig); localStorage.setItem('wxPostAt', String(Date.now())); }
+      } catch(e){}
     }
     window.syncWeatherNotifications = syncWeatherNotifications;
     // 夜の通知（明日の洗濯）のオン／オフ
@@ -25319,6 +25418,14 @@
       <div id="attSessions" style="margin-bottom:6px"></div>
       <div class="att-leaverow" id="attLeaveRow"></div>
       <div style="margin-top:6px"><button class="att-sbtn" id="attRangeBtn" style="width:100%">📅 期間でまとめて有給を入力</button></div>
+      <div style="margin-top:6px"><button class="att-sbtn" id="attCalcBtn" style="width:100%" onclick="attCalcToggle()">🧮 退勤時刻を計算（記録はしません）</button></div>
+      <div id="attCalcBox" style="display:none;margin-top:8px;padding:12px;border-radius:14px;background:#f6f5fb;">
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <label style="flex:1;font-size:12px;color:#6b6880;">開始時刻<br><input id="attCalcStart" type="time" oninput="attCalcRun()" style="width:100%;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
+          <label style="flex:1;font-size:12px;color:#6b6880;">働く時間（例 8:45）<br><input id="attCalcDur" type="text" inputmode="numeric" placeholder="8:45" oninput="attCalcRun()" style="width:100%;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
+        </div>
+        <div id="attCalcRes" style="margin-top:10px;font-size:14px;color:#2d2b3a;line-height:1.6;">開始時刻と働く時間を入れてください</div>
+      </div>
       <div class="att-minirow">
         <span id="attBrkShow" style="color:#8e8b9e;font-size:12px">休憩 自動</span>
         <button class="att-sbtn" id="attManual" style="margin-left:auto">✎ 時刻を手入力・修正</button>
@@ -25743,6 +25850,35 @@
     return t;
   }
 
+  // ---- 退勤時刻の計算機（記録はしない。今の休憩・夜間ルールで「開始＋働く時間」から退勤時刻を出す）----
+  window.attCalcToggle=function(){
+    var b=$('attCalcBox'); if(!b) return;
+    var open=b.style.display==='none';
+    b.style.display=open?'block':'none';
+    if(open){
+      var st=$('attCalcStart'), du=$('attCalcDur');
+      if(st && !st.value){ var n=new Date(); st.value=pad2(n.getHours())+':'+pad2(n.getMinutes()); }
+      if(du && !du.value){ du.value=fmtDur(parseDur(S.base)); }
+      window.attCalcRun();
+    }
+  };
+  window.attCalcRun=function(){
+    var res=$('attCalcRes'); if(!res) return;
+    var sv=($('attCalcStart')||{}).value, dv=(($('attCalcDur')||{}).value||'').trim();
+    if(!sv || !dv){ res.textContent='開始時刻と働く時間を入れてください'; return; }
+    var dm=null;
+    var m=/^(\d{1,2})[:：時hH](\d{1,2})?分?$/.exec(dv.replace(/\s/g,''));
+    if(m) dm=parseInt(m[1],10)*60+(m[2]?parseInt(m[2],10):0);
+    else if(/^\d{3,4}$/.test(dv)){ var q=dv.padStart(4,'0'); dm=parseInt(q.slice(0,2),10)*60+parseInt(q.slice(2),10); }
+    else if(/^\d+$/.test(dv)) dm=parseInt(dv,10)*60;
+    if(dm==null || dm<=0){ res.textContent='働く時間は「8:45」のように入れてください'; return; }
+    var sm=parseHM(sv);
+    var end=projectFinish(sm, dm);
+    var brk=(end-sm)-dm;
+    res.innerHTML='🏁 <b style="font-size:22px">'+fmtClock(end)+'</b> に退勤（打刻）すればOK'
+      +'<br><span style="font-size:12px;color:#8e8b9e">'+fmtClock(sm)+' 開始 → 働く '+fmtDur(dm)+' ＋ 休憩など '+fmtDur(brk)+'（今の休憩設定で計算）</span>';
+  };
+
   // ============ render ============
   function render(){
     S=loadSet(); R=loadRec(); todayKey=ymd(new Date());
@@ -25981,6 +26117,13 @@
         s += '今日はあと <b>'+fmtDur(todayRemain)+'</b>';
         if(restDays>0) s += '、以降は1日 約 <b>'+fmtDur(perDay)+'</b>ペース（あと'+restDays+'日）';
         s += '。';
+        try{
+          if(todayRemain<=0){ s += '<br>🏁 <b>今日はもう退勤してOK</b>（今日の目安は達成済み）'; }
+          else {
+            var _f=projectFinish(nowMM, todayRemain);
+            if(_f<parseHM(S.nS) && _f<1440) s += '<br>🏁 <b>'+fmtClock(_f)+'</b> に退勤すれば、今日の目安は達成（休憩込み）';
+          }
+        }catch(e){}
       } else {
         s += '残り '+rdOpen+'日、1日 約 <b>'+fmtDur(perDay)+'</b>。';
       }
