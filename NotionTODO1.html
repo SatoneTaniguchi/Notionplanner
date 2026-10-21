@@ -3074,6 +3074,7 @@
     <button id="cvs-day" class="cvs-btn active" onclick="setSchedView('day')">日</button>
     <button id="cvs-week" class="cvs-btn" onclick="setSchedView('week')">週</button>
     <button id="cvs-month" class="cvs-btn" onclick="setSchedView('month')">月</button>
+    <button id="cvs-loc" class="cvs-btn cvs-loc" onclick="attQuickLocation()" title="いまの場所を出社場所として記録">📍場所</button>
   </div>
 </div>
 
@@ -14127,7 +14128,7 @@
         // 通知本文：「20:10〜20:40（30分）・雑務」のように中身が分かる形にする
         const _otBody = (t, startHM, endHM, allDay) => {
           const parts = [];
-          if (allDay){ parts.push('今日のタスクです（終日）'); }
+          if (allDay){ parts.push('終日'); }
           else {
             let range = startHM;
             if (endHM && endHM !== startHM) range += '〜' + endHM;
@@ -17141,6 +17142,7 @@
     + '.cal-view-switch{display:flex;gap:4px;justify-content:center;padding:6px 12px 2px;}'
     + '.cvs-btn{flex:1;max-width:90px;font-family:inherit;font-size:13px;font-weight:800;color:#8e8b9e;background:#f2f1f7;border:none;border-radius:9px;padding:6px 0;cursor:pointer;}'
     + '.cvs-btn.active{background:#6c5ce7;color:#fff;}'
+    + '.cvs-loc{background:#eaf7ef;color:#2e9e5b;max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.cvs-loc.done{background:#fff;color:#8e8b9e;border:1px solid #e3e1ee;}'
     + '#calView{padding:8px 12px 20px;}'
     + '.cvf-bar{display:flex;gap:6px;justify-content:center;margin-bottom:10px;flex-wrap:wrap;}'
     + '.cvf-chip{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12px;font-weight:800;color:#a7a4b6;background:#f4f3f8;border:1px solid #e7e4f2;border-radius:20px;padding:5px 12px 5px 8px;cursor:pointer;}'
@@ -23336,7 +23338,7 @@
         if (!items.length) continue;                   // ★ 洗濯日でも雨でもない日は通知しない
         items.sort(function(a,b){ return b.pri - a.pri; });   // 優先度の高い順（先頭をタイトルに、残りは本文に併記）
         var title = items[0].title;
-        var body = items.map(function(x){ return x.line; }).join('\n\n');
+        var body = items.map(function(x){ return x.line; }).join('\n');
 
         jobs.push({ id:'wx'+(n++), when:fire.getTime(), tag:'wx'+ymdStr(fireDay).replace(/-/g,''), url:url, title:title, body:body });
       }
@@ -25452,6 +25454,17 @@
       </div>
       <div class="att-callout" id="attCallout"></div>
       <div class="att-finish" id="attFinish"></div>
+      <!-- 直接工数／間接工数の内訳 -->
+      <div id="attDirBox" style="margin-top:12px;padding:12px;border-radius:14px;background:#f6f5fb;">
+        <div style="font-size:13px;font-weight:800;color:#2d2b3a;margin-bottom:8px;">🧮 直接工数・間接工数の内訳</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <label style="font-size:12px;color:#6b6880;">この月の直接率<br><span style="display:inline-flex;align-items:center;gap:4px;"><input id="attDirRate" type="text" inputmode="decimal" placeholder="60" oninput="attDirChange()" style="width:70px;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;text-align:right;"><b>%</b></span></label>
+          <label style="font-size:13px;color:#2d2b3a;display:flex;align-items:center;gap:6px;padding-bottom:10px;"><input id="attDirOtOn" type="checkbox" onchange="attDirChange()" style="width:20px;height:20px;"> 残業を加える</label>
+          <label id="attDirOtWrap" style="font-size:12px;color:#6b6880;display:none;">残業時間<br><input id="attDirOt" type="text" inputmode="numeric" placeholder="2:00" oninput="attDirChange()" style="width:80px;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
+        </div>
+        <div id="attDirRes" style="margin-top:10px;font-size:14px;color:#2d2b3a;line-height:1.7;"></div>
+        <div style="font-size:11px;color:#a8a5b8;margin-top:4px;">直接率 ＝ 直接工数 ÷ 総出勤時間。総出勤時間は上の「必要(有給除く)」（土日祝・有給を除いた定時分）に、残業を加えた時間です。</div>
+      </div>
     </div>
 
     <!-- 20日締め -->
@@ -25912,6 +25925,7 @@
   function render(){
     S=loadSet(); R=loadRec(); todayKey=ymd(new Date());
     renderToday(); renderStatus(); renderHist(); renderCal();
+    try{ window.attLocBtnUpdate && window.attLocBtnUpdate(); }catch(e){}
   }
 
   function renderToday(){
@@ -26088,9 +26102,48 @@
              started:(today>=seg.start), override:(seg._override!=null) };
   }
 
+  // ---- 直接工数／間接工数（月ごとに直接率・残業を保存）----
+  var _dirReq=0, _dirKey='';
+  function dirLoad(){ try{ return JSON.parse(localStorage.getItem('attDirSet')||'{}')||{}; }catch(e){ return {}; } }
+  function dirSave(m){ try{ localStorage.setItem('attDirSet', JSON.stringify(m)); }catch(e){} }
+  function dirShow(){
+    var res=$('attDirRes'); if(!res||!_dirKey) return;
+    var rate=parseFloat(String(($('attDirRate')||{}).value||'').replace('％','').replace('%',''));
+    var otOn=!!($('attDirOtOn')||{}).checked;
+    var ot=otOn ? Math.max(0, parseDur(($('attDirOt')||{}).value||'0')||0) : 0;
+    var w=$('attDirOtWrap'); if(w) w.style.display=otOn?'block':'none';
+    if(!(rate>=0 && rate<=100)){ res.innerHTML='<span style="color:#8e8b9e">直接率（0〜100）を入れると、直接工数・間接工数が出ます</span>'; return; }
+    var row=function(label,total){
+      var dir=Math.round(total*rate/100), ind=total-dir;
+      return '<div><b>'+label+'</b>　総出勤 '+fmtDur(total)+'<br>　→ 直接 <b style="color:#6c5ce7">'+fmtDur(dir)+'</b>　間接 <b style="color:#2e9e5b">'+fmtDur(ind)+'</b></div>';
+    };
+    var h=row('定時分のみ', _dirReq);
+    if(otOn && ot>0) h+='<div style="margin-top:6px">'+row('残業 '+fmtDur(ot)+' を加えた場合', _dirReq+ot)+'</div>';
+    res.innerHTML=h;
+  }
+  window.attDirChange=function(){
+    if(!_dirKey) return;
+    var m=dirLoad();
+    m[_dirKey]={ rate:($('attDirRate')||{}).value||'', otOn:!!($('attDirOtOn')||{}).checked, ot:($('attDirOt')||{}).value||'' };
+    dirSave(m); dirShow();
+  };
+  function dirRender(seg, required){
+    if(!$('attDirBox')) return;
+    var key=seg.start.getFullYear()+'-'+pad2(seg.start.getMonth()+1);
+    var keyChanged=(key!==_dirKey);
+    _dirReq=required; _dirKey=key;
+    if(keyChanged || !$('attDirRate').dataset.init){
+      var v=dirLoad()[key]||{};
+      $('attDirRate').value=v.rate||''; $('attDirOtOn').checked=!!v.otOn; $('attDirOt').value=v.ot||'';
+      $('attDirRate').dataset.init='1';
+    }
+    dirShow();
+  }
+
   function fillStatus(seg, today, ids, primary){
     var st=segStats(seg, today);
     var required=st.reqTotal, done=st.worked;
+    if(primary){ try{ dirRender(seg, required); }catch(e){} }
     var diff=done-required;                 // + なら超過（期間トータル）
     var remain=required-done;               // + なら不足
     var paceDiff=st.workedSettled - st.reqSettled;   // 完了日ベースの過不足（公式相当・標準比）
@@ -26444,6 +26497,35 @@
       if(d.ok && !geoHasLocToday() && window._notifMsg){ window._notifMsg(txt, '📍 いま記録する', function(){ recordLocationOnly(d.best,'office',false); }); }
       else geoAlert(txt);
     }).catch(function(e){ geoAlert(geoErrMsg(e)); });
+  };
+
+  // スケジュール画面の「📍場所」ボタン：押した時だけ現在地を取って、出社場所として記録（勤怠画面を開かなくてよい）
+  window.attLocBtnUpdate=function(){
+    try{
+      var b=document.getElementById('cvs-loc'); if(!b) return;
+      var rec=R[ymd(new Date())]||null, loc='';
+      if(rec){ loc=(rec.locNote&&rec.locNote.loc)||rec.loc||''; if(!loc){ var ss=rec.sessions||[]; for(var i=0;i<ss.length;i++) if(ss[i].loc) loc=ss[i].loc; } }
+      if(loc){ b.classList.add('done'); b.textContent='✅'+loc; } else { b.classList.remove('done'); b.textContent='📍場所'; }
+    }catch(e){}
+  };
+  window.attQuickLocation=function(){
+    var g=geoLoad(); var names=Object.keys(g.offices||{});
+    if(!names.length){ geoAlert('出社先がまだ登録されていません。\n勤怠画面の「出社の自動記録」で、出社先に立って「📍ここを登録」してください。'); return; }
+    if(geoHasLocToday()){
+      var rec=R[ymd(new Date())]||{}; var cur=(rec.locNote&&rec.locNote.loc)||rec.loc||'記録済み';
+      if(!confirm('今日はすでに「'+cur+'」と記録されています。いまの場所で上書きしますか？')) return;
+    }
+    var b=document.getElementById('cvs-loc'); if(b) b.textContent='📍確認中…';
+    geoPos(true).then(function(c){
+      var d=geoDecide(c,g);
+      if(d.ok){ recordLocationOnly(d.best,'office',false); }
+      else {
+        var msg='いまの場所は出社先の範囲外です（'+(d.why||'')+(d.bestD!=null?'・'+d.best+'まで約'+Math.round(d.bestD)+'m':'')+'）。';
+        if(window._notifMsg){ window._notifMsg(msg+'\n\nそれでも'+(d.best||names[0])+'として記録しますか？', '📍 '+(d.best||names[0])+'で記録', function(){ recordLocationOnly(d.best||names[0],'office',false); }); }
+        else geoAlert(msg);
+      }
+      window.attLocBtnUpdate();
+    }).catch(function(e){ geoAlert(geoErrMsg(e)); window.attLocBtnUpdate(); });
   };
 
   function geoHasLocToday(){
