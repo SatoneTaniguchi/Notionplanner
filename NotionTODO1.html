@@ -25462,6 +25462,17 @@
           <label style="font-size:13px;color:#2d2b3a;display:flex;align-items:center;gap:6px;padding-bottom:10px;"><input id="attDirOtOn" type="checkbox" onchange="attDirChange()" style="width:20px;height:20px;"> 残業を加える</label>
           <label id="attDirOtWrap" style="font-size:12px;color:#6b6880;display:none;">残業時間<br><input id="attDirOt" type="text" inputmode="numeric" placeholder="2:00" oninput="attDirChange()" style="width:80px;box-sizing:border-box;font-size:18px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
         </div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;">
+          <label style="font-size:12px;color:#6b6880;">総出勤時間を指定（任意）<br><input id="attDirTot" type="text" inputmode="decimal" placeholder="131.5 / 131:30" oninput="attDirChange()" style="width:130px;box-sizing:border-box;font-size:16px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
+          <label style="font-size:12px;color:#6b6880;">直接工数から直接率を出す（任意）<br><input id="attDirDirH" type="text" inputmode="decimal" placeholder="124.5 / 124:30" oninput="attDirChange()" style="width:130px;box-sizing:border-box;font-size:16px;font-weight:700;padding:8px;border:1px solid #e0def0;border-radius:10px;background:#fff;"></label>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#6b6880;">
+          総出勤時間を
+          <select id="attDirRUnit" onchange="attDirChange()" style="font-size:14px;padding:6px;border:1px solid #e0def0;border-radius:8px;background:#fff;"><option value="0">そのまま</option><option value="60">1時間</option><option value="30">30分</option><option value="15">15分</option></select>
+          単位で
+          <select id="attDirRMode" onchange="attDirChange()" style="font-size:14px;padding:6px;border:1px solid #e0def0;border-radius:8px;background:#fff;"><option value="up">切上げ</option><option value="round">四捨五入</option><option value="down">切捨て</option></select>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:#2d2b3a;"><input id="attDirDec1" type="checkbox" onchange="attDirChange()" style="width:20px;height:20px;"> 小数第1位（時間）で計算する <span style="font-size:11px;color:#a8a5b8">四捨五入・直接＋間接＝総出勤で合います</span></label>
         <div id="attDirRes" style="margin-top:10px;font-size:14px;color:#2d2b3a;line-height:1.7;"></div>
         <div style="font-size:11px;color:#a8a5b8;margin-top:4px;">直接率 ＝ 直接工数 ÷ 総出勤時間。総出勤時間は上の「必要(有給除く)」（土日祝・有給を除いた定時分）に、残業を加えた時間です。</div>
       </div>
@@ -26106,25 +26117,69 @@
   var _dirReq=0, _dirKey='';
   function dirLoad(){ try{ return JSON.parse(localStorage.getItem('attDirSet')||'{}')||{}; }catch(e){ return {}; } }
   function dirSave(m){ try{ localStorage.setItem('attDirSet', JSON.stringify(m)); }catch(e){} }
+  // "131.5"（小数の時間）でも "131:30"（時:分）でも読む。戻りは分
+  function dirParseH(v){
+    v=String(v||'').trim().replace(/[hH時間]/g,''); if(!v) return null;
+    if(v.indexOf(':')>=0){ var x=parseDur(v); return (x==null||isNaN(x))?null:x; }
+    var f=parseFloat(v); return isNaN(f)?null:Math.round(f*60);
+  }
+  function dirFmt(min){ return fmtDur(min)+'<span style="color:#a8a5b8;font-size:12px">（'+(Math.round(min/60*100)/100)+'h）</span>'; }
   function dirShow(){
     var res=$('attDirRes'); if(!res||!_dirKey) return;
+    var totIn=dirParseH(($('attDirTot')||{}).value);
+    var base=(totIn!=null && totIn>0) ? totIn : _dirReq;          // 総出勤時間：指定があればそれ、なければ「必要(有給除く)」
+    var ru=parseInt(($('attDirRUnit')||{}).value||'0',10)||0, rm=($('attDirRMode')||{}).value||'up';
+    var rnd=function(m){ if(!ru) return m; var q=m/ru; return Math.round((rm==='up'?Math.ceil(q-1e-9):rm==='down'?Math.floor(q+1e-9):Math.round(q))*ru); };
+    var rawBase=base; base=rnd(base);
+    var dirIn=dirParseH(($('attDirDirH')||{}).value);
     var rate=parseFloat(String(($('attDirRate')||{}).value||'').replace('％','').replace('%',''));
     var otOn=!!($('attDirOtOn')||{}).checked;
     var ot=otOn ? Math.max(0, parseDur(($('attDirOt')||{}).value||'0')||0) : 0;
     var w=$('attDirOtWrap'); if(w) w.style.display=otOn?'block':'none';
-    if(!(rate>=0 && rate<=100)){ res.innerHTML='<span style="color:#8e8b9e">直接率（0〜100）を入れると、直接工数・間接工数が出ます</span>'; return; }
+    var head='';
+    if(dirIn!=null && base>0){            // 直接工数がわかっているときは、そこから直接率を逆算（Excelと同じ：直接÷総出勤）
+      var r=dirIn/base*100;
+      res.innerHTML='<div><b>直接率</b> <b style="color:#6c5ce7;font-size:20px">'+(Math.round(r*1000)/1000)+'%</b>'
+        +'<br><span style="font-size:12px;color:#8e8b9e">直接 '+dirFmt(dirIn)+' ÷ 総出勤 '+dirFmt(base)+'</span></div>'
+        +'<div style="margin-top:4px">間接工数 <b style="color:#2e9e5b">'+dirFmt(Math.max(0,base-dirIn))+'</b></div>';
+      return;
+    }
+    if(!(rate>=0 && rate<=100)){ res.innerHTML='<span style="color:#8e8b9e">直接率（0〜100）を入れると、直接工数・間接工数が出ます。直接工数がわかっているときは右の欄に入れると直接率を出します</span>'; return; }
     var row=function(label,total){
       var dir=Math.round(total*rate/100), ind=total-dir;
-      return '<div><b>'+label+'</b>　総出勤 '+fmtDur(total)+'<br>　→ 直接 <b style="color:#6c5ce7">'+fmtDur(dir)+'</b>　間接 <b style="color:#2e9e5b">'+fmtDur(ind)+'</b></div>';
+      return '<div><b>'+label+'</b>　総出勤 '+dirFmt(total)+'<br>　→ 直接 <b style="color:#6c5ce7">'+dirFmt(dir)+'</b>　間接 <b style="color:#2e9e5b">'+dirFmt(ind)+'</b></div>';
     };
-    var h=row('定時分のみ', _dirReq);
-    if(otOn && ot>0) h+='<div style="margin-top:6px">'+row('残業 '+fmtDur(ot)+' を加えた場合', _dirReq+ot)+'</div>';
+    var dec1=!!($('attDirDec1')||{}).checked;
+    var r1=function(x){ return Math.round(x*10+1e-9)/10; };           // 小数第1位に四捨五入
+    var H=function(x){ return '<b>'+x.toFixed(1)+'</b>h'; };
+    if(dec1){
+      var T=r1(base/60);
+      if(dirIn!=null && T>0){                                         // 直接工数 → 直接率
+        var D=r1(dirIn/60), I=r1(T-D), RT=D/T*100;
+        res.innerHTML='<div><b>直接率</b> <b style="color:#6c5ce7;font-size:20px">'+(Math.round(RT*1000)/1000)+'%</b>'
+          +'<br><span style="font-size:12px;color:#8e8b9e">直接 '+D.toFixed(1)+'h ÷ 総出勤 '+T.toFixed(1)+'h</span></div>'
+          +'<div style="margin-top:4px">間接工数 <b style="color:#2e9e5b">'+I.toFixed(1)+'h</b>（'+T.toFixed(1)+' − '+D.toFixed(1)+'）</div>';
+        return;
+      }
+      if(!(rate>=0 && rate<=100)){ res.innerHTML='<span style="color:#8e8b9e">直接率（0〜100）を入れてください</span>'; return; }
+      var row1=function(label,tmin){
+        var TT=r1(tmin/60), DD=r1(TT*rate/100), II=r1(TT-DD);
+        return '<div><b>'+label+'</b>　総出勤 '+H(TT)+'<br>　→ 直接 <span style="color:#6c5ce7">'+H(DD)+'</span>　間接 <span style="color:#2e9e5b">'+H(II)+'</span>'
+          +'<br><span style="font-size:11px;color:#a8a5b8">　'+DD.toFixed(1)+' ＋ '+II.toFixed(1)+' ＝ '+TT.toFixed(1)+'</span></div>';
+      };
+      var hh=row1((totIn!=null&&totIn>0)?'指定の総出勤':'定時分のみ', base);
+      if(otOn && ot>0) hh+='<div style="margin-top:6px">'+row1('残業 '+fmtDur(ot)+' を加えた場合', rnd(rawBase+ot))+'</div>';
+      res.innerHTML=hh; return;
+    }
+    var note=(ru && base!==rawBase) ? '<div style="font-size:12px;color:#8e8b9e;margin-bottom:4px">総出勤 '+fmtDur(rawBase)+' → '+fmtDur(base)+'（'+ru+'分単位で'+(rm==='up'?'切上げ':rm==='down'?'切捨て':'四捨五入')+'）</div>' : '';
+    var h=note+row((totIn!=null&&totIn>0)?'指定の総出勤':'定時分のみ', base);
+    if(otOn && ot>0) h+='<div style="margin-top:6px">'+row('残業 '+fmtDur(ot)+' を加えた場合', rnd(rawBase+ot))+'</div>';
     res.innerHTML=h;
   }
   window.attDirChange=function(){
     if(!_dirKey) return;
     var m=dirLoad();
-    m[_dirKey]={ rate:($('attDirRate')||{}).value||'', otOn:!!($('attDirOtOn')||{}).checked, ot:($('attDirOt')||{}).value||'' };
+    m[_dirKey]={ rate:($('attDirRate')||{}).value||'', otOn:!!($('attDirOtOn')||{}).checked, ot:($('attDirOt')||{}).value||'', tot:($('attDirTot')||{}).value||'', dirh:($('attDirDirH')||{}).value||'', ru:($('attDirRUnit')||{}).value||'0', rm:($('attDirRMode')||{}).value||'up', d1:!!($('attDirDec1')||{}).checked };
     dirSave(m); dirShow();
   };
   function dirRender(seg, required){
@@ -26134,7 +26189,7 @@
     _dirReq=required; _dirKey=key;
     if(keyChanged || !$('attDirRate').dataset.init){
       var v=dirLoad()[key]||{};
-      $('attDirRate').value=v.rate||''; $('attDirOtOn').checked=!!v.otOn; $('attDirOt').value=v.ot||'';
+      $('attDirRate').value=v.rate||''; $('attDirOtOn').checked=!!v.otOn; $('attDirOt').value=v.ot||''; $('attDirTot').value=v.tot||''; $('attDirDirH').value=v.dirh||''; $('attDirDec1').checked=!!v.d1; $('attDirRUnit').value=v.ru||'0'; $('attDirRMode').value=v.rm||'up';
       $('attDirRate').dataset.init='1';
     }
     dirShow();
