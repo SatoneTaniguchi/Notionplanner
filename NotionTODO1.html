@@ -13434,7 +13434,7 @@
         { off: 60,  body: 'まだなら今どう？ちょっとだけでもOK' },
         { off: 120, body: '記録がまだみたい。1分でもやったら記録を🌱' },
       ];
-      const chalTitle = _notifPrefix('routine') + '｜' + nm;
+      const chalTitle = _notifPrefix('routine') + '｜「' + nm + '」';
       sameDay.forEach(function(s){
         const t = baseMs + s.off * 60000;
         if (t <= now) return;   // 過ぎた時刻は登録しない
@@ -14020,7 +14020,7 @@
       else if (e.off === 'h1') { when = new Date(start.getTime() - 60 * 60000); }
       else if (e.off === 'dayOf9') { when.setHours(ALARM_MORNING_HOUR, 0, 0, 0); }
       // タイトル＝「種類ラベル｜予定名」、本文＝文言＋日時 → 何の通知か一目で分かる
-      out.push({ when: when.getTime(), title: `${_notifPrefix(cat)}｜${title}`, body: _alarmMsg(type, e, title) + `\n🗓 ${sched}` });
+      out.push({ when: when.getTime(), title: `${_notifPrefix(cat)}｜「${title}」`, body: _alarmMsg(type, e, title) + `\n🗓 ${sched}` });
     });
     return out;
   }
@@ -14173,7 +14173,7 @@
               const _bodyBase = _otBody(t, _hm, endHM, allDayR);
               jobs.push({ id:'task'+(n++), when:w.getTime(), tag:tg,
                 url:_notifUrl(_isF ? '#challenge' : ('#task=' + (t.id||'') + '&date=' + ymd(day))),
-                title:_routinePrefix(t)+'｜'+t.name,
+                title:_routinePrefix(t)+'｜「'+t.name+'」',
                 body:_isF ? ('いまが記録の時間🔥 できたらタップしよう\n' + _bodyBase) : _bodyBase });
             }
             return;
@@ -14195,7 +14195,7 @@
           const cat = t['(B)種類'] || '';
           jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n)+'_'+when,
             url:_notifUrl('#task='+(t.id||'')+'&date='+String(j.start).slice(0,10)),
-            title:(isR?_routinePrefix(t):'💚タスク')+'｜'+t.name,
+            title:(isR?_routinePrefix(t):'💚タスク')+'｜「'+t.name+'」',
             body:_otBody(t, allDay ? '' : String(j.start).substring(11,16), (!allDay && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDay) });
         });
       } catch(e){}
@@ -14344,7 +14344,7 @@
           const minsLeft = Math.max(1, Math.round((startMs - when) / 60000));
           jobs.push({ id: 'gcal' + (n++), when: when, tag: 'gcal_' + id + '_fb',
             url: _notifUrl('#date=' + ymd(info.start) + '&event=' + encodeURIComponent(id)),
-            title: (a.pattern === 'important' ? '🔴' : '') + _notifPrefix('event') + '｜' + info.title,
+            title: (a.pattern === 'important' ? '🔴' : '') + _notifPrefix('event') + '｜「' + info.title + '」',
             body: 'まもなく「' + info.title + '」（あと約' + minsLeft + '分）\n🗓 ' + sched });
         }
       }
@@ -23046,6 +23046,47 @@
     }
     window.wxSendTest = wxSendTest;
 
+    // ---- 服装のおすすめ（最高・最低気温と雨から）----
+    function wxOutfit(day){
+      if (!day || day.tmax == null) return null;
+      var hi = day.tmax, lo = (day.tmin == null ? day.tmax : day.tmin);
+      var t = hi * 0.6 + lo * 0.4;                 // 日中寄りの体感気温
+      var main, ico;
+      if (hi >= 30)      { ico='🩳'; main='半袖＋薄手・涼しい素材。帽子・日焼け止め・水分も'; }
+      else if (hi >= 25) { ico='👕'; main='半袖で十分。冷房対策に薄い羽織りがあると安心'; }
+      else if (t >= 20)  { ico='👔'; main='長袖シャツ or 薄手のカーディガン'; }
+      else if (t >= 16)  { ico='🧥'; main='長袖＋薄手の上着（パーカー・薄手ジャケット）'; }
+      else if (t >= 12)  { ico='🧥'; main='ニット＋ジャケット。肌寒いので1枚足せる服装で'; }
+      else if (t >= 8)   { ico='🧣'; main='厚手ニット＋コート。マフラーがあると◎'; }
+      else if (t >= 4)   { ico='🧥'; main='厚手のコート＋マフラー・手袋'; }
+      else               { ico='🧤'; main='ダウン・厚手コート＋マフラー・手袋で防寒しっかり'; }
+      var subs = [];
+      if (hi - lo >= 8) subs.push('朝晩との差が' + Math.round(hi - lo) + '°あります。脱ぎ着できる上着を');
+      else if (lo <= 10 && hi >= 18) subs.push('朝は冷えます。羽織りを持って出かけて');
+      var prob = day.prob == null ? 0 : day.prob, psum = day.psum == null ? 0 : day.psum;
+      var code = day.code, wet = (code>=61&&code<=67)||(code>=80&&code<=86)||(code>=95&&code<=99)||(code>=71&&code<=77);
+      if (wet || prob >= 60 || psum >= 1) subs.push('☔ 傘必須。濡れてもいい靴・防水の上着が安心');
+      else if (prob >= 30 || (code>=51&&code<=57)) subs.push('🌂 折りたたみ傘があると安心');
+      return { ico: ico, main: main, sub: subs.join(' ／ ') };
+    }
+    function wxOutfitBlock(homeDays){
+      try {
+        var rows = '';
+        var lbls = ['今日', '明日'];
+        for (var i = 0; i < 2 && i < homeDays.length; i++){
+          var d = homeDays[i], o = wxOutfit(d); if (!o) continue;
+          var info = wxInfo(d.code);
+          rows += '<div style="padding:8px 0;' + (i ? 'border-top:1px dashed #e6e3f2;' : '') + '">'
+            + '<div style="font-size:12.5px;font-weight:800;color:#6b6880;">' + lbls[i] + '　' + info[0] + info[1] + '　<span style="color:#2d2b3a">' + wxDayLine(d).replace(/^[^ 　]*[ 　]*/, '') + '</span></div>'
+            + '<div style="font-size:14px;font-weight:700;color:#2d2b3a;margin-top:3px;">' + o.ico + ' ' + o.main + '</div>'
+            + (o.sub ? '<div style="font-size:12px;color:#8e8b9e;margin-top:2px;">' + o.sub + '</div>' : '')
+            + '</div>';
+        }
+        if (!rows) return '';
+        return '<div style="margin:8px 12px 4px;padding:6px 14px;border-radius:14px;background:#f6f5fb;"><div style="font-size:12px;font-weight:800;color:#8e8b9e;padding-top:6px;">👕 おすすめの服装（家の天気）</div>' + rows + '</div>';
+      } catch(e){ return ''; }
+    }
+
     function wxRenderDays(homeDays){
       var cfg = wxCfg();
       var cur = wxCurGet(); // {place, days} または null
@@ -23097,6 +23138,7 @@
           ? ('🧺 家の今週のおすすめ洗濯日：<b>' + bestLabel + '</b>')
           : ('🧺 家は今週 外干しに向く日が少なめ…（best: ' + bestLabel + '）部屋干し／乾燥機がおすすめ'))
       + '</div>'
+      + wxOutfitBlock(homeDays)
       + '<div class="wx-strip">' + strip + '</div>';
     }
 
@@ -26123,7 +26165,8 @@
     if(v.indexOf(':')>=0){ var x=parseDur(v); return (x==null||isNaN(x))?null:x; }
     var f=parseFloat(v); return isNaN(f)?null:Math.round(f*60);
   }
-  function dirFmt(min){ return fmtDur(min)+'<span style="color:#a8a5b8;font-size:12px">（'+(Math.round(min/60*100)/100)+'h）</span>'; }
+  function dirFmt(min){ return (Math.round(min/60*100)/100)+'h<span style="color:#a8a5b8;font-size:12px">（'+fmtDur(min)+'）</span>'; }
+  function dirFmt1(min){ return (Math.round(min/60*10+1e-9)/10).toFixed(1)+'h<span style="color:#a8a5b8;font-size:12px">（'+fmtDur(min)+'）</span>'; }   // 小数第1位(四捨五入)＋（時:分）
   function dirShow(){
     var res=$('attDirRes'); if(!res||!_dirKey) return;
     var totIn=dirParseH(($('attDirTot')||{}).value);
@@ -26156,15 +26199,18 @@
       var T=r1(base/60);
       if(dirIn!=null && T>0){                                         // 直接工数 → 直接率
         var D=r1(dirIn/60), I=r1(T-D), RT=D/T*100;
-        res.innerHTML='<div><b>直接率</b> <b style="color:#6c5ce7;font-size:20px">'+(Math.round(RT*1000)/1000)+'%</b>'
-          +'<br><span style="font-size:12px;color:#8e8b9e">直接 '+D.toFixed(1)+'h ÷ 総出勤 '+T.toFixed(1)+'h</span></div>'
-          +'<div style="margin-top:4px">間接工数 <b style="color:#2e9e5b">'+I.toFixed(1)+'h</b>（'+T.toFixed(1)+' − '+D.toFixed(1)+'）</div>';
+        res.innerHTML='<div><b>直接率</b> <b style="color:#6c5ce7;font-size:20px">'+(Math.round(RT*10)/10).toFixed(1)+'%</b>'
+          +'<br><span style="font-size:12px;color:#8e8b9e">直接 '+dirFmt1(dirIn)+' ÷ 総出勤 '+dirFmt1(base)+'</span></div>'
+          +'<div style="margin-top:4px">間接工数 <b style="color:#2e9e5b">'+dirFmt1(Math.max(0,base-dirIn))+'</b><br><span style="font-size:11px;color:#a8a5b8">'+D.toFixed(1)+' ＋ '+I.toFixed(1)+' ＝ '+T.toFixed(1)+'</span></div>';
         return;
       }
       if(!(rate>=0 && rate<=100)){ res.innerHTML='<span style="color:#8e8b9e">直接率（0〜100）を入れてください</span>'; return; }
       var row1=function(label,tmin){
-        var TT=r1(tmin/60), DD=r1(TT*rate/100), II=r1(TT-DD);
-        return '<div><b>'+label+'</b>　総出勤 '+H(TT)+'<br>　→ 直接 <span style="color:#6c5ce7">'+H(DD)+'</span>　間接 <span style="color:#2e9e5b">'+H(II)+'</span>'
+        var dmin=Math.round(tmin*rate/100), imin=tmin-dmin;                 // 時:分（正確な値）
+        var TT=r1(tmin/60), DD=r1(TT*rate/100), II=r1(TT-DD);              // 小数第1位（四捨五入）：直接＋間接＝総出勤
+        return '<div><b>'+label+'</b>　総出勤 <b>'+TT.toFixed(1)+'</b>h<span style="color:#a8a5b8;font-size:12px">（'+fmtDur(tmin)+'）</span>'
+          +'<br>　→ 直接 <span style="color:#6c5ce7"><b>'+DD.toFixed(1)+'</b>h<span style="color:#a8a5b8;font-size:12px">（'+fmtDur(dmin)+'）</span></span>'
+          +'　間接 <span style="color:#2e9e5b"><b>'+II.toFixed(1)+'</b>h<span style="color:#a8a5b8;font-size:12px">（'+fmtDur(imin)+'）</span></span>'
           +'<br><span style="font-size:11px;color:#a8a5b8">　'+DD.toFixed(1)+' ＋ '+II.toFixed(1)+' ＝ '+TT.toFixed(1)+'</span></div>';
       };
       var hh=row1((totIn!=null&&totIn>0)?'指定の総出勤':'定時分のみ', base);
