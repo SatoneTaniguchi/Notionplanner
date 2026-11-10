@@ -427,6 +427,12 @@
   .rep-name { font-size: 13.5px; font-weight: 600; color: #2d2b3a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rep-meta { font-size: 11px; color: #8e8b9e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rep-avg { font-size: 11.5px; font-weight: 700; color: #00a8a8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rep-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+  .rep-chip { font-size: 11.5px; font-weight: 700; border-radius: 8px; padding: 2px 8px; background: #efedfa; color: #6c5ce7; }
+  .rep-chip.t { background: #e8f6f6; color: #0a9396; }
+  .rep-chip.e { background: #eee; color: #888; }
+  .rep-sub { font-size: 13px; font-weight: 800; color: #6c5ce7; padding: 10px 6px 4px; display: flex; align-items: center; gap: 6px; }
+  .rep-name { white-space: normal !important; font-size: 15px !important; }
   .rep-avg.over { color: #ff9500; }
   .rep-avg.none { color: #c9c5d8; font-weight: 500; }
   .rep-avg .n { font-weight: 500; color: #a8a5b8; font-size: 10.5px; }
@@ -2708,6 +2714,10 @@
     overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .routine-view-toggle::-webkit-scrollbar { display: none; }
+  .routine-screen > * { flex-shrink: 0; }
+  .rv-hint { font-size: 12px; line-height: 1.5; color: #6b6880; background: #fff; border-radius: 10px; padding: 8px 11px; margin: 0 0 10px; }
+  .rv-hint:empty { display: none; }
+  .routine-view-toggle { min-height: 40px; }
   /* 集約コントロールバー */
   .r-ctrlbar {
     display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
@@ -3626,10 +3636,11 @@
   <div class="routine-view-toggle" id="routineViewToggle">
     <button class="active" data-view="challenge" onclick="setRoutineView('challenge', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 1.5 1 2.5 2 2.5 1.2 0 1.5-1.2 1-3-.4-1.5-.4-3 0-4z"/></svg> 継続</button>
     <button data-view="tracker" onclick="setRoutineView('tracker', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V4M16 20v-6M2 20h20"/></svg> トラッカー</button>
-    <button data-view="manage" onclick="setRoutineView('manage', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg> 一覧・管理</button>
+    <button data-view="manage" onclick="setRoutineView('manage', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z"/></svg> 日課一覧</button>
     <button data-view="repeat" onclick="setRoutineView('repeat', this)"><svg class="eic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 12v-2a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v2a4 4 0 0 1-4 4H3"/></svg> 定期タスク</button>
     <button data-view="subs" onclick="setRoutineView('subs', this)">💳 サブスク</button>
   </div>
+  <div id="routineViewHint" class="rv-hint"></div>
   <!-- コントロールバー（種類・表示・期間・状態を1行に集約） -->
   <div class="r-ctrlbar" id="routineCtrlBar">
     <select id="routineKindSelect" class="r-mini-select" onchange="setRoutineKind(this.value)" title="種類">
@@ -12883,7 +12894,20 @@
     document.querySelectorAll('#routineViewToggle button').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     _routineApplyControlsVisibility();
+    _routineViewHint();
     renderRoutineScreen();
+  }
+  function _routineViewHint() {
+    if (!window._rvHintInit) { window._rvHintInit = 1; }
+    var H = {
+      challenge: '🔥 毎日続けたい日課を1つずつ達成する画面',
+      tracker: '📊 日課（習慣・掃除・美容）の達成状況をグラフで確認',
+      manage: '🔁 日課 ＝ 習慣・掃除・美容など「毎日・毎週こなして続けたいこと」の一覧。編集・追加はここ',
+      repeat: '📅 定期タスク ＝ 月次報告・セキュリティチェックなど「決まった時期に出てくる仕事・用事」。習慣ではなく、1回ずつ完了するもの',
+      subs: '💳 毎月・毎年かかる支払いの管理'
+    };
+    var el = document.getElementById('routineViewHint');
+    if (el) el.textContent = H[routineViewMode] || '';
   }
 
   function setRoutineStatusSel(v) {
@@ -13434,7 +13458,7 @@
         { off: 60,  body: 'まだなら今どう？ちょっとだけでもOK' },
         { off: 120, body: '記録がまだみたい。1分でもやったら記録を🌱' },
       ];
-      const chalTitle = _notifPrefix('routine') + '｜「' + nm + '」';
+      const chalTitle = _notifPrefix('routine') + '｜【' + nm + '】';
       sameDay.forEach(function(s){
         const t = baseMs + s.off * 60000;
         if (t <= now) return;   // 過ぎた時刻は登録しない
@@ -14020,7 +14044,7 @@
       else if (e.off === 'h1') { when = new Date(start.getTime() - 60 * 60000); }
       else if (e.off === 'dayOf9') { when.setHours(ALARM_MORNING_HOUR, 0, 0, 0); }
       // タイトル＝「種類ラベル｜予定名」、本文＝文言＋日時 → 何の通知か一目で分かる
-      out.push({ when: when.getTime(), title: `${_notifPrefix(cat)}｜「${title}」`, body: _alarmMsg(type, e, title) + `\n🗓 ${sched}` });
+      out.push({ when: when.getTime(), title: `${_notifPrefix(cat)}｜【${title}】`, body: _alarmMsg(type, e, title) + `\n🗓 ${sched}` });
     });
     return out;
   }
@@ -14173,7 +14197,7 @@
               const _bodyBase = _otBody(t, _hm, endHM, allDayR);
               jobs.push({ id:'task'+(n++), when:w.getTime(), tag:tg,
                 url:_notifUrl(_isF ? '#challenge' : ('#task=' + (t.id||'') + '&date=' + ymd(day))),
-                title:_routinePrefix(t)+'｜「'+t.name+'」',
+                title:_routinePrefix(t)+'｜【'+t.name+'】',
                 body:_isF ? ('いまが記録の時間🔥 できたらタップしよう\n' + _bodyBase) : _bodyBase });
             }
             return;
@@ -14195,7 +14219,7 @@
           const cat = t['(B)種類'] || '';
           jobs.push({ id:'task'+(n++), when:when, tag:'ontime_'+(t.id||n)+'_'+when,
             url:_notifUrl('#task='+(t.id||'')+'&date='+String(j.start).slice(0,10)),
-            title:(isR?_routinePrefix(t):'💚タスク')+'｜「'+t.name+'」',
+            title:(isR?_routinePrefix(t):'💚タスク')+'｜【'+t.name+'】',
             body:_otBody(t, allDay ? '' : String(j.start).substring(11,16), (!allDay && j.end && String(j.end).length>10) ? String(j.end).substring(11,16) : '', allDay) });
         });
       } catch(e){}
@@ -14344,7 +14368,7 @@
           const minsLeft = Math.max(1, Math.round((startMs - when) / 60000));
           jobs.push({ id: 'gcal' + (n++), when: when, tag: 'gcal_' + id + '_fb',
             url: _notifUrl('#date=' + ymd(info.start) + '&event=' + encodeURIComponent(id)),
-            title: (a.pattern === 'important' ? '🔴' : '') + _notifPrefix('event') + '｜「' + info.title + '」',
+            title: (a.pattern === 'important' ? '🔴' : '') + _notifPrefix('event') + '｜【' + info.title + '】',
             body: 'まもなく「' + info.title + '」（あと約' + minsLeft + '分）\n🗓 ' + sched });
         }
       }
@@ -14930,6 +14954,7 @@
   setTimeout(function () { try { subSyncNotifications(); } catch (e) {} }, 6000);
 
   function renderRoutineScreen() {
+    try { _routineViewHint(); } catch(e){}
     try { renderRoutineChallenge(); } catch(e) { console.error('継続チャレンジ描画エラー', e); }
     if (routineViewMode === 'challenge') { _routineApplyControlsVisibility(); return; }
     if (routineViewMode === 'subs') { _routineApplyControlsVisibility(); try { renderSubs(); } catch (e) { console.error(e); } return; }
@@ -14978,7 +15003,7 @@
     // ===== 定期タスクビュー（日課=習慣/掃除/美容 以外の繰り返し）=====
     if (routineViewMode === 'repeat') {
       container.className = 'repeatview';
-      const reps = getRepeatTaskTemplates(true);
+      const reps = getRepeatTaskTemplates(true); try { _routineViewHint(); } catch(e){}
       // _type が 'repeat' 以外（Notion往復で time/later に戻った分）も実行中として扱う
       const ended  = reps.filter(t => t._type === 'repeat_ended');
       const active = reps.filter(t => t._type !== 'repeat_ended');
@@ -15013,14 +15038,14 @@
             +   '<span class="rep-ic">' + ic + '</span>'
             +   '<span class="rep-body">'
             +     '<span class="rep-name">' + _escapeHtml(t.name || '(無題)') + '</span>'
-            +     '<span class="rep-meta">' + _escapeHtml(kind)
-            +       (freq ? ' ・ ' + _escapeHtml(freq) : '')
-            +       (time ? ' ・ ' + _escapeHtml(time) : '')
-            +       (isEnded && t._endedAt ? ' ・ 終了 ' + _escapeHtml(t._endedAt) : '')
+            +     '<span class="rep-chips">'
+            +       (freq ? '<span class="rep-chip f">' + _escapeHtml(freq) + '</span>' : '')
+            +       (time ? '<span class="rep-chip t">' + _escapeHtml(time) + '</span>' : '')
+            +       (isEnded && t._endedAt ? '<span class="rep-chip e">終了 ' + _escapeHtml(t._endedAt) + '</span>' : '')
             +     '</span>'
             +     (function(){
                     const av = repeatAvgMinutes(t);
-                    if (!av) return '<span class="rep-avg none">実績なし</span>';
+                    if (!av) return '';
                     const est = (typeof t['(C)見込み/h'] === 'number' && t['(C)見込み/h'] > 0) ? Math.round(t['(C)見込み/h'] * 60) : 0;
                     const over = est > 0 && av.min > est * 1.2;
                     return '<span class="rep-avg' + (over ? ' over' : '') + '">平均 ' + fmtMinShort(av.min) + ''
@@ -15036,7 +15061,13 @@
         };
         if (active.length) {
           html += '<div class="rep-sec">実行中 <span class="rep-cnt">' + active.length + '</span></div>';
-          html += active.map(t => row(t, false)).join('');
+          const kinds = []; active.forEach(t => { const k = t['(B)種類'] || '未設定'; if (kinds.indexOf(k) < 0) kinds.push(k); });
+          kinds.sort();
+          kinds.forEach(k => {
+            const g = active.filter(t => (t['(B)種類'] || '未設定') === k);
+            html += '<div class="rep-sub">' + _escapeHtml(k) + ' <span class="rep-cnt">' + g.length + '</span></div>';
+            html += g.map(t => row(t, false)).join('');
+          });
         }
         if (ended.length) {
           html += '<div class="rep-sec">終了済み <span class="rep-cnt">' + ended.length + '</span></div>';
@@ -22746,7 +22777,7 @@
     var WX_CACHE_KEY = 'wxForecastCache';
     var WX_CUR_KEY = 'wxCurCache';        // 現在地の予報キャッシュ
     var WX_HOME_DEFAULT = { lat:35.5637, lon:139.7000, place:'矢口渡' };
-    var WX_VER = '4';                     // これを上げると天気キャッシュを一度クリア（データ刷新用）
+    var WX_VER = '5';                     // これを上げると天気キャッシュを一度クリア（データ刷新用）
 
     function wxCfg(){
       var saved = {};
@@ -22867,8 +22898,8 @@
     // ---- 予報取得（天気=気象庁JMA、降水確率=best_matchを合成） ----
     function wxFetchForecast(lat, lon){
       var base = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&timezone=auto&forecast_days=7';
-      var jmaU  = base + '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,sunshine_duration&models=jma_seamless';
-      var probU = base + '&daily=precipitation_probability_max'; // 既定モデル（確率あり）
+      var jmaU  = base + '&past_days=1&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,sunshine_duration&models=jma_seamless';   // past_days=1：昨日との差を出すため
+      var probU = base + '&daily=precipitation_probability_max,uv_index_max,relative_humidity_2m_mean&hourly=precipitation_probability,temperature_2m'; // 既定モデル（確率・紫外線・湿度・時間ごと）
       return Promise.all([
         fetch(jmaU).then(function(r){ return r.json(); }),
         fetch(probU).then(function(r){ return r.json(); }).catch(function(){ return null; })
@@ -22876,12 +22907,24 @@
         var j = res[0], pj = res[1];
         if (!j || !j.daily || !j.daily.time) throw new Error('予報を取得できませんでした');
         var d = j.daily;
-        var probByDate = {};
+        var probByDate = {}, uvByDate = {}, humByDate = {}, hourByDate = {};
         if (pj && pj.daily && pj.daily.time && pj.daily.precipitation_probability_max){
-          for (var q=0;q<pj.daily.time.length;q++){ probByDate[pj.daily.time[q]] = pj.daily.precipitation_probability_max[q]; }
+          for (var q=0;q<pj.daily.time.length;q++){
+            probByDate[pj.daily.time[q]] = pj.daily.precipitation_probability_max[q];
+            if (pj.daily.uv_index_max) uvByDate[pj.daily.time[q]] = pj.daily.uv_index_max[q];
+            if (pj.daily.relative_humidity_2m_mean) humByDate[pj.daily.time[q]] = pj.daily.relative_humidity_2m_mean[q];
+          }
+        }
+        if (pj && pj.hourly && pj.hourly.time){        // 時間ごと：予定の時刻の天気に使う（今日・明日の分だけ保存）
+          for (var hq=0; hq<pj.hourly.time.length; hq++){
+            var hd = pj.hourly.time[hq].slice(0,10), hh = parseInt(pj.hourly.time[hq].slice(11,13),10);
+            if (!hourByDate[hd]) hourByDate[hd] = { p:[], t:[] };
+            hourByDate[hd].p[hh] = pj.hourly.precipitation_probability ? pj.hourly.precipitation_probability[hq] : null;
+            hourByDate[hd].t[hh] = pj.hourly.temperature_2m ? pj.hourly.temperature_2m[hq] : null;
+          }
         }
         var out = [];
-        for (var i=0;i<d.time.length;i++){
+        for (var i=1;i<d.time.length;i++){            // i=0 は昨日（差を出すためだけに取得）
           var date = d.time[i];
           var prob = (date in probByDate) ? probByDate[date] : null;
           var psum = d.precipitation_sum ? d.precipitation_sum[i] : null;
@@ -22891,7 +22934,12 @@
           var tmin = d.temperature_2m_min ? d.temperature_2m_min[i] : null;
           var code = d.weathercode[i];
           var score = wxLaundryScore(prob, psum, sun, wind, tmax, code);
-          out.push({ date: date, code: code, tmax: tmax, tmin: tmin, prob: prob, psum: psum, score: score });
+          var pmax = d.temperature_2m_max ? d.temperature_2m_max[i-1] : null, pmin = d.temperature_2m_min ? d.temperature_2m_min[i-1] : null;
+          var rec = { date: date, code: code, tmax: tmax, tmin: tmin, prob: prob, psum: psum, score: score,
+                      wind: wind, uv: (date in uvByDate) ? uvByDate[date] : null, hum: (date in humByDate) ? humByDate[date] : null,
+                      pmax: pmax, pmin: pmin };
+          if (out.length < 2 && hourByDate[date]) rec.hr = hourByDate[date];
+          out.push(rec);
         }
         return out;
       });
@@ -23046,44 +23094,125 @@
     }
     window.wxSendTest = wxSendTest;
 
-    // ---- 服装のおすすめ（最高・最低気温と雨から）----
+    // ---- 服装のおすすめ（最高・最低気温と雨から、項目ごとに分けて出す）----
     function wxOutfit(day){
       if (!day || day.tmax == null) return null;
       var hi = day.tmax, lo = (day.tmin == null ? day.tmax : day.tmin);
       var t = hi * 0.6 + lo * 0.4;                 // 日中寄りの体感気温
-      var main, ico;
-      if (hi >= 30)      { ico='🩳'; main='半袖＋薄手・涼しい素材。帽子・日焼け止め・水分も'; }
-      else if (hi >= 25) { ico='👕'; main='半袖で十分。冷房対策に薄い羽織りがあると安心'; }
-      else if (t >= 20)  { ico='👔'; main='長袖シャツ or 薄手のカーディガン'; }
-      else if (t >= 16)  { ico='🧥'; main='長袖＋薄手の上着（パーカー・薄手ジャケット）'; }
-      else if (t >= 12)  { ico='🧥'; main='ニット＋ジャケット。肌寒いので1枚足せる服装で'; }
-      else if (t >= 8)   { ico='🧣'; main='厚手ニット＋コート。マフラーがあると◎'; }
-      else if (t >= 4)   { ico='🧥'; main='厚手のコート＋マフラー・手袋'; }
-      else               { ico='🧤'; main='ダウン・厚手コート＋マフラー・手袋で防寒しっかり'; }
-      var subs = [];
-      if (hi - lo >= 8) subs.push('朝晩との差が' + Math.round(hi - lo) + '°あります。脱ぎ着できる上着を');
-      else if (lo <= 10 && hi >= 18) subs.push('朝は冷えます。羽織りを持って出かけて');
-      var prob = day.prob == null ? 0 : day.prob, psum = day.psum == null ? 0 : day.psum;
-      var code = day.code, wet = (code>=61&&code<=67)||(code>=80&&code<=86)||(code>=95&&code<=99)||(code>=71&&code<=77);
-      if (wet || prob >= 60 || psum >= 1) subs.push('☔ 傘必須。濡れてもいい靴・防水の上着が安心');
-      else if (prob >= 30 || (code>=51&&code<=57)) subs.push('🌂 折りたたみ傘があると安心');
-      return { ico: ico, main: main, sub: subs.join(' ／ ') };
+      if (day.wind != null && day.wind / 3.6 >= 7) t -= 2;   // 風が強い日は体感を下げる
+      var L;                                        // lv:段階 / col:色 / top:トップス / outer:羽織り / extra:小物
+      if (hi >= 30)      L = { lv:'暑い',       ico:'🥵', col:'#e74c3c', top:'半袖・ノースリーブ（涼しい素材）', outer:'不要', extra:'帽子・日焼け止め・こまめに水分' };
+      else if (hi >= 25) L = { lv:'夏日',       ico:'😎', col:'#f39c12', top:'半袖',                           outer:'不要（冷房が強い所だけ薄手を）', extra:'日焼け止め' };
+      else if (t >= 20)  L = { lv:'快適',       ico:'😊', col:'#2ecc71', top:'長袖シャツ・薄手の服',             outer:'不要〜薄手のカーディガン', extra:'' };
+      else if (t >= 16)  L = { lv:'やや涼しい', ico:'🍃', col:'#27ae60', top:'長袖（薄手ニットでも）',           outer:'薄手の上着（パーカー・薄手ジャケット）', extra:'' };
+      else if (t >= 12)  L = { lv:'肌寒い',     ico:'🧥', col:'#3498db', top:'ニット・厚めの長袖',               outer:'ジャケット・ライトアウター', extra:'' };
+      else if (t >= 8)   L = { lv:'寒い',       ico:'🥶', col:'#2980b9', top:'厚手ニット・裏起毛',               outer:'コート', extra:'マフラー' };
+      else if (t >= 4)   L = { lv:'とても寒い', ico:'🧣', col:'#6c5ce7', top:'厚手ニット＋インナー（防寒）',     outer:'厚手のコート', extra:'マフラー・手袋' };
+      else               L = { lv:'真冬の寒さ', ico:'❄️', col:'#5b4bc4', top:'厚手ニット＋防寒インナー',         outer:'ダウン・厚手コート', extra:'マフラー・手袋・ニット帽' };
+      var prob = day.prob == null ? 0 : day.prob, psum = day.psum == null ? 0 : day.psum, code = day.code;
+      var snow = (code>=71 && code<=77) || (code>=85 && code<=86);
+      var wet = (code>=61&&code<=67)||(code>=80&&code<=84)||(code>=95&&code<=99);
+      var rain, rcol;
+      if (snow)                                   { rain = '❄️ 雪の予報。滑りにくい靴・防寒を';  rcol = '#c0392b'; }
+      else if (wet || prob >= 60 || psum >= 1)    { rain = '☔ 傘が必要（防水の靴・上着だと安心）'; rcol = '#c0392b'; }
+      else if (prob >= 30 || (code>=51&&code<=57)){ rain = '🌂 折りたたみ傘があると安心';        rcol = '#e67e22'; }
+      else                                        { rain = '傘は不要';                            rcol = '#2e9e5b'; }
+      var note = '';
+      if (hi - lo >= 8) note = '朝晩との差が' + Math.round(hi - lo) + '°あります。脱ぎ着できる服装で';
+      else if (lo <= 10 && hi >= 18) note = '朝は冷えます。羽織りを持って出かけて';
+      return { L: L, rain: rain, rcol: rcol, note: note };
+    }
+    // 追加のひとこと（風・紫外線・湿度・前日との差・雨の強さ・洗濯・体調・予定との連動）
+    function wxEvForDay(date){
+      try {
+        var parts = String(date).split('-'); var dd = new Date(+parts[0], +parts[1]-1, +parts[2]);
+        var list = (typeof gcalEvents !== 'undefined' && gcalEvents[dd.toDateString()]) || [];
+        return list.filter(function(e){ return e && !e.isAllDay && e.startTime && !/習慣/.test(String(e.calendarName||'')); });
+      } catch(e){ return []; }
+    }
+    function wxExtras(d, o){
+      var hi = d.tmax, lo = (d.tmin == null ? d.tmax : d.tmin), x = [];
+      // 前日との差
+      if (d.pmax != null){
+        var df = Math.round(hi - d.pmax);
+        if (Math.abs(df) >= 3) x.push(['昨日比', (df > 0 ? '昨日より' + df + '°あたたかい' : '昨日より' + (-df) + '°寒い') + (Math.abs(df) >= 5 ? '（差が大きいので服装を調整して）' : ''), '#6b6880']);
+      }
+      // 風
+      if (d.wind != null){
+        var ms = d.wind / 3.6;
+        if (ms >= 10)     x.push(['風', '💨 非常に強い風（約' + Math.round(ms) + 'm/s）。外出は注意・飛ばされやすい物は避けて', '#c0392b']);
+        else if (ms >= 7) x.push(['風', '💨 風が強め（約' + Math.round(ms) + 'm/s）。体感は下がるので上着を1枚多めに。帽子・軽い服に注意', '#e67e22']);
+        else if (ms >= 5) x.push(['風', '風がやや強め（約' + Math.round(ms) + 'm/s）。体感温度が少し下がります', '#6b6880']);
+      }
+      // 紫外線
+      if (d.uv != null){
+        if (d.uv >= 8)      x.push(['紫外線', '☀️ 非常に強い。日焼け止め・サングラス・帽子を', '#c0392b']);
+        else if (d.uv >= 6) x.push(['紫外線', '☀️ 強い。日焼け止め・帽子を', '#e67e22']);
+        else if (d.uv >= 3 && hi >= 15) x.push(['紫外線', '日焼け止めがあると安心', '#6b6880']);
+      }
+      // 湿度
+      if (d.hum != null){
+        if (d.hum >= 75 && hi >= 25) x.push(['湿度', '💦 蒸し暑い（湿度' + Math.round(d.hum) + '%）。汗対策に着替え・汗拭きシートを', '#e67e22']);
+        else if (d.hum <= 40) x.push(['湿度', '乾燥しています（湿度' + Math.round(d.hum) + '%）。リップ・保湿・のど飴を', '#6b6880']);
+      }
+      // 雨の強さ・雷
+      var code = d.code, ps = d.psum == null ? 0 : d.psum;
+      if (code >= 95) x.push(['荒天', '⚡ 雷雨の予報。外出は早めに・雷が鳴ったら建物の中へ', '#c0392b']);
+      else if (ps >= 20) x.push(['雨量', '🌧 大雨の恐れ（予想' + Math.round(ps) + 'mm）。不要な外出は控えめに', '#c0392b']);
+      else if (ps >= 10) x.push(['雨量', '🌧 本降り（予想' + Math.round(ps) + 'mm）。防水の靴・上着を', '#e67e22']);
+      // 洗濯
+      if (d.score != null) x.push(['洗濯', d.score >= 55 ? '👕 外干しOK' : '🏠 部屋干し・乾燥機がおすすめ', d.score >= 55 ? '#2e9e5b' : '#e67e22']);
+      // 寒暖差・体調
+      var swing = hi - lo, big = (d.pmax != null && Math.abs(hi - d.pmax) >= 5);
+      if (swing >= 10 || big) x.push(['体調', '寒暖差が大きい日。重ね着で調整して、温かい飲み物でこまめに', '#8e6a00']);
+      // 予定との連動（今日・明日の、場所つきの時間指定の予定）
+      var evs = wxEvForDay(d.date), hr = d.hr;
+      evs.forEach(function(e){
+        var h0 = parseInt(String(e.startTime).slice(0,2), 10);
+        var he = e.endTime ? parseInt(String(e.endTime).slice(0,2), 10) : h0;
+        var bits = [];
+        if (hr && hr.p && hr.p[h0] != null){
+          var pp = hr.p[h0], tt = hr.t ? hr.t[h0] : null;
+          bits.push((pp >= 60 ? '☔ 雨' : pp >= 30 ? '🌂 雨かも' : '☀️ 降らなそう') + '（降水' + pp + '%' + (tt != null ? '・' + Math.round(tt) + '°' : '') + '）');
+        }
+        if (e._loc && hr && hr.t){
+          var le = Math.min(23, Math.max(he, h0)), tl = hr.t[le];
+          if (le >= 18 && tl != null && hi - tl >= 6) bits.push('帰りは冷えます（' + le + '時ごろ' + Math.round(tl) + '°）。上着を持って');
+        }
+        if (bits.length) x.push(['予定', String(e.startTime) + '「' + (e.title || '予定') + '」 ' + bits.join('　'), '#2d2b3a']);
+      });
+      return x;
     }
     function wxOutfitBlock(homeDays){
       try {
-        var rows = '';
-        var lbls = ['今日', '明日'];
+        var lbls = ['今日', '明日'], cards = '';
         for (var i = 0; i < 2 && i < homeDays.length; i++){
           var d = homeDays[i], o = wxOutfit(d); if (!o) continue;
-          var info = wxInfo(d.code);
-          rows += '<div style="padding:8px 0;' + (i ? 'border-top:1px dashed #e6e3f2;' : '') + '">'
-            + '<div style="font-size:12.5px;font-weight:800;color:#6b6880;">' + lbls[i] + '　' + info[0] + info[1] + '　<span style="color:#2d2b3a">' + wxDayLine(d).replace(/^[^ 　]*[ 　]*/, '') + '</span></div>'
-            + '<div style="font-size:14px;font-weight:700;color:#2d2b3a;margin-top:3px;">' + o.ico + ' ' + o.main + '</div>'
-            + (o.sub ? '<div style="font-size:12px;color:#8e8b9e;margin-top:2px;">' + o.sub + '</div>' : '')
+          var info = wxInfo(d.code), L = o.L;
+          var prob = d.prob == null ? '—' : d.prob + '%';
+          var row = function(k, v, color){
+            return '<div style="display:flex;gap:8px;padding:5px 0;border-top:1px solid #efedf7;font-size:13.5px;line-height:1.45;">'
+              + '<div style="flex:0 0 56px;color:#8e8b9e;font-size:12px;font-weight:700;padding-top:1px;">' + k + '</div>'
+              + '<div style="flex:1;color:' + (color || '#2d2b3a') + ';font-weight:600;">' + v + '</div></div>';
+          };
+          var extra = wxExtras(d, o).map(function(r){ return row(r[0], r[1], r[2]); }).join('');
+          cards += '<div style="flex:1 1 100%;background:#fff;border-radius:14px;padding:10px 12px;margin-top:8px;border:1px solid #ece9f7;">'
+            + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">'
+            +   '<span style="font-size:14px;font-weight:800;color:#2d2b3a;">' + lbls[i] + '</span>'
+            +   '<span style="font-size:13px;">' + info[0] + ' ' + info[1] + '</span>'
+            +   '<span style="margin-left:auto;font-size:12.5px;color:#6b6880;">最高 <b style="color:#e74c3c">' + Math.round(d.tmax) + '°</b>／最低 <b style="color:#3498db">' + Math.round(d.tmin) + '°</b>／降水 <b>' + prob + '</b></span>'
+            + '</div>'
+            + '<div style="display:inline-flex;align-items:center;gap:6px;background:' + L.col + '1f;color:' + L.col + ';border-radius:999px;padding:4px 12px;font-size:13.5px;font-weight:800;margin-bottom:4px;">' + L.ico + ' ' + L.lv + '</div>'
+            + row('トップス', L.top)
+            + row('羽織り', L.outer)
+            + (L.extra ? row('小物', L.extra) : '')
+            + row('雨具', o.rain, o.rcol)
+            + (o.note ? row('朝晩', o.note, '#8e6a00') : '')
+            + extra
             + '</div>';
         }
-        if (!rows) return '';
-        return '<div style="margin:8px 12px 4px;padding:6px 14px;border-radius:14px;background:#f6f5fb;"><div style="font-size:12px;font-weight:800;color:#8e8b9e;padding-top:6px;">👕 おすすめの服装（家の天気）</div>' + rows + '</div>';
+        if (!cards) return '';
+        return '<div style="margin:8px 12px 4px;padding:8px 10px 10px;border-radius:14px;background:#f6f5fb;"><div style="font-size:12px;font-weight:800;color:#8e8b9e;padding:2px 2px 0;">👕 おすすめの服装（家の天気）</div>' + cards + '</div>';
       } catch(e){ return ''; }
     }
 
@@ -25487,6 +25616,7 @@
       <h3>この1ヶ月、あと何時間？ <span class="tag" id="attTgtTag">--</span></h3>
       <div class="att-period" id="attPeriod"></div>
       <div style="margin:2px 0 8px"><button class="att-sbtn" id="attMonthEdit" style="font-size:11px;padding:5px 10px">✎ 必要時間を手動設定（申請値に合わせる）</button></div>
+      <div style="margin:0 0 8px"><button class="att-sbtn" id="attCarryBtn1" style="font-size:11px;padding:5px 10px">✎ 昨日までの過不足だけ入力（例 -7:42）</button></div>
       <div class="att-callout" id="attPace" style="margin-top:0;margin-bottom:10px"></div>
       <div class="att-bar"><i id="attBar" style="width:0%"></i></div>
       <div class="att-nums">
@@ -25524,6 +25654,7 @@
     <div class="att-card att-status" id="attStatusCard2">
       <h3>20日締め（会社） <span class="tag" id="attTgt2Tag">--</span></h3>
       <div class="att-period" id="attPeriod2"></div>
+      <div style="margin:0 0 8px"><button class="att-sbtn" id="attCarryBtn2" style="font-size:11px;padding:5px 10px">✎ 昨日までの過不足だけ入力（例 -7:42）</button></div>
       <div class="att-callout" id="attPace2" style="margin-top:0;margin-bottom:10px"></div>
       <div class="att-nums">
         <div class="att-num"><div class="k">標準(有給除く)</div><div class="v" id="attNeed2">--</div></div>
@@ -26073,6 +26204,24 @@
     var ov=monthOverride(today); if(ov!=null) seg._override=ov;
     return seg;
   }
+  function carryBtnUpdate(id, seg){
+    var b=$(id); if(!b) return; var c=carryGet(seg);
+    b.textContent = c ? ('✎ 昨日までの過不足：'+(c.v>0?'+':'')+fmtDur(c.v)+'（'+c.asOf.slice(5).replace('-','/')+'入力・変更/解除）') : '✎ 昨日までの過不足だけ入力（例 -7:42）';
+    b.onclick=function(){ carryEdit(seg); };
+  }
+  function carryEdit(seg){
+    var today=new Date(); today.setHours(0,0,0,0);
+    var m=carryLoad(), k=carryKey(seg), c=carryGet(seg);
+    var inp=prompt('昨日（今日より前）までの過不足を入力\n例: -7:42（7時間42分足りない） / +1:30（超過） / 0\n記録を1日ずつ入れなくても、今日以降の目安がこれを基準に計算されます。\n（空欄で解除＝記録から自動計算）', c?((c.v>0?'+':'')+fmtDur(c.v)):'');
+    if(inp===null) return;
+    inp=String(inp).trim().replace('＋','+').replace('－','-').replace('ー','-');
+    if(inp===''){ delete m[k]; carrySave(m); toast('記録から自動計算に戻しました'); render(); return; }
+    var neg=/^-/.test(inp); var body=inp.replace(/^[+-]/,'');
+    var mn = body.indexOf(':')>=0 ? parseDur(body) : (function(){ var f=parseFloat(body); return isNaN(f)?null:Math.round(f*60); })();
+    if(mn==null||isNaN(mn)){ toast('形式が不正です（例: -7:42 / -7.7）'); return; }
+    m[k]={ v:(neg?-mn:mn), asOf:ymd(today) }; carrySave(m);
+    toast('昨日までの過不足を '+(neg?'-':'+')+fmtDur(mn)+' に設定'); render();
+  }
   function renderStatus(){
     var today=new Date(); today.setHours(0,0,0,0);
     // カード1：暦月（8/1〜8/31）
@@ -26080,6 +26229,7 @@
     // カード2：20日締め（会社）
     var T=targetsFor(today);
     var seg20 = (T.primary.kind==='over') ? T.primary : T.other;
+    try{ carryBtnUpdate('attCarryBtn1', monthSeg(today)); carryBtnUpdate('attCarryBtn2', seg20); }catch(e){}
     fillStatus(seg20, today, { tag:'attTgt2Tag', period:'attPeriod2', pace:'attPace2', need:'attNeed2', done:'attDone2', diff:'attDiff2', call:'attCallout2' }, false);
   }
 
@@ -26118,8 +26268,15 @@
   }
 
   // セグメント統計：有給を所定から差し引く。過不足は「完了日」ベース（公式と同じ）。
+  // 「昨日までの過不足」手入力（締め期間ごと）。入力日より前の日は、記録の代わりに「所定＋過不足」で換算する
+  function carryKey(seg){ return ymd(new Date(seg.start))+'~'+ymd(new Date(seg.end)); }
+  function carryLoad(){ try{ return JSON.parse(localStorage.getItem('attCarry')||'{}')||{}; }catch(e){ return {}; } }
+  function carrySave(m){ try{ localStorage.setItem('attCarry', JSON.stringify(m)); }catch(e){} }
+  function carryGet(seg){ var c=carryLoad()[carryKey(seg)]; return (c&&typeof c.v==='number'&&c.asOf)?c:null; }
   function segStats(seg, today){
     var base=parseDur(S.base);
+    var _carry=carryGet(seg), _asOf=_carry?fromYmd(_carry.asOf):null, _pastReq=0, _pastWorked=0;
+    if(_asOf && !(_asOf<=today)) _carry=null;
     var nowM=(new Date()).getHours()*60+(new Date()).getMinutes();
     var tk=ymd(today);
     var schedTotal=0, leaveTotal=0, worked=0;               // 期間合計＋実績(今日まで,live)
@@ -26130,6 +26287,7 @@
       var lc=rec?leaveCredit(rec.leave):0;
       var isToday=(key===tk);
       if(sched){ schedTotal++; leaveTotal+=Math.min(lc, base); }
+      if(_carry && d<_asOf){ if(sched) _pastReq+=base-Math.min(lc,base); if(rec) _pastWorked+=actualWork(rec); }
       // 実績（進捗バー・残り用）：今日まで、当日はライブ
       if(d<=today && rec){ worked += isToday? actualWork(rec, nowM) : actualWork(rec); }
       // 完了日：過去日、または当日でも勤務終了済み（勤務中セッションが無く、記録あり）
@@ -26142,6 +26300,7 @@
       }
       d.setDate(d.getDate()+1);
     }
+    if(_carry){ var _adj=_pastReq+_carry.v-_pastWorked; worked+=_adj; workedSettled+=_adj; }
     var reqTotal=Math.max(0, schedTotal*base + seg.ot - leaveTotal);      // 期間・目標残業(バッファ)込み
     var reqSettled=Math.max(0, schedSettled*base - leaveSettled);         // 完了日・標準(バッファ無し)＝公式相当
     // 手動で月の必要時間を指定している場合はそれを総合として使い、完了日ぶんは所定日数で按分
@@ -26152,7 +26311,7 @@
     return { schedTotal:schedTotal, leaveTotal:leaveTotal, base:base,
              reqTotal:reqTotal, worked:worked,
              schedSettled:schedSettled, reqSettled:reqSettled, workedSettled:workedSettled,
-             started:(today>=seg.start), override:(seg._override!=null) };
+             started:(today>=seg.start), override:(seg._override!=null), carry:_carry };
   }
 
   // ---- 直接工数／間接工数（月ごとに直接率・残業を保存）----
