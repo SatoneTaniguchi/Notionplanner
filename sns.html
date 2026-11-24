@@ -105,6 +105,30 @@ svg{display:block;flex:none}
 #dt{font:inherit;font-size:16px;padding:10px 12px;border:1px solid #cfd9de;border-radius:8px;width:100%;color:var(--ink);background:#fff}
 .mgrid{margin-top:10px;border-radius:16px;overflow:hidden;border:.5px solid #cfd9de;display:grid;gap:2px;aspect-ratio:16/10;background:#eff3f4}
 .mgrid img{width:100%;height:100%;object-fit:cover;display:block;min-height:0}
+#viewer{position:absolute;inset:0;z-index:45;background:#000;display:none;flex-direction:column;color:#e7e9ea}
+#viewer.open{display:flex}
+#viewer .vbar{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--st) + 25px) 14px 0}
+#viewer .vcirc{width:39px;height:39px;border-radius:50%;background:#1d1f23;display:flex;align-items:center;justify-content:center;color:#fff}
+#viewer .vimg{touch-action:none;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+#viewer .vimg img{max-width:100%;max-height:100%;object-fit:contain;display:block;transition:transform .2s}
+#viewer .vdots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:5px}
+#viewer .vdots i{width:6px;height:6px;border-radius:3px;background:#5b5f63}
+#viewer .vdots i.on{background:#fff}
+#viewer .vinfo{padding:0 14px calc(var(--sb) + 14px)}
+#viewer .vuser{display:flex;align-items:center;gap:11px}
+#viewer .vname{font-size:16px;line-height:20px;font-weight:800;color:#fff;display:flex;align-items:center;gap:4px}
+#viewer .vhandle{font-size:15px;line-height:19px;color:#71767b}
+#viewer .vtext{margin-top:14px;font-size:15.5px;line-height:21px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;width:100%;display:block}
+#viewer .vtext.full{white-space:pre-wrap;max-height:40vh;overflow-y:auto}
+#viewer .vacts{display:flex;gap:8px;margin-top:14px}
+#viewer .vpill{height:39px;border-radius:20px;background:#1d1f23;display:flex;align-items:center;justify-content:center;gap:9px;color:#e7e9ea;font-size:15px}
+#viewer .vpill.w{flex:1}
+#viewer .vpill.r{width:39px;flex:none}
+#viewer .vpill.on-like{color:#f91880}#viewer .vpill.on-rt{color:#00ba7c}#viewer .vpill.on-bm{color:#1d9bf0}
+#viewer .vreply{margin-top:12px;height:46px;border-radius:23px;background:#16181c;display:flex;align-items:center;padding:0 18px 0 32px}
+#viewer .vreply input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;font:inherit;font-size:16px}
+#viewer .vreply input::placeholder{color:#71767b}
+.post img{cursor:zoom-in}
 #toast{position:absolute;left:50%;bottom:calc(70px + var(--sb));transform:translateX(-50%);background:var(--blue);color:#fff;padding:10px 16px;border-radius:6px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40;white-space:nowrap}
 #toast.show{opacity:1}
 </style>
@@ -145,6 +169,14 @@ svg{display:block;flex:none}
         <button id="dlgOk" class="submit">決定</button>
       </div>
     </div>
+  </div>
+  <div id="viewer" role="dialog" aria-modal="true" aria-label="画像ビューア">
+    <div class="vbar">
+      <button class="vcirc" id="vClose" aria-label="戻る"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4.5M10.5 5.5L4 12l6.5 6.5"/></svg></button>
+      <button class="vcirc" id="vMore" aria-label="その他"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
+    </div>
+    <div class="vimg" id="vStage"><img id="vImg" alt="拡大画像"><div class="vdots" id="vDots"></div></div>
+    <div class="vinfo" id="vInfo"></div>
   </div>
   <div id="toast" role="status"></div>
 </div>
@@ -430,7 +462,7 @@ function renderDrawer(){
     <div style="margin-top:30px">${MENU.map(([k,l,p])=>`<button class="mi" data-menu="${k}">${sv(p,22,1.9)}${l}</button>`).join('')}</div>
     <div style="height:.5px;background:#e1e8ed;margin:16px 0 26px"></div>
     ${MENU2.map(([k,l,p])=>`<button class="mi sm" data-menu="${k}">${sv(p,19,1.7)}${l}</button>`).join('')}
-    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 7</div>`;
+    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 9</div>`;
 }
 const app=$('app');
 const openDrawer=()=>app.classList.add('drawer-open');
@@ -458,6 +490,56 @@ document.addEventListener('click',e=>{
   }
 });
 
+// 画像タップで拡大表示（下に投稿情報）
+let vList=[],vIdx=0,vPost=null,vFull=false;
+function vShow(){
+  $('vImg').src=vList[vIdx];$('vImg').style.transform='';
+  $('vDots').innerHTML=vList.length>1?vList.map((_,i)=>`<i class="${i===vIdx?'on':''}"></i>`).join(''):'';
+}
+function vInfo(){
+  const raw=find(vPost);if(!raw){$('vInfo').innerHTML='';return}
+  const p=norm(raw),u=p.user;
+  $('vInfo').innerHTML=`
+    <div class="vuser">${av(u,40)}<div style="min-width:0"><div class="vname"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.name)}</span>${u.official?GOLD:''}</div><div class="vhandle">@${u.handle}</div></div></div>
+    ${p.text?`<button class="vtext ${vFull?'full':''}" data-v="text">${esc(p.text)}</button>`:''}
+    <div class="vacts">
+      <button class="vpill w" data-v="reply" aria-label="返信">${I.reply.replace(/18/g,'21')}${fmt(p.replies)}</button>
+      <button class="vpill w ${p.rt?'on-rt':''}" data-v="rt" aria-label="リポスト" aria-pressed="${!!p.rt}">${I.rt.replace(/18/g,'21')}${fmt(p.rts)}</button>
+      <button class="vpill w ${p.liked?'on-like':''}" data-v="like" aria-label="いいね" aria-pressed="${!!p.liked}">${I.like(p.liked).replace(/18/g,'21')}${fmt(p.likes)}</button>
+      <button class="vpill r ${p.bm?'on-bm':''}" data-v="bm" aria-label="ブックマーク" aria-pressed="${!!p.bm}">${I.bm(p.bm).replace(/18/g,'21')}</button>
+      <button class="vpill r" data-v="share" aria-label="共有">${I.share.replace(/18/g,'21')}</button>
+    </div>
+    <form class="vreply" id="vReplyForm"><input id="vReplyIn" aria-label="返信をポスト" placeholder="返信をポスト" enterkeyhint="send"></form>`;
+  $('vReplyForm').onsubmit=e=>{e.preventDefault();const v=$('vReplyIn').value.trim();if(!v)return;$('vReplyIn').value='';$('vReplyIn').blur();
+    const r=find(vPost);if(r){r.replies=(r.replies||0)+1;save();vInfo();const y=$('scroll').scrollTop;render();$('scroll').scrollTop=y}toast('返信しました')};
+}
+function vOpen(list,i,id){vList=list;vIdx=i;vPost=id;vFull=false;vShow();vInfo();$('viewer').classList.add('open')}
+function vClose(){$('viewer').classList.remove('open');$('vImg').removeAttribute('src')}
+const vGo=d=>{const n=vIdx+d;if(n>=0&&n<vList.length){vIdx=n;vShow()}};
+$('scroll').addEventListener('click',e=>{
+  const im=e.target.closest('.post img');if(!im||e.target.closest('.avatar'))return;
+  const post=im.closest('.post');
+  const imgs=[...post.querySelectorAll('img')].filter(x=>!x.closest('.avatar'));
+  vOpen(imgs.map(x=>x.src),Math.max(0,imgs.indexOf(im)),+post.dataset.id);
+});
+$('vClose').onclick=vClose;
+$('vMore').onclick=()=>toast('その他のメニューはデモでは動きません');
+$('vInfo').addEventListener('click',e=>{
+  const b=e.target.closest('[data-v]');if(!b)return;const k=b.dataset.v,p=find(vPost);if(!p)return;
+  if(k==='text'){vFull=!vFull;vInfo();return}
+  if(k==='reply'){$('vReplyIn').focus();return}
+  if(k==='share'){toast('共有はデモでは動きません');return}
+  if(k==='like'){p.liked=!p.liked;p.likes=(p.likes||0)+(p.liked?1:-1)}
+  if(k==='rt'){p.rt=!p.rt;if(p.u)p.rts+=p.rt?1:-1;toast(p.rt?'リポストしました':'リポストを取り消しました')}
+  if(k==='bm'){p.bm=!p.bm;toast(p.bm?'ブックマークに追加しました':'ブックマークから削除しました')}
+  save();vInfo();const y=$('scroll').scrollTop;render();$('scroll').scrollTop=y;
+});
+let vx=0,vy=0,vOnImg=false;
+$('vStage').addEventListener('touchstart',e=>{vOnImg=true;vx=e.touches[0].clientX;vy=e.touches[0].clientY},{passive:true});
+$('vStage').addEventListener('touchmove',e=>{const dy=e.touches[0].clientY-vy,dx=e.touches[0].clientX-vx;if(Math.abs(dy)>Math.abs(dx)&&dy>0)$('vImg').style.transform='translateY('+dy+'px)'},{passive:true});
+$('vStage').addEventListener('touchend',e=>{if(!vOnImg)return;vOnImg=false;const dx=e.changedTouches[0].clientX-vx,dy=e.changedTouches[0].clientY-vy;
+  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))vGo(dx<0?1:-1);else if(dy>90)vClose();else $('vImg').style.transform=''},{passive:true});
+
 // 自分の投稿をダブルタップで日時変更
 function editDate(el){
   const p=state.posts.find(x=>x.id===+el.dataset.id);if(!p)return;
@@ -465,20 +547,20 @@ function editDate(el){
 }
 let lastTap={id:null,t:0};
 $('scroll').addEventListener('touchend',e=>{
-  const el=e.target.closest('.post[data-mine="1"]');if(!el||e.target.closest('button,a'))return;
+  const el=e.target.closest('.post[data-mine="1"]');if(!el||e.target.closest('button,a,img'))return;
   const now=Date.now();
   if(lastTap.id===el.dataset.id&&now-lastTap.t<350){e.preventDefault();lastTap={id:null,t:0};editDate(el)}
   else lastTap={id:el.dataset.id,t:now};
 });
 $('scroll').addEventListener('dblclick',e=>{
-  if(e.target.closest('button,a'))return;
+  if(e.target.closest('button,a,img'))return;
   const el=e.target.closest('.post[data-mine="1"]');if(el){e.preventDefault();editDate(el)}
 });
 
 // スワイプでメニュー開閉
 let sx=null,sy=0;
 app.addEventListener('touchstart',e=>{const x=e.touches[0].clientX-app.getBoundingClientRect().left;const open=app.classList.contains('drawer-open');sx=(open||(state.view==='home'&&x<60)||x<20)?e.touches[0].clientX:null;sy=e.touches[0].clientY},{passive:true});
-app.addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx,dy=Math.abs(e.changedTouches[0].clientY-sy);if(dy<60&&!$('sheet').classList.contains('open')){if(dx>60)openDrawer();if(dx<-60)closeDrawer()}sx=null},{passive:true});
+app.addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx,dy=Math.abs(e.changedTouches[0].clientY-sy);if(dy<60&&!$('sheet').classList.contains('open')&&!$('viewer').classList.contains('open')){if(dx>60)openDrawer();if(dx<-60)closeDrawer()}sx=null},{passive:true});
 
 const ta=$('ta');
 let draftImgs=[],draftT=null,dlgCb=null;
