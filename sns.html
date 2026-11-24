@@ -163,6 +163,7 @@ svg{display:block;flex:none}
       <div id="dlgT" style="font-weight:800;font-size:17px">投稿日時を変更</div>
       <label for="dt" class="gray" style="font-size:13px;margin-bottom:-6px">日付と時刻</label>
       <input type="datetime-local" id="dt">
+      <button id="dlgDel" style="align-self:flex-start;color:#f4212e;font-size:14px;font-weight:700;height:32px;display:none">このポストを削除</button>
       <button id="dlgNow" style="align-self:flex-start;color:var(--blue);font-size:14px;font-weight:700;height:32px">現在の時刻にする</button>
       <div style="display:flex;justify-content:flex-end;gap:8px">
         <button id="dlgCancel" style="height:36px;padding:0 14px;font-size:15px;font-weight:700">キャンセル</button>
@@ -393,7 +394,7 @@ function postHTML(raw){
         <span class="act">${I.views}${fmt(p.views)}</span>
         <span style="display:flex;gap:22px">
           <button class="act ${p.bm?'on-bm':''}" data-a="bm" aria-label="ブックマーク" aria-pressed="${!!p.bm}">${I.bm(p.bm)}</button>
-          ${p.kind==='m'?`<button class="act" data-a="del" aria-label="削除">${I.del}</button>`:`<button class="act" aria-label="共有" data-toast="共有はデモでは動きません">${I.share}</button>`}
+          <button class="act" aria-label="共有" data-toast="共有はデモでは動きません">${I.share}</button>
         </span>
       </div>
     </div></article>`;
@@ -462,7 +463,7 @@ function renderDrawer(){
     <div style="margin-top:30px">${MENU.map(([k,l,p])=>`<button class="mi" data-menu="${k}">${sv(p,22,1.9)}${l}</button>`).join('')}</div>
     <div style="height:.5px;background:#e1e8ed;margin:16px 0 26px"></div>
     ${MENU2.map(([k,l,p])=>`<button class="mi sm" data-menu="${k}">${sv(p,19,1.7)}${l}</button>`).join('')}
-    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 10</div>`;
+    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 11</div>`;
 }
 const app=$('app');
 const openDrawer=()=>app.classList.add('drawer-open');
@@ -543,7 +544,7 @@ $('vStage').addEventListener('touchend',e=>{if(!vOnImg)return;vOnImg=false;const
 // 自分の投稿をダブルタップで日時変更
 function editDate(el){
   const p=state.posts.find(x=>x.id===+el.dataset.id);if(!p)return;
-  openDate(p.t,t2=>{p.t=t2;sortMine();save();const y=$('scroll').scrollTop;render();$('scroll').scrollTop=y;toast('日時を変更しました')});
+  openDate(p.t,t2=>{p.t=t2;sortMine();save();const y=$('scroll').scrollTop;render();$('scroll').scrollTop=y;toast('日時を変更しました')},()=>{state.posts=state.posts.filter(x=>x.id!==p.id);save();const y=$('scroll').scrollTop;render();$('scroll').scrollTop=y;toast('ポストを削除しました')});
 }
 let lastTap={id:null,t:0};
 $('scroll').addEventListener('touchend',e=>{
@@ -566,7 +567,9 @@ const ta=$('ta');
 let draftImgs=[],draftT=null,dlgCb=null;
 const toLocal=t=>{const d=new Date(t);return d.getFullYear()+'-'+z2(d.getMonth()+1)+'-'+z2(d.getDate())+'T'+z2(d.getHours())+':'+z2(d.getMinutes())};
 const shortDate=t=>{const d=new Date(t),now=new Date();return (d.getFullYear()!==now.getFullYear()?d.getFullYear()+'/':'')+(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+z2(d.getMinutes())};
-function openDate(t,cb){$('dt').value=toLocal(t||Date.now());dlgCb=cb;$('dlg').classList.add('open')}
+let dlgDelCb=null;
+function openDate(t,cb,onDel){$('dt').value=toLocal(t||Date.now());dlgCb=cb;dlgDelCb=onDel||null;$('dlgDel').style.display=onDel?'block':'none';$('dlg').classList.add('open')}
+$('dlgDel').onclick=()=>{const f=dlgDelCb;closeDlg();if(f)f()};
 const closeDlg=()=>$('dlg').classList.remove('open');
 $('dlgCancel').onclick=closeDlg;
 $('dlg').addEventListener('click',e=>{if(e.target.id==='dlg')closeDlg()});
