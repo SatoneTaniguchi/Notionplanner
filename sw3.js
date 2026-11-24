@@ -1,4 +1,4 @@
-const CACHE = 'sns-demo-v11';
+const CACHE = 'sns-demo-v16';
 const ASSETS = ['./sns.html', './sns.jpg'];
 
 self.addEventListener('install', e => {
