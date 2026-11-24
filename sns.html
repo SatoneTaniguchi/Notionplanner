@@ -198,18 +198,18 @@ const LOCK=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="#0f1419
 const GOLD='<svg width="17" height="17" viewBox="0 0 24 24" aria-label="公式" role="img"><path d="M12 1.5l2.6 1.9 3.2-.2 1 3 2.7 1.8-1 3 1 3-2.7 1.8-1 3-3.2-.2L12 22.5l-2.6-1.9-3.2.2-1-3-2.7-1.8 1-3-1-3 2.7-1.8 1-3 3.2.2z" fill="#e2b719"/><path d="M8 12.3l2.7 2.7L16.2 9" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const sv=(p,w=24,sw=1.75,extra='')=>`<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${p}</svg>`;
 const P={
-  reply:'<path d="M12 4.2C7.2 4.2 3.6 7.4 3.6 11.3c0 2.1 1 4 2.7 5.3l-.5 3.2 3.6-1.9c.8.2 1.7.3 2.6.3 4.8 0 8.4-3.1 8.4-7S16.8 4.2 12 4.2z"/>',
-  rt:'<path d="M4.5 13V8.8a2.3 2.3 0 012.3-2.3H18M15 3.5l3 3-3 3M19.5 11v4.2a2.3 2.3 0 01-2.3 2.3H6M9 20.5l-3-3 3-3"/>',
-  heart:'<path d="M12 20s-8.2-4.9-8.2-11a4.6 4.6 0 018.2-2.8A4.6 4.6 0 0120.2 9c0 6.1-8.2 11-8.2 11z"/>',
-  views:'<path d="M5.5 20V11.5M10.5 20V5M15.5 20v-6.5M20 20v-9"/>',
-  bm:'<path d="M6.2 3.8h11.6v16.6L12 16.3l-5.8 4.1z"/>',
-  share:'<path d="M12 15.5V4M7.5 8.5L12 4l4.5 4.5M4.5 14.5v4.2a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5v-4.2"/>',
+  reply:'<path d="M5.2 20.3l1.1-3.5a7.3 7.3 0 0 1-2.3-5.3C4 7.4 7.4 4.3 11.7 4.3h.6c4.3 0 7.7 3.1 7.7 7.2s-3.4 7.3-7.7 7.3h-.6c-1.2 0-2.3-.2-3.3-.7z"/>',
+  rt:'<path d="M6.2 4.2v10.6a3 3 0 0 0 3 3h4.6M2.9 7.4l3.3-3.2 3.3 3.2M17.8 19.8V9.2a3 3 0 0 0-3-3h-4.6M21.1 16.6l-3.3 3.2-3.3-3.2"/>',
+  heart:'<path d="M12 20.1c-.4 0-8.2-4.7-8.6-10C3.1 6.9 5.1 4.6 7.7 4.6c1.9 0 3.4 1.1 4.3 2.7.9-1.6 2.4-2.7 4.3-2.7 2.6 0 4.6 2.3 4.3 5.5-.4 5.3-8.2 10-8.6 10z"/>',
+  views:'<path d="M5 20.2v-7.4M10 20.2V4.6M15 20.2v-9.4M19.6 20.2V8.2"/>',
+  bm:'<path d="M6.3 3.4h11.4a.9.9 0 0 1 .9.9v16.3L12 16l-6.6 4.6V4.3a.9.9 0 0 1 .9-.9z"/>',
+  share:'<path d="M12 15.2V3.6M7.4 8.1L12 3.6l4.6 4.5M4.4 14.2v4.9a1.5 1.5 0 0 0 1.5 1.5h12.2a1.5 1.5 0 0 0 1.5-1.5v-4.9"/>',
   del:'<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>'
 };
 const I={
-  reply:sv(P.reply,18),rt:sv(P.rt,18),views:sv(P.views,18),share:sv(P.share,18),del:sv(P.del,17),
-  like:f=>sv(P.heart,18,1.75,f?'fill="currentColor"':''),
-  bm:f=>sv(P.bm,18,1.75,f?'fill="currentColor"':'')
+  reply:sv(P.reply,19,2),rt:sv(P.rt,19,2),views:sv(P.views,19,2.1),share:sv(P.share,19,2),del:sv(P.del,18,2),
+  like:f=>sv(P.heart,19,2,f?'fill="currentColor"':''),
+  bm:f=>sv(P.bm,19,2,f?'fill="currentColor"':'')
 };
 const NAV=[
   ['home','ホーム','<path d="M12 3.2L3.5 10v10.8h6v-6.3h5v6.3h6V10z"/>',true],
@@ -462,7 +462,7 @@ function renderDrawer(){
     <div style="margin-top:30px">${MENU.map(([k,l,p])=>`<button class="mi" data-menu="${k}">${sv(p,22,1.9)}${l}</button>`).join('')}</div>
     <div style="height:.5px;background:#e1e8ed;margin:16px 0 26px"></div>
     ${MENU2.map(([k,l,p])=>`<button class="mi sm" data-menu="${k}">${sv(p,19,1.7)}${l}</button>`).join('')}
-    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 9</div>`;
+    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 10</div>`;
 }
 const app=$('app');
 const openDrawer=()=>app.classList.add('drawer-open');
@@ -503,11 +503,11 @@ function vInfo(){
     <div class="vuser">${av(u,40)}<div style="min-width:0"><div class="vname"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.name)}</span>${u.official?GOLD:''}</div><div class="vhandle">@${u.handle}</div></div></div>
     ${p.text?`<button class="vtext ${vFull?'full':''}" data-v="text">${esc(p.text)}</button>`:''}
     <div class="vacts">
-      <button class="vpill w" data-v="reply" aria-label="返信">${I.reply.replace(/18/g,'21')}${fmt(p.replies)}</button>
-      <button class="vpill w ${p.rt?'on-rt':''}" data-v="rt" aria-label="リポスト" aria-pressed="${!!p.rt}">${I.rt.replace(/18/g,'21')}${fmt(p.rts)}</button>
-      <button class="vpill w ${p.liked?'on-like':''}" data-v="like" aria-label="いいね" aria-pressed="${!!p.liked}">${I.like(p.liked).replace(/18/g,'21')}${fmt(p.likes)}</button>
-      <button class="vpill r ${p.bm?'on-bm':''}" data-v="bm" aria-label="ブックマーク" aria-pressed="${!!p.bm}">${I.bm(p.bm).replace(/18/g,'21')}</button>
-      <button class="vpill r" data-v="share" aria-label="共有">${I.share.replace(/18/g,'21')}</button>
+      <button class="vpill w" data-v="reply" aria-label="返信">${I.reply.replace('width="19" height="19"','width="21" height="21"')}${fmt(p.replies)}</button>
+      <button class="vpill w ${p.rt?'on-rt':''}" data-v="rt" aria-label="リポスト" aria-pressed="${!!p.rt}">${I.rt.replace('width="19" height="19"','width="21" height="21"')}${fmt(p.rts)}</button>
+      <button class="vpill w ${p.liked?'on-like':''}" data-v="like" aria-label="いいね" aria-pressed="${!!p.liked}">${I.like(p.liked).replace('width="19" height="19"','width="21" height="21"')}${fmt(p.likes)}</button>
+      <button class="vpill r ${p.bm?'on-bm':''}" data-v="bm" aria-label="ブックマーク" aria-pressed="${!!p.bm}">${I.bm(p.bm).replace('width="19" height="19"','width="21" height="21"')}</button>
+      <button class="vpill r" data-v="share" aria-label="共有">${I.share.replace('width="19" height="19"','width="21" height="21"')}</button>
     </div>
     <form class="vreply" id="vReplyForm"><input id="vReplyIn" aria-label="返信をポスト" placeholder="返信をポスト" enterkeyhint="send"></form>`;
   $('vReplyForm').onsubmit=e=>{e.preventDefault();const v=$('vReplyIn').value.trim();if(!v)return;$('vReplyIn').value='';$('vReplyIn').blur();
