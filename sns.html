@@ -371,6 +371,10 @@ try{
   if(s&&s.flags)state.others.forEach(p=>{const f=s.flags[p.id];if(f)Object.assign(p,f)});
 }catch(e){}
 state.posts.forEach(p=>{if(!p.t&&p.date){const [y,mo,d]=p.date.split('/').map(Number);p.t=new Date(y,mo-1,d,12).getTime()}});
+const randViews=()=>Math.floor(300+Math.pow(Math.random(),1.5)*2700);
+state.posts.forEach(p=>{if(!p.views||p.views<300)p.views=randViews()});
+const autoAct=()=>{const views=randViews(),aLikes=Math.max(1,Math.round(views*(.01+Math.random()*.04)));
+  return{auto:true,views,aLikes,aRts:Math.round(aLikes*Math.random()*.15),aReplies:Math.round(aLikes*Math.random()*.12)}};
 const sortMine=()=>state.posts.sort((a,b)=>(b.t||0)-(a.t||0));sortMine();
 const save=()=>{try{const flags={};state.others.forEach(p=>flags[p.id]={liked:p.liked,rt:p.rt,bm:p.bm,likes:p.likes,rts:p.rts});localStorage.setItem('sns-demo',JSON.stringify({posts:state.posts,flags,seed2:true}))}catch(e){toast('保存容量がいっぱいで保存できませんでした。画像付きの投稿をいくつか消してください')}};
 const $=id=>document.getElementById(id);
@@ -391,6 +395,8 @@ function av(u,size){
 }
 function norm(p){
   if(p.u)return{...p,user:U[p.u],kind:'o',dateLabel:ago(p.t)};
+  if(p.auto){const age=Math.max(0,Date.now()-p.t)/3600e3;const g=Math.max(.04,1-Math.exp(-age/2));
+    return{...p,user:ME,kind:'m',dateLabel:ago(p.t),views:Math.max(1,Math.round(p.views*g)),likes:Math.round(p.aLikes*g)+(p.liked?1:0),rts:Math.round(p.aRts*g)+(p.rt?1:0),replies:Math.round(p.aReplies*g)};}
   return{...p,user:ME,kind:'m',dateLabel:ago(p.t),rts:p.rt?1:0};
 }
 function gridHTML(imgs){
@@ -505,7 +511,7 @@ function renderDrawer(){
     <div style="margin-top:30px">${MENU.map(([k,l,p])=>`<button class="mi" data-menu="${k}">${sv(p,22,1.9)}${l}</button>`).join('')}</div>
     <div style="height:.5px;background:#e1e8ed;margin:16px 0 26px"></div>
     ${MENU2.map(([k,l,p])=>`<button class="mi sm" data-menu="${k}">${sv(p,19,1.7)}${l}</button>`).join('')}
-    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 16</div>`;
+    <div class="gray" style="font-size:12px;margin-top:18px">バージョン 18</div>`;
 }
 const app=$('app');
 const openDrawer=()=>app.classList.add('drawer-open');
@@ -641,10 +647,12 @@ function closeSheet(){$('sheet').classList.remove('open');ta.blur()}
 $('sheetAvatar').innerHTML=`<img src="${ME.img}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">`;
 $('fab').onclick=openSheet;$('cancel').onclick=closeSheet;ta.addEventListener('input',upd);
 $('submit').onclick=()=>{
-  state.posts.unshift({id:Date.now(),t:draftT||Date.now(),text:ta.value.trim(),images:[...draftImgs],likes:0,liked:false,rt:false,bm:false,views:0});
+  state.posts.unshift({id:Date.now(),t:draftT||Date.now(),text:ta.value.trim(),images:[...draftImgs],likes:0,liked:false,rt:false,bm:false,...autoAct()});
   sortMine();save();closeSheet();state.tab='posts';render();$('scroll').scrollTop=0;toast('ポストしました');
 };
 save();renderDrawer();render();
+setInterval(()=>{if(document.hidden||$('sheet').classList.contains('open')||$('viewer').classList.contains('open')||$('dlg').classList.contains('open'))return;
+  if(!state.posts.some(p=>p.auto&&Date.now()-p.t<12*3600e3))return;const y=$('scroll').scrollTop;render();$('scroll').scrollTop=y},30000);
 // PWA: オフライン用サービスワーカー（対応環境のみ）
 try{if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw3.js').catch(()=>{})}catch(e){}
 </script>
