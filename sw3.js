@@ -1,8 +1,8 @@
-const CACHE = 'sns-demo-v3';
-const ASSETS = ['./sns.html'];
+const CACHE = 'sns-demo-v6';
+const ASSETS = ['./sns.html', './sns.jpg'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(ASSETS.map(a => c.add(a).catch(() => {})))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
